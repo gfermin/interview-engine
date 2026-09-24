@@ -16,10 +16,12 @@ interface ScoringConfigFormProps {
     borderlineMin: number;
     criticalMin: number;
     minCompletion: number;
+    englishRequired: boolean;
+    englishMinLevel: number;
   };
 }
 
-const FIELDS: { name: keyof ScoringConfigFormProps["defaultValues"]; label: string }[] = [
+const FIELDS: { name: "passThreshold" | "borderlineMin" | "criticalMin" | "minCompletion"; label: string }[] = [
   { name: "passThreshold", label: "Pass threshold (%)" },
   { name: "borderlineMin", label: "Borderline minimum (%)" },
   { name: "criticalMin", label: "Critical minimum (%)" },
@@ -55,6 +57,34 @@ export function ScoringConfigForm({ action, defaultValues }: ScoringConfigFormPr
           </div>
         ))}
       </div>
+
+      <div className="flex flex-wrap items-end gap-3 border-t border-border pt-3">
+        <label className="flex items-center gap-2 text-[12.5px]">
+          <input
+            type="checkbox"
+            name="englishRequired"
+            defaultChecked={defaultValues.englishRequired}
+            className="size-3.5"
+          />
+          English assessment required for PASS
+        </label>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="englishMinLevel">Min. English level (1-5)</Label>
+          <Input
+            id="englishMinLevel"
+            name="englishMinLevel"
+            type="number"
+            min={1}
+            max={5}
+            defaultValue={defaultValues.englishMinLevel}
+            className="w-24"
+          />
+          {state?.fieldErrors?.englishMinLevel ? (
+            <p className="text-xs text-destructive">{state.fieldErrors.englishMinLevel[0]}</p>
+          ) : null}
+        </div>
+      </div>
+
       <Button type="submit" variant="outline" size="sm" disabled={pending} className="self-start">
         {pending ? "Saving..." : "Save Scoring Configuration"}
       </Button>

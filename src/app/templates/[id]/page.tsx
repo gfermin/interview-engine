@@ -214,6 +214,8 @@ export default async function TemplateDetailPage({
                   borderlineMin: template.borderlineMin,
                   criticalMin: template.criticalMin,
                   minCompletion: template.minCompletion,
+                  englishRequired: template.englishRequired,
+                  englishMinLevel: template.englishMinLevel,
                 }}
               />
             ) : (
@@ -222,6 +224,11 @@ export default async function TemplateDetailPage({
                 <ConfigStat label="Borderline min" value={template.borderlineMin} />
                 <ConfigStat label="Critical min" value={template.criticalMin} />
                 <ConfigStat label="Min completion" value={template.minCompletion} />
+                <ConfigStat
+                  label="English required"
+                  value={template.englishRequired ? `Yes (≥${template.englishMinLevel})` : "No"}
+                  suffix=""
+                />
               </dl>
             )}
           </CardContent>
@@ -500,11 +507,22 @@ function mismatches(selected: string | null, detected: string | null): boolean {
   return selected.trim().toLowerCase() !== detected.trim().toLowerCase();
 }
 
-function ConfigStat({ label, value }: { label: string; value: number }) {
+function ConfigStat({
+  label,
+  value,
+  suffix = "%",
+}: {
+  label: string;
+  value: number | string;
+  suffix?: string;
+}) {
   return (
     <div>
       <dt className="text-[11px] text-muted-foreground">{label}</dt>
-      <dd className="font-mono text-sm">{value}%</dd>
+      <dd className="font-mono text-sm">
+        {value}
+        {suffix}
+      </dd>
     </div>
   );
 }

@@ -12,6 +12,8 @@ const optionalText = (max: number) =>
  * entirely when unchecked — never `"false"`. */
 const checkbox = z.preprocess((v) => v === "on" || v === true, z.boolean());
 
+const level1to5 = () => z.coerce.number().int().min(1).max(5);
+
 /** The artifact's multi-line "one item per line" text-area pattern for
  * concepts/redFlags/followUps/rubric (plan §2.3/§19), parsed into an array. */
 const lines = z
@@ -41,6 +43,10 @@ export const scoringConfigFormSchema = z
     borderlineMin: z.coerce.number().int().min(0).max(100),
     criticalMin: z.coerce.number().int().min(0).max(100),
     minCompletion: z.coerce.number().int().min(0).max(100),
+    // Gate config for the "English" SupplementaryAssessment (plan §9/§17) —
+    // whether it's required for a PASS, and what level clears the bar.
+    englishRequired: checkbox,
+    englishMinLevel: level1to5().default(3),
   })
   .refine((v) => v.borderlineMin <= v.passThreshold, {
     message: "Borderline minimum must not exceed the pass threshold.",

@@ -6,8 +6,8 @@ decisions, data model, and phased implementation plan live in
 [`docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md`](../Prompts/docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md)
 in the sibling `Prompts` project.
 
-**Status:** Phase 8 (Live Interview Engine) complete.
-Phases 0-8 done: app shell + SQLite/Drizzle (1), ScoringEngine/
+**Status:** Phase 9 (Scoring & Decision Engine) complete.
+Phases 0-9 done: app shell + SQLite/Drizzle (1), ScoringEngine/
 CompletenessEngine/CriticalRequirementEngine + full schema (2), Position +
 Job Description management with Role Family/Seniority (3), the Template
 builder — Competency/MandatoryRequirement/Question CRUD, reordering,
@@ -34,11 +34,28 @@ database-backed React, with a per-competency section nav (○/●/✓/⚠ status
 icons) and live overall/completion/critical chips recomputed by the same
 `ScoringEngine`/`CompletenessEngine`/`CriticalRequirementEngine` from
 Phase 2 on every rating change, and a `competencyEvaluations` rollup cache
-persisted alongside for later phases to read without recomputing (8).
+persisted alongside for later phases to read without recomputing (8), and
+a Summary/Decision screen (`/interviews/[sessionId]/summary`) reached from
+the live rating screen's "View Summary" action: the unmodified Phase 2
+`ScoringEngine.calculate()` now runs for real, wired up to a
+`MandatoryRequirement` gate with its own tri-state (Met/Not Met/Unknown)
+control per requirement — the boolean knockout the original master prompt
+specified but the "Calibración QA" artifact never built — an optional
+English `SupplementaryAssessment` (1-5 level, gated by a per-template
+`englishRequired`/`englishMinLevel` config on the Scoring Configuration
+form), a per-competency breakdown grid, a template-string narrative
+paragraph, and the artifact's three-path decision workflow (accept,
+override, or — only when the calculated status is the BORDERLINE
+"ambiguous middle" — an explicit forced PASS/FAIL call), each requiring a
+reason except a plain accept. Recording a decision moves the session
+`in_progress` → `decided` (with `completed` as an intermediate "finished
+rating, not yet decided" state) and freezes its ratings read-only; changing
+a decision overwrites the prior one with no history kept — a confirmed POC
+limitation (plan §21/§38) (9).
 Requires `ANTHROPIC_API_KEY` **or** `GEMINI_API_KEY` in `.env` to actually
 call an AI provider — without either, AI actions surface a clear error and
 everything else keeps working offline.
-Scoring & Decision Engine (Phase 9) is next.
+PDF Reporting (Phase 10) is next.
 
 ## Stack
 
@@ -98,7 +115,7 @@ src/
     positions/            # Position + Job Description CRUD
     templates/             # Template/Competency/MandatoryRequirement/Question CRUD + versioning + AI actions
     candidates/            # Candidate CRUD + start-Interview-Session flow
-    interviews/            # Live rating screen: rate/notes mutations + actions, question card, rate bar, section nav
+    interviews/            # Live rating + Summary/Decision screens: rate/notes/mandatory-requirement/English/decision mutations + actions, question card, rate bar, section nav, decision form
   services/
     ai/                    # AIProvider interface, provider.ts selector, ClaudeProvider + GeminiProvider, prompts, Zod output schemas
   lib/                  # Shared utilities

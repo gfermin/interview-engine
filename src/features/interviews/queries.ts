@@ -1,8 +1,23 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { candidates, interviewSessions, interviewTemplates, positions, questionEvaluations } from "@/db/schema";
+import {
+  candidates,
+  interviewDecisions,
+  interviewSessions,
+  interviewTemplates,
+  mandatoryRequirementEvaluations,
+  positions,
+  questionEvaluations,
+  supplementaryAssessments,
+} from "@/db/schema";
 import type { QuestionEvaluationInput, QuestionScore } from "@/domain/scoring/types";
 import { listQuestions } from "@/features/templates/queries";
+
+/** Minimal session row for guards/mutations that don't need the full join
+ * ({@link getSessionDetail} does, for the page header). */
+export function getSession(sessionId: string) {
+  return db.query.interviewSessions.findFirst({ where: eq(interviewSessions.id, sessionId) });
+}
 
 /** Everything the live interview screen's header needs about a session,
  * joined in one query (session -> candidate, session -> template -> position). */
@@ -67,4 +82,25 @@ export async function buildSessionEvaluationState(templateId: string, sessionId:
   }));
 
   return { questions, evaluationByQuestionId, evaluationInputs };
+}
+
+/** Raw per-requirement status rows that exist so far — like question
+ * evaluations, a requirement with no row yet is "unknown," not omitted; see
+ * {@link buildMandatoryRequirementInputs}. */
+export function listMandatoryRequirementEvaluations(sessionId: string) {
+  return db.query.mandatoryRequirementEvaluations.findMany({
+    where: eq(mandatoryRequirementEvaluations.sessionId, sessionId),
+  });
+}
+
+export function getSupplementaryAssessment(sessionId: string, kind: "english") {
+  return db.query.supplementaryAssessments.findFirst({
+    where: and(eq(supplementaryAssessments.sessionId, sessionId), eq(supplementaryAssessments.kind, kind)),
+  });
+}
+
+export function getDecision(sessionId: string) {
+  return db.query.interviewDecisions.findFirst({
+    where: eq(interviewDecisions.sessionId, sessionId),
+  });
 }

@@ -121,6 +121,8 @@ export async function createNewTemplateVersion(templateId: string) {
       borderlineMin: source.borderlineMin,
       criticalMin: source.criticalMin,
       minCompletion: source.minCompletion,
+      englishRequired: source.englishRequired,
+      englishMinLevel: source.englishMinLevel,
     })
     .returning();
 

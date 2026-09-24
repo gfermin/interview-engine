@@ -1,9 +1,40 @@
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { competencyEvaluations, questionEvaluations } from "@/db/schema";
+import {
+  competencyEvaluations,
+  interviewDecisions,
+  interviewSessions,
+  mandatoryRequirementEvaluations,
+  questionEvaluations,
+  supplementaryAssessments,
+} from "@/db/schema";
 import { calculateCompetencyStats } from "@/domain/scoring";
-import type { QuestionScore } from "@/domain/scoring/types";
+import {
+  isValidDecisionMode,
+  requiresReason,
+  resolveFinalDecision,
+  type DecisionMode,
+  type FinalDecision,
+} from "@/domain/interviews/decision";
+import { isSessionEditable } from "@/domain/interviews/session-lifecycle";
+import type { MandatoryRequirementStatus, QuestionScore } from "@/domain/scoring/types";
 import { getQuestion, listCompetencies } from "@/features/templates/queries";
-import { buildSessionEvaluationState } from "./queries";
+import { buildSessionEvaluationState, getSession } from "./queries";
+import { computeFullScoringResult } from "./scoring";
+
+class SessionNotEditableError extends Error {
+  constructor() {
+    super("This interview has already been finished — reopen it (Phase 11) before changing ratings.");
+    this.name = "SessionNotEditableError";
+  }
+}
+
+async function requireEditableSession(sessionId: string) {
+  const session = await getSession(sessionId);
+  if (!session) throw new Error("Session not found.");
+  if (!isSessionEditable(session)) throw new SessionNotEditableError();
+  return session;
+}
 
 /**
  * Recomputes and persists the `competencyEvaluations` cache (plan §16: "cached
@@ -46,6 +77,7 @@ export async function rateQuestion(
   questionId: string,
   value: QuestionScore
 ) {
+  await requireEditableSession(sessionId);
   const question = await getQuestion(questionId);
   if (!question) throw new Error("Question not found.");
 
@@ -74,6 +106,7 @@ export async function updateQuestionNotes(
   questionId: string,
   notes: string | null
 ) {
+  await requireEditableSession(sessionId);
   await db
     .insert(questionEvaluations)
     .values({ sessionId, questionId, score: null, isNa: false, notes })
@@ -81,4 +114,121 @@ export async function updateQuestionNotes(
       target: [questionEvaluations.sessionId, questionEvaluations.questionId],
       set: { notes, updatedAt: new Date() },
     });
+}
+
+/** Sets (or clears, via `"unknown"`) one MandatoryRequirement's status for a
+ * session — a boolean-ish knockout gate independent of competency scoring
+ * (plan §4.3/§19), not a rated question, so it has its own small mutation
+ * rather than going through {@link rateQuestion}. */
+export async function updateMandatoryRequirementStatus(
+  sessionId: string,
+  requirementId: string,
+  status: MandatoryRequirementStatus
+) {
+  await requireEditableSession(sessionId);
+  await db
+    .insert(mandatoryRequirementEvaluations)
+    .values({ sessionId, requirementId, status })
+    .onConflictDoUpdate({
+      target: [mandatoryRequirementEvaluations.sessionId, mandatoryRequirementEvaluations.requirementId],
+      set: { status, updatedAt: new Date() },
+    });
+}
+
+/** Records the candidate's English level (1-5, or `null` to clear it back
+ * to "not assessed") — the artifact's hardcoded English module, generalized
+ * to the `supplementaryAssessments` table (plan §9) but only "english" is
+ * wired up yet. */
+export async function updateEnglishAssessment(sessionId: string, level: number | null) {
+  await requireEditableSession(sessionId);
+  await db
+    .insert(supplementaryAssessments)
+    .values({ sessionId, kind: "english", level })
+    .onConflictDoUpdate({
+      target: [supplementaryAssessments.sessionId, supplementaryAssessments.kind],
+      set: { level, updatedAt: new Date() },
+    });
+}
+
+/**
+ * Moves a session from `in_progress` to `completed` (plan §16's documented
+ * lifecycle: in_progress -> completed -> decided -> reopened) — the
+ * interviewer is done rating and moving on to the Summary screen. Idempotent:
+ * calling it again on an already-`completed`/`decided` session is a no-op,
+ * so simply revisiting the Summary screen never resets anything.
+ */
+export async function finishRating(sessionId: string) {
+  const session = await getSession(sessionId);
+  if (!session) throw new Error("Session not found.");
+  if (session.status !== "in_progress") return;
+
+  await db
+    .update(interviewSessions)
+    .set({ status: "completed", updatedAt: new Date() })
+    .where(eq(interviewSessions.id, sessionId));
+}
+
+export interface RecordDecisionInput {
+  mode: DecisionMode;
+  forcedChoice?: FinalDecision;
+  reason?: string | null;
+}
+
+/**
+ * Records the interviewer's decision against the *current* calculated
+ * result (plan §21) — accept, override (reason required), or, on the
+ * calculated BORDERLINE tier, an explicit forced PASS/FAIL call (reason
+ * required). Recomputes the calculated result itself right before
+ * validating, so a decision is always checked against fresh evidence, never
+ * a stale value the caller happened to have on hand. Overwrites any prior
+ * decision for this session with no history kept — a confirmed POC
+ * limitation (plan §21/§38); a full audit trail is post-POC.
+ */
+export async function recordDecision(sessionId: string, input: RecordDecisionInput) {
+  const session = await getSession(sessionId);
+  if (!session) throw new Error("Session not found.");
+
+  const result = await computeFullScoringResult(sessionId, session.templateId);
+
+  if (!isValidDecisionMode(result.status, input.mode)) {
+    throw new Error(
+      `A "${input.mode}" decision isn't valid for a calculated status of "${result.status}".`
+    );
+  }
+  if (requiresReason(input.mode) && !input.reason?.trim()) {
+    throw new Error("A reason is required for an override or a forced call.");
+  }
+
+  const finalDecision = resolveFinalDecision(result.status, input.mode, input.forcedChoice);
+
+  await db
+    .insert(interviewDecisions)
+    .values({
+      sessionId,
+      calculatedStatus: result.status,
+      calculatedReason: result.reason,
+      calculatedRecommendation: result.recommendation,
+      mode: input.mode,
+      finalDecision,
+      reason: input.reason?.trim() || null,
+    })
+    .onConflictDoUpdate({
+      target: interviewDecisions.sessionId,
+      set: {
+        calculatedStatus: result.status,
+        calculatedReason: result.reason,
+        calculatedRecommendation: result.recommendation,
+        mode: input.mode,
+        finalDecision,
+        reason: input.reason?.trim() || null,
+        updatedAt: new Date(),
+      },
+    });
+
+  await db
+    .update(interviewSessions)
+    .set({ status: "decided", updatedAt: new Date() })
+    .where(eq(interviewSessions.id, sessionId));
+
+  return { result, finalDecision };
 }

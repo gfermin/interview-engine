@@ -49,12 +49,12 @@ export function AppSidebar() {
 
       <div className="mt-auto flex flex-col gap-2 border-t border-border px-2.5 pt-3">
         <p className="text-[10.5px] leading-snug text-muted-foreground/80">
-          Local POC build — Phase 8 (Live Interview Engine). Positions,
-          Templates, Candidates, and now live Interview sessions are all
-          wired up — rate each question 0-5/N/A, autosaving notes, with
-          live-updating overall/completion/critical chips computed by the
-          same ScoringEngine as every other phase; Reports and the Summary/
-          Decision workflow are filled in over later phases.
+          Local POC build — Phase 9 (Scoring &amp; Decision Engine). Every
+          phase from Positions through the Summary/Decision screen is live:
+          rate an interview, then Accept/Override/Forced-Call its calculated
+          PASS/FAIL/BORDERLINE, with the Mandatory Requirement gate and an
+          optional English assessment feeding the same deterministic
+          ScoringEngine. Reports (PDF) are next.
         </p>
       </div>
     </aside>
