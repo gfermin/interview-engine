@@ -10,12 +10,6 @@ import {
 
 const NEXT_UP = [
   {
-    phase: "Phase 8",
-    title: "Live Interview Engine",
-    detail:
-      "The artifact's question-card rating UI (0-5/N/A, disclosure panels, live score chips), rebuilt as componentized, database-backed React.",
-  },
-  {
     phase: "Phase 9",
     title: "Scoring & Decision Engine",
     detail:
@@ -26,6 +20,12 @@ const NEXT_UP = [
     title: "PDF Reporting",
     detail:
       "Generate a professional PDF from a finalized InterviewSession using Playwright print-to-PDF from a server-rendered HTML template.",
+  },
+  {
+    phase: "Phase 11",
+    title: "Persistence / History / Versioning Hardening",
+    detail:
+      "Interview history list/search and an explicit 'reopen' flow for a finalized session, hardening the template-versioning guarantees before the POC is done.",
   },
 ];
 
@@ -38,17 +38,19 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
               <CardTitle className="text-[15px]">
-                Phase 7 — Candidate Management
+                Phase 8 — Live Interview Engine
               </CardTitle>
               <CardDescription className="mt-1">
-                Candidate CRUD replaces the artifact&apos;s single-candidate-
-                slot model with a real roster. Starting an Interview Session
-                against a published Template is the first real exercise of
-                the lock-on-use guard Phase 4 wrote ahead of time: an
-                &ldquo;approved&rdquo; version transitions to
-                &ldquo;locked&rdquo; the moment a Session references it
-                (ADR-008), and a &ldquo;draft&rdquo; template can&apos;t be
-                used to interview anyone until it&apos;s published.
+                The artifact&apos;s question-card rating UI — 0-5/N/A rate
+                bar, collapsible expected-answer/rubric/follow-up panels,
+                autosaving notes — rebuilt as componentized, database-backed
+                React. Every rating recomputes the same{" "}
+                <code>ScoringEngine</code>/<code>CompletenessEngine</code>{" "}
+                from Phase 2 in place, driving live overall/completion/
+                critical chips and a per-competency section nav with status
+                icons (○/●/✓/⚠), exactly like the artifact&apos;s{" "}
+                <code>recalc()</code>-on-every-interaction pattern — now
+                backed by real persistence instead of <code>localStorage</code>.
               </CardDescription>
             </div>
             <Button size="sm" render={<Link href="/candidates">Open Candidates</Link>} />

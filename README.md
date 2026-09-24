@@ -6,8 +6,8 @@ decisions, data model, and phased implementation plan live in
 [`docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md`](../Prompts/docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md)
 in the sibling `Prompts` project.
 
-**Status:** Phase 7 (Candidate Management) complete.
-Phases 0-7 done: app shell + SQLite/Drizzle (1), ScoringEngine/
+**Status:** Phase 8 (Live Interview Engine) complete.
+Phases 0-8 done: app shell + SQLite/Drizzle (1), ScoringEngine/
 CompletenessEngine/CriticalRequirementEngine + full schema (2), Position +
 Job Description management with Role Family/Seniority (3), the Template
 builder — Competency/MandatoryRequirement/Question CRUD, reordering,
@@ -21,16 +21,24 @@ kept for provenance) (5), a second `AIProvider` implementation,
 `GeminiProvider`, for free-tier local testing without spending Anthropic
 credits (5.5, plan §38 addendum), per-question AI "Regenerate" — re-calls
 AI for one question only, replacing it in place (same id/order) so the
-rest of the template and sibling questions are untouched (6), and a
-Candidate roster (create/edit, notes) with a "Start Interview Session"
-flow that picks any published (approved or locked) Template and creates
-an `InterviewSession` against its exact version — the first real exercise
-of Phase 4's lock-on-use guard: an `approved` Template flips to `locked`
-the moment a Session references it, and a `draft` Template is refused
-outright (7). Requires `ANTHROPIC_API_KEY` **or** `GEMINI_API_KEY` in
-`.env` to actually call an AI provider — without either, AI actions
-surface a clear error and everything else keeps working offline.
-Live Interview Engine (Phase 8) is next.
+rest of the template and sibling questions are untouched (6), a Candidate
+roster (create/edit, notes) with a "Start Interview Session" flow that
+picks any published (approved or locked) Template and creates an
+`InterviewSession` against its exact version — the first real exercise of
+Phase 4's lock-on-use guard: an `approved` Template flips to `locked` the
+moment a Session references it, and a `draft` Template is refused outright
+(7), and the live interview rating screen itself (`/interviews/[sessionId]`)
+— the artifact's question cards (collapsible expected-answer/rubric/
+follow-up panels, 0-5/N/A rate bar, autosaving notes) rebuilt as
+database-backed React, with a per-competency section nav (○/●/✓/⚠ status
+icons) and live overall/completion/critical chips recomputed by the same
+`ScoringEngine`/`CompletenessEngine`/`CriticalRequirementEngine` from
+Phase 2 on every rating change, and a `competencyEvaluations` rollup cache
+persisted alongside for later phases to read without recomputing (8).
+Requires `ANTHROPIC_API_KEY` **or** `GEMINI_API_KEY` in `.env` to actually
+call an AI provider — without either, AI actions surface a clear error and
+everything else keeps working offline.
+Scoring & Decision Engine (Phase 9) is next.
 
 ## Stack
 
@@ -78,18 +86,19 @@ chosen over IndexedDB/Postgres for the POC.
 
 ```
 src/
-  app/                  # Next.js routes (positions, templates, candidates)
+  app/                  # Next.js routes (positions, templates, candidates, interviews)
   components/
     layout/              # App shell (sidebar, topbar)
     ui/                   # shadcn/ui primitives
   db/                   # Drizzle schema + client
   domain/
     scoring/              # ScoringEngine/CompletenessEngine/CriticalRequirementEngine (pure)
-    interviews/            # Stage config (labels/modules) + template versioning rules (pure)
+    interviews/            # Stage config, template versioning, session-scoring composition, section-status (all pure)
   features/
     positions/            # Position + Job Description CRUD
     templates/             # Template/Competency/MandatoryRequirement/Question CRUD + versioning + AI actions
     candidates/            # Candidate CRUD + start-Interview-Session flow
+    interviews/            # Live rating screen: rate/notes mutations + actions, question card, rate bar, section nav
   services/
     ai/                    # AIProvider interface, provider.ts selector, ClaudeProvider + GeminiProvider, prompts, Zod output schemas
   lib/                  # Shared utilities

@@ -103,6 +103,7 @@ export default async function CandidateDetailPage({
                     <TableHead>Stage</TableHead>
                     <TableHead>Template</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -128,6 +129,13 @@ export default async function CandidateDetailPage({
                         <Badge variant={SESSION_STATUS_VARIANT[session.status]} className="capitalize">
                           {session.status.replace("_", " ")}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          render={<Link href={`/interviews/${session.id}`}>Open</Link>}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
