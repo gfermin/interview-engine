@@ -28,8 +28,12 @@ import {
   publishTemplateAction,
   updateScoringConfigAction,
 } from "@/features/templates/actions";
-import { AIActionButton } from "@/features/templates/ai-components";
-import { analyzeJobDescriptionAction, generateTemplateDraftAction } from "@/features/templates/ai-actions";
+import { AIActionButton, RegenerateQuestionButton } from "@/features/templates/ai-components";
+import {
+  analyzeJobDescriptionAction,
+  generateTemplateDraftAction,
+  regenerateQuestionAction,
+} from "@/features/templates/ai-actions";
 import {
   getLatestJobAnalysis,
   getTemplate,
@@ -443,7 +447,7 @@ export default async function TemplateDetailPage({
                               </div>
                             </div>
                             {editable ? (
-                              <div className="flex shrink-0 gap-1">
+                              <div className="flex shrink-0 items-start gap-1">
                                 <RowActionButton
                                   action={moveQuestionAction.bind(null, id, q.id, "up")}
                                   icon={<ChevronUp />}
@@ -453,6 +457,9 @@ export default async function TemplateDetailPage({
                                   action={moveQuestionAction.bind(null, id, q.id, "down")}
                                   icon={<ChevronDown />}
                                   label="Move down"
+                                />
+                                <RegenerateQuestionButton
+                                  action={regenerateQuestionAction.bind(null, id, q.id)}
                                 />
                                 <Button
                                   variant="ghost"

@@ -17,7 +17,10 @@ export const jobAnalysisResultSchema = z.object({
 
 export type JobAnalysisResult = z.infer<typeof jobAnalysisResultSchema>;
 
-const draftQuestionSchema = z.object({
+// Exported (not just used internally for templateDraftSchema) so
+// regenerateQuestionSchema — one question in isolation, Phase 6 — can
+// validate against the identical shape without duplicating it.
+export const draftQuestionSchema = z.object({
   text: z.string().trim().min(1),
   difficulty: z.enum(["easy", "medium", "hard"]),
   importance: z.enum(["core", "secondary", "optional"]),

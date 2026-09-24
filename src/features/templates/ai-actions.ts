@@ -5,10 +5,14 @@ import { getStageConfig, type InterviewStage } from "@/domain/interviews/stage-c
 import { isTemplateEditable } from "@/domain/interviews/template-versioning";
 import { getJobDescription, getPosition } from "@/features/positions/queries";
 import { getAIProvider } from "@/services/ai/provider";
-import { JOB_ANALYSIS_PROMPT_VERSION, TEMPLATE_DRAFT_PROMPT_VERSION } from "@/services/ai/prompts";
+import {
+  JOB_ANALYSIS_PROMPT_VERSION,
+  REGENERATE_QUESTION_PROMPT_VERSION,
+  TEMPLATE_DRAFT_PROMPT_VERSION,
+} from "@/services/ai/prompts";
 import { AIValidationError } from "@/services/ai/types";
-import { applyGeneratedDraft, recordAIGeneration, saveJobAnalysis } from "./mutations";
-import { getLatestJobAnalysis, getTemplate, listCompetencies } from "./queries";
+import { applyGeneratedDraft, applyRegeneratedQuestion, recordAIGeneration, saveJobAnalysis } from "./mutations";
+import { getCompetency, getLatestJobAnalysis, getQuestion, getTemplate, listCompetencies } from "./queries";
 
 export interface AIActionState {
   error?: string;
@@ -141,6 +145,75 @@ export async function generateTemplateDraftAction(
         competencyName: c.name,
         ...c.blueprint,
       })),
+    });
+  } catch (error) {
+    return describeAIError(error);
+  }
+
+  revalidateTemplate(templateId);
+  return {};
+}
+
+/**
+ * Phase 6: re-calls AI for exactly one question, scoped to its own
+ * competency — the rest of the template (and the question's id/order) is
+ * untouched (plan's stated risk for this feature). Unlike
+ * generateTemplateDraftAction, this doesn't require a JobAnalysis to exist
+ * first — a hand-authored competency's question can be regenerated too, just
+ * without JD grounding if none is linked.
+ */
+export async function regenerateQuestionAction(
+  templateId: string,
+  questionId: string,
+  _prevState: AIActionState | undefined
+): Promise<AIActionState | undefined> {
+  const template = await getTemplate(templateId);
+  if (!template) return { error: "Template not found." };
+  if (!isTemplateEditable(template)) {
+    return { error: "This template version is no longer editable." };
+  }
+
+  const question = await getQuestion(questionId);
+  if (!question || question.templateId !== templateId) {
+    return { error: "Question not found." };
+  }
+
+  const [position, competency, jobDescription] = await Promise.all([
+    getPosition(template.positionId),
+    getCompetency(question.competencyId),
+    template.jobDescriptionId ? getJobDescription(template.jobDescriptionId) : null,
+  ]);
+  if (!position || !competency) return { error: "Position or competency not found." };
+
+  const stage = template.stage as InterviewStage;
+  const includeCodeExercises = getStageConfig(stage).modules.codeExercises;
+
+  try {
+    const provider = getAIProvider();
+    const regenerated = await provider.regenerateQuestion({
+      positionTitle: position.title,
+      roleFamily: position.roleFamily,
+      seniority: position.seniority,
+      stage,
+      jobDescriptionText: jobDescription?.rawText ?? null,
+      competencyName: competency.name,
+      competencyExpectedDepth: competency.expectedDepth,
+      existingQuestion: {
+        text: question.text,
+        difficulty: question.difficulty,
+        importance: question.importance,
+      },
+      includeCodeExercises,
+    });
+
+    await applyRegeneratedQuestion(questionId, regenerated, { includeCodeExercises });
+    await recordAIGeneration({
+      kind: "question_regeneration",
+      templateId,
+      provider: provider.providerName,
+      model: provider.model,
+      promptVersion: REGENERATE_QUESTION_PROMPT_VERSION,
+      blueprint: { questionId, competencyName: competency.name },
     });
   } catch (error) {
     return describeAIError(error);

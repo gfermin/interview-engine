@@ -10,12 +10,6 @@ import {
 
 const NEXT_UP = [
   {
-    phase: "Phase 6",
-    title: "Interview Template Review / Approval",
-    detail:
-      "Turn a raw AI draft into something a human explicitly approved: edit/delete/reorder, per-question regenerate, and a more prominent review surface for the role/seniority mismatch flag.",
-  },
-  {
     phase: "Phase 7",
     title: "Candidate Management",
     detail:
@@ -26,6 +20,12 @@ const NEXT_UP = [
     title: "Live Interview Engine",
     detail:
       "The artifact's question-card rating UI (0-5/N/A, disclosure panels, live score chips), rebuilt as componentized, database-backed React.",
+  },
+  {
+    phase: "Phase 9",
+    title: "Scoring & Decision Engine",
+    detail:
+      "Wire the ScoringEngine into a Summary screen: calculated status/reason, the Mandatory Requirement gate, and the human accept/override/forced-call decision workflow.",
   },
 ];
 
@@ -38,17 +38,20 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
               <CardTitle className="text-[15px]">
-                Phase 5 — AI JD Analysis &amp; Question Generation
+                Phase 6 — Interview Template Review &amp; Approval
               </CardTitle>
               <CardDescription className="mt-1">
-                From an empty draft template: &ldquo;Analyze Job
-                Description&rdquo; extracts a JobAnalysis (with a
-                non-blocking role/seniority mismatch flag), then &ldquo;Generate
-                Draft&rdquo; produces a full Competency/MandatoryRequirement/
-                Question set — calibrated jointly to Position, Role Family,
-                Seniority, Stage, and the JD — Zod-validated before it ever
-                touches the database. Requires <code>ANTHROPIC_API_KEY</code>{" "}
-                in <code>.env</code>.
+                &ldquo;Analyze Job Description&rdquo; extracts a JobAnalysis
+                (with a non-blocking role/seniority mismatch flag),
+                &ldquo;Generate Draft&rdquo; produces a full
+                Competency/MandatoryRequirement/Question set, and each
+                question has its own &ldquo;Regenerate&rdquo; — re-calls AI
+                for just that one question, in place, leaving its siblings
+                and the rest of the template untouched. Everything is
+                Zod-validated before it touches the database. Backed by
+                Claude (<code>ANTHROPIC_API_KEY</code>, recommended) or
+                Gemini&apos;s free tier (<code>GEMINI_API_KEY</code>) behind
+                the same <code>AIProvider</code> interface.
               </CardDescription>
             </div>
             <Button size="sm" render={<Link href="/templates">Open Templates</Link>} />

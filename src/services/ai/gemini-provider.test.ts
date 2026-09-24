@@ -1,19 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
 import { AIValidationError } from "./types";
 
-const createMock = vi.fn();
+const generateContentMock = vi.fn();
 
-vi.mock("@anthropic-ai/sdk", () => ({
-  default: class MockAnthropic {
-    messages = { create: createMock };
-  },
-}));
+vi.mock("@google/genai", async () => {
+  const actual = await vi.importActual<typeof import("@google/genai")>("@google/genai");
+  return {
+    ...actual,
+    GoogleGenAI: class MockGoogleGenAI {
+      models = { generateContent: generateContentMock };
+    },
+  };
+});
 
-// Imported after the mock so the class picks up the mocked constructor.
-const { ClaudeProvider } = await import("./claude-provider");
+const { GeminiProvider } = await import("./gemini-provider");
 
-function toolUseResponse(input: unknown) {
-  return { content: [{ type: "tool_use", id: "t1", name: "x", input }] };
+function functionCallResponse(name: string, args: unknown) {
+  return { functionCalls: [{ name, args }] };
 }
 
 const baseInput = {
@@ -24,27 +27,25 @@ const baseInput = {
   jobDescriptionText: "We are looking for a Senior Backend Developer...",
 };
 
-describe("ClaudeProvider model fallback", () => {
-  // Regression test: an env var declared but left blank in .env
-  // (`ANTHROPIC_MODEL=`) comes through as `""`, not `undefined` — `??`
-  // doesn't catch that, so the constructor previously sent an empty model
-  // string to the API. Found via a real Gemini-side failure ("model is
-  // required and must be a string") with the equivalent GEMINI_MODEL=.
+describe("GeminiProvider model fallback", () => {
+  // Regression test — see the identical note in claude-provider.test.ts.
+  // This is the exact bug a real GEMINI_MODEL= (blank) caused live: the SDK
+  // rejected the request with "model is required and must be a string".
   it("falls back to the default model when options.model is an empty string", () => {
-    const provider = new ClaudeProvider({ apiKey: "test-key", model: "" });
-    expect(provider.model).toBe("claude-sonnet-5");
+    const provider = new GeminiProvider({ apiKey: "test-key", model: "" });
+    expect(provider.model).toBe("gemini-flash-lite-latest");
   });
 
   it("uses an explicitly provided model", () => {
-    const provider = new ClaudeProvider({ apiKey: "test-key", model: "claude-opus-5" });
-    expect(provider.model).toBe("claude-opus-5");
+    const provider = new GeminiProvider({ apiKey: "test-key", model: "gemini-2.5-pro" });
+    expect(provider.model).toBe("gemini-2.5-pro");
   });
 });
 
-describe("ClaudeProvider.analyzeJobDescription", () => {
-  it("parses and returns a valid tool_use response", async () => {
-    createMock.mockResolvedValueOnce(
-      toolUseResponse({
+describe("GeminiProvider.analyzeJobDescription", () => {
+  it("parses and returns a valid function-call response", async () => {
+    generateContentMock.mockResolvedValueOnce(
+      functionCallResponse("submit_job_analysis", {
         detectedRoleFamily: "Software Engineering",
         detectedSeniority: "Mid-Level",
         mandatoryRequirements: ["5+ years backend experience"],
@@ -54,22 +55,28 @@ describe("ClaudeProvider.analyzeJobDescription", () => {
       })
     );
 
-    const provider = new ClaudeProvider({ apiKey: "test-key" });
+    const provider = new GeminiProvider({ apiKey: "test-key" });
     const result = await provider.analyzeJobDescription(baseInput);
 
     expect(result.detectedSeniority).toBe("Mid-Level");
-    expect(createMock).toHaveBeenCalledWith(
+    expect(generateContentMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        tool_choice: { type: "tool", name: "submit_job_analysis" },
+        config: expect.objectContaining({
+          toolConfig: {
+            functionCallingConfig: {
+              mode: "ANY",
+              allowedFunctionNames: ["submit_job_analysis"],
+            },
+          },
+        }),
       })
     );
   });
 
-  it("throws AIValidationError with the raw output when validation fails", async () => {
-    createMock.mockResolvedValueOnce(
-      toolUseResponse({
+  it("throws AIValidationError with the raw args when validation fails", async () => {
+    generateContentMock.mockResolvedValueOnce(
+      functionCallResponse("submit_job_analysis", {
         detectedRoleFamily: "Software Engineering",
-        // detectedSeniority missing entirely — invalid
         mandatoryRequirements: "not an array",
         preferredRequirements: [],
         optionalRequirements: [],
@@ -77,7 +84,7 @@ describe("ClaudeProvider.analyzeJobDescription", () => {
       })
     );
 
-    const provider = new ClaudeProvider({ apiKey: "test-key" });
+    const provider = new GeminiProvider({ apiKey: "test-key" });
     await expect(provider.analyzeJobDescription(baseInput)).rejects.toSatisfy((error: unknown) => {
       expect(error).toBeInstanceOf(AIValidationError);
       expect((error as InstanceType<typeof AIValidationError>).rawOutput).toMatchObject({
@@ -87,15 +94,15 @@ describe("ClaudeProvider.analyzeJobDescription", () => {
     });
   });
 
-  it("throws a plain error when the response has no tool_use block", async () => {
-    createMock.mockResolvedValueOnce({ content: [{ type: "text", text: "sorry, I can't." }] });
+  it("throws a plain error when the response has no matching function call", async () => {
+    generateContentMock.mockResolvedValueOnce({ functionCalls: undefined });
 
-    const provider = new ClaudeProvider({ apiKey: "test-key" });
+    const provider = new GeminiProvider({ apiKey: "test-key" });
     await expect(provider.analyzeJobDescription(baseInput)).rejects.toThrow(/did not include/);
   });
 });
 
-describe("ClaudeProvider.generateTemplateDraft", () => {
+describe("GeminiProvider.generateTemplateDraft", () => {
   const draftInput = {
     ...baseInput,
     jobAnalysis: {
@@ -110,8 +117,8 @@ describe("ClaudeProvider.generateTemplateDraft", () => {
   };
 
   it("parses and returns a valid template draft", async () => {
-    createMock.mockResolvedValueOnce(
-      toolUseResponse({
+    generateContentMock.mockResolvedValueOnce(
+      functionCallResponse("submit_template_draft", {
         competencies: [
           {
             name: "Programming",
@@ -136,21 +143,16 @@ describe("ClaudeProvider.generateTemplateDraft", () => {
       })
     );
 
-    const provider = new ClaudeProvider({ apiKey: "test-key" });
+    const provider = new GeminiProvider({ apiKey: "test-key" });
     const draft = await provider.generateTemplateDraft(draftInput);
 
     expect(draft.competencies).toHaveLength(1);
     expect(draft.competencies[0].questions[0].text).toBe("How do you handle flaky tests?");
-    expect(createMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        tool_choice: { type: "tool", name: "submit_template_draft" },
-      })
-    );
   });
 
   it("throws AIValidationError when a competency has zero questions", async () => {
-    createMock.mockResolvedValueOnce(
-      toolUseResponse({
+    generateContentMock.mockResolvedValueOnce(
+      functionCallResponse("submit_template_draft", {
         competencies: [
           {
             name: "Programming",
@@ -165,14 +167,14 @@ describe("ClaudeProvider.generateTemplateDraft", () => {
       })
     );
 
-    const provider = new ClaudeProvider({ apiKey: "test-key" });
+    const provider = new GeminiProvider({ apiKey: "test-key" });
     await expect(provider.generateTemplateDraft(draftInput)).rejects.toBeInstanceOf(
       AIValidationError
     );
   });
 });
 
-describe("ClaudeProvider.regenerateQuestion", () => {
+describe("GeminiProvider.regenerateQuestion", () => {
   const regenerateInput = {
     ...baseInput,
     competencyName: "Programming",
@@ -186,8 +188,8 @@ describe("ClaudeProvider.regenerateQuestion", () => {
   };
 
   it("parses and returns a single replacement question", async () => {
-    createMock.mockResolvedValueOnce(
-      toolUseResponse({
+    generateContentMock.mockResolvedValueOnce(
+      functionCallResponse("submit_regenerated_question", {
         text: "Walk through diagnosing a memory leak in a long-running service.",
         difficulty: "hard",
         importance: "core",
@@ -198,22 +200,17 @@ describe("ClaudeProvider.regenerateQuestion", () => {
       })
     );
 
-    const provider = new ClaudeProvider({ apiKey: "test-key" });
+    const provider = new GeminiProvider({ apiKey: "test-key" });
     const question = await provider.regenerateQuestion(regenerateInput);
 
     expect(question.text).toBe(
       "Walk through diagnosing a memory leak in a long-running service."
     );
-    expect(createMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        tool_choice: { type: "tool", name: "submit_regenerated_question" },
-      })
-    );
   });
 
   it("works with no Job Description grounding (jobDescriptionText: null)", async () => {
-    createMock.mockResolvedValueOnce(
-      toolUseResponse({
+    generateContentMock.mockResolvedValueOnce(
+      functionCallResponse("submit_regenerated_question", {
         text: "Explain a time you optimized a slow SQL query.",
         difficulty: "medium",
         importance: "core",
@@ -224,7 +221,7 @@ describe("ClaudeProvider.regenerateQuestion", () => {
       })
     );
 
-    const provider = new ClaudeProvider({ apiKey: "test-key" });
+    const provider = new GeminiProvider({ apiKey: "test-key" });
     const question = await provider.regenerateQuestion({
       ...regenerateInput,
       jobDescriptionText: null,
@@ -234,8 +231,8 @@ describe("ClaudeProvider.regenerateQuestion", () => {
   });
 
   it("throws AIValidationError when the response fails validation", async () => {
-    createMock.mockResolvedValueOnce(
-      toolUseResponse({
+    generateContentMock.mockResolvedValueOnce(
+      functionCallResponse("submit_regenerated_question", {
         text: "",
         difficulty: "hard",
         importance: "core",
@@ -246,7 +243,7 @@ describe("ClaudeProvider.regenerateQuestion", () => {
       })
     );
 
-    const provider = new ClaudeProvider({ apiKey: "test-key" });
+    const provider = new GeminiProvider({ apiKey: "test-key" });
     await expect(provider.regenerateQuestion(regenerateInput)).rejects.toBeInstanceOf(
       AIValidationError
     );

@@ -3,10 +3,11 @@
 // editing a prompt template, not by a migration"). Bump the `*_PROMPT_VERSION`
 // constants whenever the wording changes meaningfully enough that an
 // AIGenerationRecord's provenance should distinguish old drafts from new.
-import type { AnalyzeJobDescriptionInput, GenerateTemplateDraftInput } from "./types";
+import type { AnalyzeJobDescriptionInput, GenerateTemplateDraftInput, RegenerateQuestionInput } from "./types";
 
 export const JOB_ANALYSIS_PROMPT_VERSION = "job-analysis-v1";
 export const TEMPLATE_DRAFT_PROMPT_VERSION = "template-draft-v1";
+export const REGENERATE_QUESTION_PROMPT_VERSION = "regenerate-question-v1";
 
 /**
  * Reference table (plan §39.4/§5): what a seniority level's expected
@@ -117,6 +118,50 @@ Job Analysis:
 - Preferred requirements: ${input.jobAnalysis.preferredRequirements.join("; ") || "(none extracted)"}
 - Optional requirements: ${input.jobAnalysis.optionalRequirements.join("; ") || "(none extracted)"}
 - Notes: ${input.jobAnalysis.notes || "(none)"}`;
+
+  return { system, user };
+}
+
+/**
+ * Phase 6: regenerate exactly one question for one competency, without
+ * touching the rest of the template. The existing question is shown so the
+ * model produces a genuinely different question on the same competency —
+ * not a reworded duplicate — matching the plan's stated intent for
+ * "regenerate."
+ */
+export function buildRegenerateQuestionPrompt(input: RegenerateQuestionInput): {
+  system: string;
+  user: string;
+} {
+  const codeGuidance = input.includeCodeExercises
+    ? "If a hands-on coding or debugging exercise is the best way to assess this competency, include one via the `code`/`solution` fields."
+    : "Do not include `code` or `solution` fields — this stage does not include hands-on coding exercises.";
+
+  const system = `${SHARED_SYSTEM_PREAMBLE}
+
+Your task: generate ONE replacement question for a single competency in an existing interview template. The interviewer was not satisfied with the current question for this competency and wants a different one — same competency, same general depth/seniority target, but a genuinely different question, not a reworded version of the one being replaced.
+
+The question needs: the question text, difficulty, importance, expected/strong/acceptable answer guidance, key concepts, red flags, follow-ups, and a rubric with one line per 0-5 score anchored to what a response at that score actually looks like. ${describeSeniority(input.seniority)}
+
+${codeGuidance}
+
+Ground the question in the Job Description when one is provided; otherwise ground it in the competency name and its Expected Depth description alone.`;
+
+  const user = `Position: ${input.positionTitle}
+Role Family: ${input.roleFamily ?? "(not specified)"}
+Seniority: ${input.seniority ?? "(not specified)"}
+Interview Stage: ${input.stage}
+Competency: ${input.competencyName}
+Expected Depth for this competency: ${input.competencyExpectedDepth ?? "(not specified)"}
+
+${
+  input.jobDescriptionText
+    ? `Job Description:\n"""\n${input.jobDescriptionText}\n"""\n\n`
+    : ""
+}Question being replaced (produce something different, not a rewording of this):
+- Text: ${input.existingQuestion.text}
+- Difficulty: ${input.existingQuestion.difficulty}
+- Importance: ${input.existingQuestion.importance}`;
 
   return { system, user };
 }

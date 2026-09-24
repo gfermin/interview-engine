@@ -6,29 +6,37 @@ decisions, data model, and phased implementation plan live in
 [`docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md`](../Prompts/docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md)
 in the sibling `Prompts` project.
 
-**Status:** Phase 5 (AI JD Analysis & Question Generation) complete. Phases
-0-5 done: app shell + SQLite/Drizzle (1), ScoringEngine/CompletenessEngine/
-CriticalRequirementEngine + full schema (2), Position + Job Description
-management with Role Family/Seniority (3), the Template builder —
-Competency/MandatoryRequirement/Question CRUD, reordering, draft/approved/
-locked versioning (ADR-008), and the per-stage (Technical/Screening) config
-map (4), and an `AIProvider` abstraction + `ClaudeProvider` behind forced
-tool-use, wired into the builder as "Analyze Job Description" (→
-`JobAnalysis`, with a non-blocking role/seniority mismatch flag) and
+**Status:** Phase 6 (Interview Template Review / Approval) complete.
+Phases 0-6 done: app shell + SQLite/Drizzle (1), ScoringEngine/
+CompletenessEngine/CriticalRequirementEngine + full schema (2), Position +
+Job Description management with Role Family/Seniority (3), the Template
+builder — Competency/MandatoryRequirement/Question CRUD, reordering,
+draft/approved/locked versioning (ADR-008), and the per-stage (Technical/
+Screening) config map (4), an `AIProvider` abstraction + `ClaudeProvider`
+behind forced tool-use, wired into the builder as "Analyze Job Description"
+(→ `JobAnalysis`, with a non-blocking role/seniority mismatch flag) and
 "Generate Draft" (→ a full Competency/MandatoryRequirement/Question set,
-Zod-validated before touching the database, with a `AIGenerationRecord` kept
-for provenance) (5). Requires `ANTHROPIC_API_KEY` in `.env` to actually call
-the API — without it, those two actions surface a clear error and
-everything else keeps working offline. Interview Template Review/Approval
-UI (Phase 6) is next.
+Zod-validated before touching the database, with an `AIGenerationRecord`
+kept for provenance) (5), a second `AIProvider` implementation,
+`GeminiProvider`, for free-tier local testing without spending Anthropic
+credits (5.5, plan §38 addendum), and per-question AI "Regenerate" — re-
+calls AI for one question only, replacing it in place (same id/order) so
+the rest of the template and sibling questions are untouched (6). Most of
+Phase 6's stated scope (edit-in-place, delete, reorder, Approve & Publish,
+the mismatch banner) had already shipped in Phases 4/5; regenerate was the
+genuinely new piece. Requires `ANTHROPIC_API_KEY` **or** `GEMINI_API_KEY`
+in `.env` to actually call an AI provider — without either, AI actions
+surface a clear error and everything else keeps working offline.
+Candidate Management (Phase 7) is next.
 
 ## Stack
 
 Next.js (App Router, TypeScript) · Tailwind + shadcn/ui · SQLite via Drizzle
 ORM · Zod + React Hook Form · Vitest + Testing Library (unit/component) ·
 Playwright (E2E, and PDF generation from Phase 10 onward) · Claude
-(`@anthropic-ai/sdk`) behind an `AIProvider` abstraction (`src/services/ai/`),
-live since Phase 5.
+(`@anthropic-ai/sdk`, recommended default) or Gemini (`@google/genai`, free
+tier) behind an `AIProvider` abstraction (`src/services/ai/`), live since
+Phase 5/5.5.
 
 Design tokens (colors, IBM Plex Sans/Mono typography) in
 `src/app/globals.css` are ported directly from the "Calibración QA" artifact
@@ -79,7 +87,7 @@ src/
     positions/            # Position + Job Description CRUD
     templates/             # Template/Competency/MandatoryRequirement/Question CRUD + versioning + AI actions
   services/
-    ai/                    # AIProvider interface, ClaudeProvider, prompts, Zod output schemas
+    ai/                    # AIProvider interface, provider.ts selector, ClaudeProvider + GeminiProvider, prompts, Zod output schemas
   lib/                  # Shared utilities
 e2e/                  # Playwright specs
 ```

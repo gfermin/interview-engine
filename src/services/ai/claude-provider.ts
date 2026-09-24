@@ -1,107 +1,52 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { buildJobAnalysisPrompt, buildTemplateDraftPrompt, JOB_ANALYSIS_PROMPT_VERSION, TEMPLATE_DRAFT_PROMPT_VERSION } from "./prompts";
-import { jobAnalysisResultSchema, templateDraftSchema, type JobAnalysisResult, type TemplateDraft } from "./schemas";
-import { AIValidationError, type AIProvider, type AnalyzeJobDescriptionInput, type GenerateTemplateDraftInput } from "./types";
-
-const JOB_ANALYSIS_TOOL_NAME = "submit_job_analysis";
-const TEMPLATE_DRAFT_TOOL_NAME = "submit_template_draft";
-
-const NULLABLE_STRING = { type: ["string", "null"] } as const;
+import {
+  DRAFT_QUESTION_JSON_SCHEMA,
+  JOB_ANALYSIS_FUNCTION_NAME,
+  JOB_ANALYSIS_JSON_SCHEMA,
+  REGENERATE_QUESTION_FUNCTION_NAME,
+  TEMPLATE_DRAFT_FUNCTION_NAME,
+  TEMPLATE_DRAFT_JSON_SCHEMA,
+} from "./json-schemas";
+import {
+  buildJobAnalysisPrompt,
+  buildRegenerateQuestionPrompt,
+  buildTemplateDraftPrompt,
+  JOB_ANALYSIS_PROMPT_VERSION,
+  REGENERATE_QUESTION_PROMPT_VERSION,
+  TEMPLATE_DRAFT_PROMPT_VERSION,
+} from "./prompts";
+import {
+  draftQuestionSchema,
+  jobAnalysisResultSchema,
+  templateDraftSchema,
+  type JobAnalysisResult,
+  type TemplateDraft,
+  type TemplateDraftQuestion,
+} from "./schemas";
+import {
+  AIValidationError,
+  type AIProvider,
+  type AnalyzeJobDescriptionInput,
+  type GenerateTemplateDraftInput,
+  type RegenerateQuestionInput,
+} from "./types";
 
 const JOB_ANALYSIS_TOOL: Anthropic.Tool = {
-  name: JOB_ANALYSIS_TOOL_NAME,
+  name: JOB_ANALYSIS_FUNCTION_NAME,
   description: "Submit the structured analysis of the Job Description.",
-  input_schema: {
-    type: "object",
-    properties: {
-      detectedRoleFamily: NULLABLE_STRING,
-      detectedSeniority: NULLABLE_STRING,
-      mandatoryRequirements: { type: "array", items: { type: "string" } },
-      preferredRequirements: { type: "array", items: { type: "string" } },
-      optionalRequirements: { type: "array", items: { type: "string" } },
-      notes: { type: "string" },
-    },
-    required: [
-      "detectedRoleFamily",
-      "detectedSeniority",
-      "mandatoryRequirements",
-      "preferredRequirements",
-      "optionalRequirements",
-      "notes",
-    ],
-  },
-};
-
-const DRAFT_QUESTION_SCHEMA = {
-  type: "object",
-  properties: {
-    text: { type: "string" },
-    difficulty: { type: "string", enum: ["easy", "medium", "hard"] },
-    importance: { type: "string", enum: ["core", "secondary", "optional"] },
-    expected: NULLABLE_STRING,
-    strong: NULLABLE_STRING,
-    acceptable: NULLABLE_STRING,
-    concepts: { type: "array", items: { type: "string" } },
-    redFlags: { type: "array", items: { type: "string" } },
-    followUps: { type: "array", items: { type: "string" } },
-    rubric: {
-      type: "array",
-      items: { type: "string" },
-      description: "One entry per 0-5 score, describing what a response at that score looks like.",
-    },
-    code: NULLABLE_STRING,
-    solution: NULLABLE_STRING,
-  },
-  required: ["text", "difficulty", "importance", "concepts", "redFlags", "followUps", "rubric"],
+  input_schema: JOB_ANALYSIS_JSON_SCHEMA as unknown as Anthropic.Tool.InputSchema,
 };
 
 const TEMPLATE_DRAFT_TOOL: Anthropic.Tool = {
-  name: TEMPLATE_DRAFT_TOOL_NAME,
+  name: TEMPLATE_DRAFT_FUNCTION_NAME,
   description: "Submit the generated draft interview template.",
-  input_schema: {
-    type: "object",
-    properties: {
-      competencies: {
-        type: "array",
-        minItems: 1,
-        items: {
-          type: "object",
-          properties: {
-            name: { type: "string" },
-            weight: { type: "integer", minimum: 0, maximum: 100 },
-            critical: { type: "boolean" },
-            expectedDepth: { type: "string" },
-            blueprint: {
-              type: "object",
-              properties: {
-                coverage: { type: "string" },
-                questionTypeMix: { type: "string" },
-              },
-              required: ["coverage", "questionTypeMix"],
-            },
-            questions: {
-              type: "array",
-              minItems: 1,
-              items: DRAFT_QUESTION_SCHEMA,
-            },
-          },
-          required: ["name", "weight", "critical", "expectedDepth", "blueprint", "questions"],
-        },
-      },
-      mandatoryRequirements: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            label: { type: "string" },
-            description: NULLABLE_STRING,
-          },
-          required: ["label"],
-        },
-      },
-    },
-    required: ["competencies", "mandatoryRequirements"],
-  },
+  input_schema: TEMPLATE_DRAFT_JSON_SCHEMA as unknown as Anthropic.Tool.InputSchema,
+};
+
+const REGENERATE_QUESTION_TOOL: Anthropic.Tool = {
+  name: REGENERATE_QUESTION_FUNCTION_NAME,
+  description: "Submit the regenerated replacement question.",
+  input_schema: DRAFT_QUESTION_JSON_SCHEMA as unknown as Anthropic.Tool.InputSchema,
 };
 
 export interface ClaudeProviderOptions {
@@ -127,7 +72,10 @@ export class ClaudeProvider implements AIProvider {
 
   constructor(options: ClaudeProviderOptions) {
     this.client = new Anthropic({ apiKey: options.apiKey });
-    this.model = options.model ?? DEFAULT_MODEL;
+    // `||`, not `??` — an unset env var declared but left blank in .env
+    // (e.g. `ANTHROPIC_MODEL=`) comes through as `""`, which `??` would not
+    // catch, silently sending an empty model string to the API.
+    this.model = options.model || DEFAULT_MODEL;
   }
 
   async analyzeJobDescription(input: AnalyzeJobDescriptionInput): Promise<JobAnalysisResult> {
@@ -150,6 +98,19 @@ export class ClaudeProvider implements AIProvider {
     if (!parsed.success) {
       throw new AIValidationError(
         `AI template draft output failed validation: ${parsed.error.message}`,
+        toolInput
+      );
+    }
+    return parsed.data;
+  }
+
+  async regenerateQuestion(input: RegenerateQuestionInput): Promise<TemplateDraftQuestion> {
+    const { system, user } = buildRegenerateQuestionPrompt(input);
+    const toolInput = await this.callForTool(system, user, REGENERATE_QUESTION_TOOL);
+    const parsed = draftQuestionSchema.safeParse(toolInput);
+    if (!parsed.success) {
+      throw new AIValidationError(
+        `AI question regeneration output failed validation: ${parsed.error.message}`,
         toolInput
       );
     }
@@ -180,4 +141,4 @@ export class ClaudeProvider implements AIProvider {
   }
 }
 
-export { JOB_ANALYSIS_PROMPT_VERSION, TEMPLATE_DRAFT_PROMPT_VERSION };
+export { JOB_ANALYSIS_PROMPT_VERSION, REGENERATE_QUESTION_PROMPT_VERSION, TEMPLATE_DRAFT_PROMPT_VERSION };
