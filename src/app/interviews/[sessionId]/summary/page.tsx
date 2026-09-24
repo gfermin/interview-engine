@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { canGenerateReport } from "@/domain/interviews/session-lifecycle";
 import { canRecordDecision } from "@/domain/interviews/decision";
 import { buildNarrative } from "@/domain/interviews/narrative";
 import { getStageConfig, type InterviewStage } from "@/domain/interviews/stage-config";
@@ -19,6 +20,9 @@ import {
 } from "@/features/interviews/queries";
 import { computeFullScoringResult } from "@/features/interviews/scoring";
 import { getPosition } from "@/features/positions/queries";
+import { generateReportAction } from "@/features/reports/actions";
+import { GenerateReportButton } from "@/features/reports/generate-report-button";
+import { listReportsForSession } from "@/features/reports/queries";
 import { listCompetencies, listMandatoryRequirements } from "@/features/templates/queries";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +47,7 @@ export default async function InterviewSummaryPage({
   const stage = session.stage as InterviewStage;
   const stageConfig = getStageConfig(stage);
 
-  const [result, competencies, mandatoryRequirements, mrEvaluations, position, englishAssessment, decision] =
+  const [result, competencies, mandatoryRequirements, mrEvaluations, position, englishAssessment, decision, reports] =
     await Promise.all([
       computeFullScoringResult(sessionId, session.templateId),
       listCompetencies(session.templateId),
@@ -54,6 +58,7 @@ export default async function InterviewSummaryPage({
         ? getSupplementaryAssessment(sessionId, "english")
         : Promise.resolve(undefined),
       getDecision(sessionId),
+      listReportsForSession(sessionId),
     ]);
 
   // `interviewDecisions.mode`/`finalDecision` are nullable at the column
@@ -250,6 +255,43 @@ export default async function InterviewSummaryPage({
               <p className="text-sm text-muted-foreground">
                 {result.reason} A decision can be recorded once the interview reaches a
                 PASS, FAIL, or BORDERLINE calculated result.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-[13.5px]">Report</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {reports.length > 0 ? (
+              <ul className="flex flex-col gap-1.5">
+                {reports.map((report) => (
+                  <li
+                    key={report.id}
+                    className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-[12.5px]"
+                  >
+                    <span className="text-muted-foreground">
+                      Generated {report.createdAt.toLocaleString()} (
+                      {Math.round(report.fileSize / 1024)} KB)
+                    </span>
+                    <a
+                      href={`/api/reports/${report.id}`}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      Download
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            {canGenerateReport(session) ? (
+              <GenerateReportButton action={generateReportAction.bind(null, sessionId)} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                A report can be generated once a decision has been recorded above.
               </p>
             )}
           </CardContent>

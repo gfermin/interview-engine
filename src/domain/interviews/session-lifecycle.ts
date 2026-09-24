@@ -20,3 +20,10 @@ export interface SessionLike {
 export function isSessionEditable(session: SessionLike): boolean {
   return session.status === "in_progress";
 }
+
+/** A report is "generated only from a finalized InterviewSession + its
+ * InterviewDecision" (plan §24) — `decided` is the only status that
+ * guarantees an `InterviewDecision` row exists to report on. */
+export function canGenerateReport(session: SessionLike): boolean {
+  return session.status === "decided";
+}
