@@ -10,16 +10,16 @@ import {
 
 const NEXT_UP = [
   {
+    phase: "Phase 13 (continued)",
+    title: "Hardening backlog (plan §40)",
+    detail:
+      "A confirmed DecisionForm state bug after Reopen, jargon-y/leaky error messages, missing error.tsx/not-found.tsx, a few data-integrity gaps, and most of the test-coverage gaps (createNewTemplateVersion most notably) — audited and recorded, not yet fixed.",
+  },
+  {
     phase: "Phase 12",
     title: "BambooHR Integration POC",
     detail:
       "Validate real BambooHR API capabilities and implement a minimal, mocked-by-default integration, now that the core loop (Phases 1-11) is proven.",
-  },
-  {
-    phase: "Phase 13",
-    title: "Hardening / Testing / UX Polish",
-    detail:
-      "Fill test coverage gaps and polish rough UX edges found during real usage of Phases 1-11 — no new features.",
   },
   {
     phase: "Phase 14",
@@ -38,25 +38,26 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
               <CardTitle className="text-[15px]">
-                Phase 11 — Persistence / History / Versioning Hardening
+                Phase 13 — Hardening / Testing / UX Polish (in progress)
               </CardTitle>
               <CardDescription className="mt-1">
-                This phase&apos;s completion is the POC completion (plan
-                §11): an Interview History screen lists and filters every
-                session by position, candidate, stage, or status, and an
-                explicit &ldquo;Reopen&rdquo; action unfreezes a{" "}
-                <code>completed</code> or <code>decided</code> session back
-                to <code>in_progress</code>, stamping{" "}
-                <code>reopenedAt</code>/<code>reopenCount</code> rather than
-                silently editing history. Reopening doesn&apos;t erase the
-                prior decision or report — it stays visible until the
-                interviewer re-decides, and generating again produces a
-                second, distinct <code>InterviewReport</code> rather than
-                overwriting the first. Hardening this phase also surfaced
-                and fixed a real bug from Phase 9: the Summary screen&apos;s
-                own Mandatory Requirement and English controls were
-                incorrectly locked the moment a session left{" "}
-                <code>in_progress</code>, before a decision even existed.
+                The core POC loop (Phases 1-11) is done. Since this
+                phase&apos;s plan entry is open-ended rather than a fixed
+                task list, it began with a full-codebase audit — test
+                coverage, error-messaging quality, missing Next.js
+                conventions, UX rough edges, dead code, Zod schema gaps —
+                recorded in the implementation plan&apos;s{" "}
+                <code>§40</code>. Pure display/copy fixes shipped
+                immediately: friendly stage-aware labels in place of raw
+                enums on the Summary screen, a fixed duplicate-text
+                template picker, one shared session-status label map, and
+                a clearer interview-history empty state. Findings that need
+                an actual logic change — a confirmed <code>DecisionForm</code>{" "}
+                state bug, several leaky/jargon-y error messages, missing{" "}
+                <code>error.tsx</code>, a few data-integrity gaps, and most
+                of the test-coverage gaps — are tracked in <code>§40</code>{" "}
+                as a reviewed backlog rather than fixed opportunistically
+                mid-audit.
               </CardDescription>
             </div>
             <Button size="sm" render={<Link href="/interviews">Open History</Link>} />

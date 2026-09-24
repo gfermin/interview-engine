@@ -115,6 +115,31 @@ describe("templateDraftSchema", () => {
     expect(result.success).toBe(false);
   });
 
+  // §40.4: AI-generated content previously had no length caps at all, while
+  // the human-authored form schemas (templates/schemas.ts) did — an AI
+  // response that happened to exceed those caps saved fine on generation
+  // but then failed the first time a human edited it through the form.
+  it("§40.4: rejects a competency name over the 200-char bound the form schema also enforces", () => {
+    const result = templateDraftSchema.safeParse({
+      ...validDraft,
+      competencies: [{ ...validDraft.competencies[0], name: "x".repeat(201) }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("§40.4: rejects a rubric with more than 30 lines, matching the form schema's cap", () => {
+    const result = templateDraftSchema.safeParse({
+      ...validDraft,
+      competencies: [
+        {
+          ...validDraft.competencies[0],
+          questions: [{ ...validQuestion, rubric: Array.from({ length: 31 }, (_, i) => `line ${i}`) }],
+        },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("defaults omitted optional question fields to empty arrays / null", () => {
     const minimalQuestion = {
       text: "What is a Page Object?",

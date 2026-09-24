@@ -9,11 +9,10 @@ import { getActiveJobDescription } from "./queries";
  * Plan §16/Phase 3: a JobDescription is versioned "if edited after a
  * template references it." Concretely: if no InterviewTemplate currently
  * references the active JD, editing it is an in-place update (same row,
- * same version) — this is the only reachable path today, since template
- * creation doesn't exist until Phase 4. If a template DOES reference it,
- * editing instead supersedes the old version and creates a new one, so a
- * template's historical evaluations keep meaning what they meant when the
- * candidate was interviewed against them.
+ * same version). If a template DOES reference it, editing instead
+ * supersedes the old version and creates a new one, so a template's
+ * historical evaluations keep meaning what they meant when the candidate
+ * was interviewed against them.
  */
 export async function saveJobDescription(positionId: string, rawText: string) {
   const current = await getActiveJobDescription(positionId);

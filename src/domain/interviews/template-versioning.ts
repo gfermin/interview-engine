@@ -19,10 +19,9 @@ export interface CompetencyLike {
  * this exact version — plan §22/ADR-008) are both terminal for direct edits;
  * the only path forward is {@link canCreateNewVersion}.
  *
- * Written now, ahead of Phase 7 (Sessions don't exist yet), so the guard is
- * exercised for real the moment Sessions start referencing templates rather
- * than being retrofitted later — plan §21/Phase 4's "write the guard now,
- * exercise it in Phase 7."
+ * Written in Phase 4, ahead of Sessions existing, and exercised for real
+ * once Phase 7 started referencing templates from Sessions — plan §21/
+ * Phase 4's "write the guard now, exercise it in Phase 7."
  */
 export function isTemplateEditable(template: TemplateLike): boolean {
   return template.status === "draft";
@@ -77,9 +76,9 @@ export function sumWeights(competencies: CompetencyLike[]): number {
  * one version can back more than one candidate). A `draft` is excluded: it
  * hasn't been through the human review/approve gate (ADR-004) yet.
  *
- * This is the guard Phase 4 wrote ahead of time and Phase 7 is the first to
- * exercise for real (plan §21/Phase 4's "write the guard now, exercise it
- * in Phase 7").
+ * This is the guard Phase 4 wrote ahead of time, first exercised for real
+ * by Phase 7's Candidate/Session flow (plan §21/Phase 4's "write the guard
+ * now, exercise it in Phase 7").
  */
 export function canStartSession(template: TemplateLike): boolean {
   return template.status === "approved" || template.status === "locked";

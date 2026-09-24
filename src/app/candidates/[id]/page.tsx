@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SESSION_STATUS_LABELS } from "@/domain/interviews/session-lifecycle";
 import { STAGE_LABELS, type InterviewStage } from "@/domain/interviews/stage-config";
 import { startSessionAction } from "@/features/candidates/actions";
 import { getCandidate, listSessionsForCandidate } from "@/features/candidates/queries";
@@ -126,8 +127,8 @@ export default async function CandidateDetailPage({
                         </Link>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={SESSION_STATUS_VARIANT[session.status]} className="capitalize">
-                          {session.status.replace("_", " ")}
+                        <Badge variant={SESSION_STATUS_VARIANT[session.status]}>
+                          {SESSION_STATUS_LABELS[session.status]}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">

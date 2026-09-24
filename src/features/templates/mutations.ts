@@ -323,8 +323,22 @@ export async function moveMandatoryRequirement(id: string, direction: "up" | "do
 // Questions
 // ---------------------------------------------------------------------------
 
+/** Guards against a `competencyId` that doesn't belong to the template being
+ * edited (§40.4) — reachable only through Next.js's encrypted bound-server-
+ * action closures (not raw client-controlled FormData), which meaningfully
+ * limits real-world exploitability for a single-user local tool, but the
+ * mutation should still reject a mismatch defensively rather than silently
+ * cross-linking a question to another template's competency. */
+async function requireCompetencyInTemplate(competencyId: string, templateId: string) {
+  const competency = await getCompetency(competencyId);
+  if (!competency || competency.templateId !== templateId) {
+    throw new Error("That competency doesn't belong to this template.");
+  }
+}
+
 export async function createQuestion(templateId: string, input: QuestionFormValues) {
   await requireEditableTemplate(templateId);
+  await requireCompetencyInTemplate(input.competencyId, templateId);
   // sortOrder is scoped to the competency group, matching moveQuestion's
   // "up/down within this competency's list" semantics.
   const existingInCompetency = await db.query.questions.findMany({
@@ -341,6 +355,7 @@ export async function updateQuestion(id: string, input: QuestionFormValues) {
   const question = await getQuestion(id);
   if (!question) throw new Error("Question not found.");
   await requireEditableTemplate(question.templateId);
+  await requireCompetencyInTemplate(input.competencyId, question.templateId);
   const [updated] = await db
     .update(questions)
     .set({ ...input, updatedAt: new Date() })

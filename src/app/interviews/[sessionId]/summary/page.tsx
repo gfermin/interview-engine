@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { canGenerateReport, canReopenSession, isSessionDecided } from "@/domain/interviews/session-lifecycle";
 import { canRecordDecision } from "@/domain/interviews/decision";
 import { buildNarrative } from "@/domain/interviews/narrative";
-import { getStageConfig, type InterviewStage } from "@/domain/interviews/stage-config";
+import { getStageConfig, statusLabelFor, type InterviewStage } from "@/domain/interviews/stage-config";
 import type { InterviewStatus, MandatoryRequirementStatus } from "@/domain/scoring/types";
 import { recordDecisionAction, reopenSessionAction } from "@/features/interviews/actions";
 import { DecisionForm } from "@/features/interviews/decision-form";
@@ -149,7 +149,13 @@ export default async function InterviewSummaryPage({
               </div>
               <div>
                 <dt className="text-[11px] text-muted-foreground">Recommendation</dt>
-                <dd className="font-mono text-sm">{result.recommendation ?? "—"}</dd>
+                <dd className="text-sm">
+                  {result.recommendation === "REVIEW_REQUIRED"
+                    ? "Review Required"
+                    : result.recommendation
+                      ? statusLabelFor(stage, result.recommendation)
+                      : "—"}
+                </dd>
               </div>
             </dl>
 
@@ -266,7 +272,8 @@ export default async function InterviewSummaryPage({
               <div className="rounded-lg border border-border bg-muted/40 p-3 text-[12.5px]">
                 <p>
                   <span className="font-medium">Recorded: </span>
-                  {recordedDecision.finalDecision} ({recordedDecision.mode.replace("_", " ")})
+                  {statusLabelFor(stage, recordedDecision.finalDecision)} (
+                  {recordedDecision.mode.replace("_", " ")})
                 </p>
                 {recordedDecision.reason ? (
                   <p className="mt-1 text-muted-foreground">{recordedDecision.reason}</p>
@@ -276,14 +283,21 @@ export default async function InterviewSummaryPage({
 
             {canRecordDecision(result.status) ? (
               <DecisionForm
+                // Forces a clean remount when the calculated status changes
+                // (e.g. after a Reopen + re-rate) — see the note in
+                // decision-form.tsx (§40.1) for why this can't just rely on
+                // useState's initial-value guard alone.
+                key={result.status}
                 action={recordDecisionAction.bind(null, sessionId)}
                 status={result.status}
+                stage={stage}
                 existingDecision={recordedDecision}
               />
             ) : (
               <p className="text-sm text-muted-foreground">
-                {result.reason} A decision can be recorded once the interview reaches a
-                PASS, FAIL, or BORDERLINE calculated result.
+                {result.reason} A decision can be recorded once the interview reaches a{" "}
+                {statusLabelFor(stage, "PASS")}, {statusLabelFor(stage, "FAIL")}, or{" "}
+                {statusLabelFor(stage, "BORDERLINE")} calculated result.
               </p>
             )}
           </CardContent>

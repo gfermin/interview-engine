@@ -82,9 +82,52 @@ call an AI provider — without either, AI actions surface a clear error and
 everything else keeps working offline. Requires Playwright's Chromium
 browser to be installed locally (see Getting started) — without it, report
 generation fails with a clear error and everything else keeps working.
-**This completes the core POC loop (Phases 1-11).** Phase 12 (BambooHR
-Integration POC) is next, followed by Phase 13 (Hardening/Testing/UX
-Polish) and Phase 14 (Production Readiness).
+**This completes the core POC loop (Phases 1-11).**
+
+**Phase 13 (Hardening / Testing / UX Polish)** — entered directly from
+Phase 11 (Phase 12/BambooHR deliberately skipped for now, per its own
+"only pursued after the core loop is proven" framing). Because this
+phase's plan entry is open-ended rather than a fixed requirements list, it
+started with a full-codebase audit (test coverage, error-messaging
+quality, missing Next.js conventions, UX rough edges, dead code, Zod
+schema gaps) instead of a predetermined task list — see plan §40 for the
+complete findings. The audit's pure-display/copy/comment findings were
+applied immediately: a duplicated position-title fix in the "Start
+Interview Session" template picker, friendly labels in place of raw
+enums (`REVIEW_REQUIRED`, `PASS`/`FAIL` now using each stage's own
+vocabulary via `statusLabelFor`) on the Summary screen's Recommendation
+and Decision displays, one shared session-status label map replacing
+three separate ad hoc versions, a clearer interview-history empty state,
+a working link on the Template builder's "add a competency first"
+message, and several stale phase-tense comments corrected. Findings that
+needed an actual logic change — a confirmed `DecisionForm` state bug after
+Reopen, several jargon-y/leaky error messages, missing `error.tsx`/
+`not-found.tsx`, a handful of data-integrity gaps, and the bulk of the
+test-coverage gaps (`createNewTemplateVersion` most notably) — were
+recorded in plan §40 as a reviewed backlog, then resolved in a deliberate
+follow-up pass (plan §40.7): the `DecisionForm` bug is fixed (guarded at
+both the component's initial-state derivation and via a `key={status}` at
+its call site, with a regression test proving both halves are needed);
+every jargon-y/leaky error message now reads in plain language, including
+mapped AI-provider status codes (401/429/5xx/network) and a friendly
+"install Chromium" message when Playwright's binary is missing; a styled
+root `error.tsx` and `not-found.tsx` now catch the class of uncaught
+exceptions/404s the audit flagged; the data-integrity gaps (double-click
+guard on "Create New Version," cross-template ownership checks on
+questions/mandatory-requirements, and length caps aligned between the
+human-authored form schemas and the AI-generated-content schemas) are
+closed; and the test-coverage backlog is closed except a deliberately
+skipped e2e journey test (real coverage of the core loop continues to live
+in Vitest integration tests, per the audit's own note that this was
+already an established, working deviation from the plan text) — 265
+unit/component tests now pass (up from 207), including new coverage for
+`createNewTemplateVersion`, the delete/update/move mutations, `listSessions`
+filters, `DecisionForm`, and the Server Actions this pass's fixes touched.
+A coverage tool (`@vitest/coverage-v8`, `npm run test:coverage`) is
+configured for the first time.
+
+Phase 12 (BambooHR Integration POC) and Phase 14 (Production Readiness)
+remain open.
 
 ## Stack
 

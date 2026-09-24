@@ -25,6 +25,7 @@ import {
 } from "./schemas";
 import {
   AIValidationError,
+  summarizeValidationIssues,
   type AIProvider,
   type AnalyzeJobDescriptionInput,
   type GenerateTemplateDraftInput,
@@ -91,7 +92,7 @@ export class GeminiProvider implements AIProvider {
     const parsed = jobAnalysisResultSchema.safeParse(args);
     if (!parsed.success) {
       throw new AIValidationError(
-        `AI job analysis output failed validation: ${parsed.error.message}`,
+        `AI job analysis output failed validation: ${summarizeValidationIssues(parsed.error)}`,
         args
       );
     }
@@ -104,7 +105,7 @@ export class GeminiProvider implements AIProvider {
     const parsed = templateDraftSchema.safeParse(args);
     if (!parsed.success) {
       throw new AIValidationError(
-        `AI template draft output failed validation: ${parsed.error.message}`,
+        `AI template draft output failed validation: ${summarizeValidationIssues(parsed.error)}`,
         args
       );
     }
@@ -117,7 +118,7 @@ export class GeminiProvider implements AIProvider {
     const parsed = draftQuestionSchema.safeParse(args);
     if (!parsed.success) {
       throw new AIValidationError(
-        `AI question regeneration output failed validation: ${parsed.error.message}`,
+        `AI question regeneration output failed validation: ${summarizeValidationIssues(parsed.error)}`,
         args
       );
     }
@@ -146,7 +147,7 @@ export class GeminiProvider implements AIProvider {
 
     const call = response.functionCalls?.find((c) => c.name === declaration.name);
     if (!call) {
-      throw new Error(`AI response did not include a "${declaration.name}" function call.`);
+      throw new Error("The AI returned an unexpected response — try again.");
     }
     return call.args;
   }

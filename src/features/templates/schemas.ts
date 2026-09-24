@@ -12,10 +12,32 @@ const optionalText = (max: number) =>
  * entirely when unchecked — never `"false"`. */
 const checkbox = z.preprocess((v) => v === "on" || v === true, z.boolean());
 
-const level1to5 = () => z.coerce.number().int().min(1).max(5);
+const level1to5 = () =>
+  z.coerce
+    .number({ error: "Enter a level from 1 to 5." })
+    .int("Enter a whole number from 1 to 5.")
+    .min(1, "Level must be at least 1.")
+    .max(5, "Level must be at most 5.");
+
+/** A 0-100 whole-number field (weights, thresholds) — §40.2: these
+ * previously fell through to Zod's default wording ("Invalid option:
+ * expected one of ...", "expected number, received NaN") on a blank/invalid
+ * submission. */
+const percent0to100 = (label: string) =>
+  z.coerce
+    .number({ error: `${label} must be a number.` })
+    .int(`${label} must be a whole number.`)
+    .min(0, `${label} must be at least 0.`)
+    .max(100, `${label} must be at most 100.`);
 
 /** The artifact's multi-line "one item per line" text-area pattern for
- * concepts/redFlags/followUps/rubric (plan §2.3/§19), parsed into an array. */
+ * concepts/redFlags/followUps/rubric (plan §2.3/§19), parsed into an array.
+ * Capped (§40.4) — previously unbounded, so a pasted wall of text could
+ * persist as a single field with no upper bound on either line count or
+ * line length. Bounds match `AI_LIST_ITEM_MAX`/`AI_LIST_MAX` in
+ * services/ai/schemas.ts, which the AI-generated equivalent of this same
+ * field must also respect (§40.4's "align the AI schemas' bounds with the
+ * form schemas'"). */
 const lines = z
   .string()
   .optional()
@@ -24,6 +46,11 @@ const lines = z
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line.length > 0)
+  )
+  .pipe(
+    z
+      .array(z.string().max(500, "Each line must be 500 characters or fewer."))
+      .max(30, "30 lines maximum.")
   );
 
 export const templateFormSchema = z.object({
@@ -31,7 +58,7 @@ export const templateFormSchema = z.object({
   // Kept as a literal tuple (not derived from stage-config's array type) so
   // Zod's inference stays a clean union — the two lists are asserted equal
   // by src/features/templates/schemas.test.ts.
-  stage: z.enum(["technical", "screening"]),
+  stage: z.enum(["technical", "screening"], { error: "Select a valid interview stage." }),
   name: z.string().trim().min(1, "Name is required").max(200),
 });
 
@@ -39,10 +66,10 @@ export type TemplateFormValues = z.infer<typeof templateFormSchema>;
 
 export const scoringConfigFormSchema = z
   .object({
-    passThreshold: z.coerce.number().int().min(0).max(100),
-    borderlineMin: z.coerce.number().int().min(0).max(100),
-    criticalMin: z.coerce.number().int().min(0).max(100),
-    minCompletion: z.coerce.number().int().min(0).max(100),
+    passThreshold: percent0to100("Pass threshold"),
+    borderlineMin: percent0to100("Borderline minimum"),
+    criticalMin: percent0to100("Critical minimum"),
+    minCompletion: percent0to100("Minimum completion"),
     // Gate config for the "English" SupplementaryAssessment (plan §9/§17) —
     // whether it's required for a PASS, and what level clears the bar.
     englishRequired: checkbox,
@@ -57,7 +84,7 @@ export type ScoringConfigFormValues = z.infer<typeof scoringConfigFormSchema>;
 
 export const competencyFormSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(200),
-  weight: z.coerce.number().int().min(0, "Weight must be 0-100").max(100),
+  weight: percent0to100("Weight"),
   critical: checkbox,
   // Seniority-relative rubric anchor (plan §39.4) — what "3, Meets Expected
   // Level" looks like for this competency at this template's seniority.
@@ -77,7 +104,7 @@ export type MandatoryRequirementFormValues = z.infer<
 
 export const questionFormSchema = z.object({
   competencyId: z.string().min(1, "Select a competency."),
-  text: z.string().trim().min(1, "Question text is required"),
+  text: z.string().trim().min(1, "Question text is required").max(2000),
   difficulty: z.enum(["easy", "medium", "hard"]),
   importance: z.enum(["core", "secondary", "optional"]),
   expected: optionalText(2000),

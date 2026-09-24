@@ -37,9 +37,15 @@ export async function rateQuestionAction(
  * NotesField) rather than on every keystroke — the plan's own risk note
  * ("recomputing on every keystroke could be wasteful") applies to
  * persistence too, not just score recompute. */
+/** Notes have no upper bound at the schema level (this isn't backed by a
+ * Zod schema at all — see NotesField), so §40.4's cap is applied here
+ * instead, matching the plan's other free-text field bounds. */
+const MAX_NOTES_LENGTH = 5000;
+
 export async function updateNotesAction(sessionId: string, questionId: string, formData: FormData) {
   const raw = formData.get("notes");
-  const notes = typeof raw === "string" && raw.trim() ? raw.trim() : null;
+  const trimmed = typeof raw === "string" ? raw.trim().slice(0, MAX_NOTES_LENGTH) : "";
+  const notes = trimmed ? trimmed : null;
   await updateQuestionNotes(sessionId, questionId, notes);
   revalidatePath(`/interviews/${sessionId}`);
 }

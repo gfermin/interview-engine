@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
+import { SESSION_STATUS_LABELS } from "@/domain/interviews/session-lifecycle";
 import { INTERVIEW_STAGES, STAGE_LABELS, type InterviewStage } from "@/domain/interviews/stage-config";
 import { listCandidates } from "@/features/candidates/queries";
 import { listSessions, type SessionListFilters } from "@/features/interviews/queries";
@@ -41,6 +42,7 @@ export default async function InterviewsHistoryPage({
   const stage = firstValue(params.stage) as SessionListFilters["stage"];
   const status = firstValue(params.status) as SessionListFilters["status"];
 
+  const hasFilters = Boolean(positionId || candidateId || stage || status);
   const [sessions, positions, candidates] = await Promise.all([
     listSessions({ positionId, candidateId, stage, status }),
     listPositions(),
@@ -105,8 +107,8 @@ export default async function InterviewsHistoryPage({
                 <Select id="status" name="status" defaultValue={status ?? ""}>
                   <option value="">All statuses</option>
                   {SESSION_STATUSES.map((s) => (
-                    <option key={s} value={s} className="capitalize">
-                      {s.replace("_", " ")}
+                    <option key={s} value={s}>
+                      {SESSION_STATUS_LABELS[s]}
                     </option>
                   ))}
                 </Select>
@@ -115,7 +117,7 @@ export default async function InterviewsHistoryPage({
                 <Button type="submit" size="sm">
                   Filter
                 </Button>
-                {positionId || candidateId || stage || status ? (
+                {hasFilters ? (
                   <Button size="sm" variant="outline" render={<Link href="/interviews">Clear</Link>} />
                 ) : null}
               </div>
@@ -127,7 +129,17 @@ export default async function InterviewsHistoryPage({
           <CardContent className="p-0">
             {sessions.length === 0 ? (
               <p className="p-6 text-sm text-muted-foreground">
-                No interview sessions match these filters.
+                {hasFilters ? (
+                  "No interview sessions match these filters."
+                ) : (
+                  <>
+                    No interviews yet — start one from a{" "}
+                    <Link href="/candidates" className="underline">
+                      candidate&apos;s page
+                    </Link>
+                    .
+                  </>
+                )}
               </p>
             ) : (
               <Table>
@@ -166,8 +178,8 @@ export default async function InterviewsHistoryPage({
                         </Link>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={SESSION_STATUS_VARIANT[session.status]} className="capitalize">
-                          {session.status.replace("_", " ")}
+                        <Badge variant={SESSION_STATUS_VARIANT[session.status]}>
+                          {SESSION_STATUS_LABELS[session.status]}
                           {session.reopenCount > 0 ? ` · reopened ${session.reopenCount}×` : ""}
                         </Badge>
                       </TableCell>
