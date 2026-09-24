@@ -3,6 +3,7 @@ import { db } from "@/db";
 import {
   competencies,
   interviewTemplates,
+  jobAnalyses,
   mandatoryRequirements,
   positions,
   questions,
@@ -64,4 +65,16 @@ export function listQuestions(templateId: string) {
 
 export function getQuestion(id: string) {
   return db.query.questions.findFirst({ where: eq(questions.id, id) });
+}
+
+/** The most recent AI analysis of a given Job Description version — a
+ * template's "Analyze Job Description" action can be run more than once
+ * (e.g. to retry after a validation failure), and only the latest result is
+ * shown (plan §16: JobAnalysis "generated -> human-reviewed", not versioned
+ * itself). */
+export function getLatestJobAnalysis(jobDescriptionId: string) {
+  return db.query.jobAnalyses.findFirst({
+    where: eq(jobAnalyses.jobDescriptionId, jobDescriptionId),
+    orderBy: [desc(jobAnalyses.createdAt)],
+  });
 }

@@ -10,22 +10,22 @@ import {
 
 const NEXT_UP = [
   {
-    phase: "Phase 5",
-    title: "AI JD Analysis & Question Generation",
-    detail:
-      "Position + Role Family + Seniority + Stage + JD, jointly, through JD analysis, a competency model, a question blueprint, and seniority-aware rubrics.",
-  },
-  {
     phase: "Phase 6",
     title: "Interview Template Review / Approval",
     detail:
-      "Human review/edit/approve of AI-generated content, including the role/seniority mismatch banner.",
+      "Turn a raw AI draft into something a human explicitly approved: edit/delete/reorder, per-question regenerate, and a more prominent review surface for the role/seniority mismatch flag.",
   },
   {
     phase: "Phase 7",
     title: "Candidate Management",
     detail:
       "Candidate CRUD and roster, replacing the artifact's single-candidate-slot model — the first real use of a Template's lock-on-use guard.",
+  },
+  {
+    phase: "Phase 8",
+    title: "Live Interview Engine",
+    detail:
+      "The artifact's question-card rating UI (0-5/N/A, disclosure panels, live score chips), rebuilt as componentized, database-backed React.",
   },
 ];
 
@@ -38,15 +38,17 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
               <CardTitle className="text-[15px]">
-                Phase 4 — Interview Template Engine
+                Phase 5 — AI JD Analysis &amp; Question Generation
               </CardTitle>
               <CardDescription className="mt-1">
-                Templates are versioned and publishable: hand-author
-                Competencies (with per-competency Expected Depth),
-                MandatoryRequirements, and Questions for both the Technical
-                Interview and First Screening stages, then publish — a
-                template locks the moment a candidate Session references it
-                (Phase 7), and further edits require a new version.
+                From an empty draft template: &ldquo;Analyze Job
+                Description&rdquo; extracts a JobAnalysis (with a
+                non-blocking role/seniority mismatch flag), then &ldquo;Generate
+                Draft&rdquo; produces a full Competency/MandatoryRequirement/
+                Question set — calibrated jointly to Position, Role Family,
+                Seniority, Stage, and the JD — Zod-validated before it ever
+                touches the database. Requires <code>ANTHROPIC_API_KEY</code>{" "}
+                in <code>.env</code>.
               </CardDescription>
             </div>
             <Button size="sm" render={<Link href="/templates">Open Templates</Link>} />

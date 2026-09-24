@@ -54,6 +54,40 @@ export const jobDescriptions = sqliteTable("job_descriptions", {
 });
 
 // ---------------------------------------------------------------------------
+// Job Analysis (Phase 5) — AI-extracted structure from a JobDescription
+// version. Plan §16/§39: `detectedRoleFamily`/`detectedSeniority` feed the
+// non-blocking mismatch flag against the Position's own stated values — the
+// system never overrides the human's selection (§39.3/ADR-006).
+// ---------------------------------------------------------------------------
+
+export const jobAnalyses = sqliteTable("job_analyses", {
+  id: id(),
+  jobDescriptionId: text("job_description_id")
+    .notNull()
+    .references(() => jobDescriptions.id, { onDelete: "cascade" }),
+  detectedRoleFamily: text("detected_role_family"),
+  detectedSeniority: text("detected_seniority"),
+  // Mirrors the artifact's JD_ANALYSIS shape (mandatory[]/preferred[]/
+  // optional[]/notes — plan §2.2) rather than a single flat skills list, so
+  // Phase 9's "Mandatory JD Requirements: PASS/FAIL" gate (§4.3) has
+  // criticality-tagged requirements to work from, not just free text.
+  mandatoryRequirements: text("mandatory_requirements", { mode: "json" })
+    .$type<string[]>()
+    .notNull()
+    .default([]),
+  preferredRequirements: text("preferred_requirements", { mode: "json" })
+    .$type<string[]>()
+    .notNull()
+    .default([]),
+  optionalRequirements: text("optional_requirements", { mode: "json" })
+    .$type<string[]>()
+    .notNull()
+    .default([]),
+  notes: text("notes"),
+  ...timestamps,
+});
+
+// ---------------------------------------------------------------------------
 // Interview Template (Phase 4) — versioned, lock-on-use (ADR-008)
 // ---------------------------------------------------------------------------
 
@@ -143,6 +177,34 @@ export const questions = sqliteTable("questions", {
   code: text("code"),
   solution: text("solution"),
   sortOrder: integer("sort_order").notNull().default(0),
+  ...timestamps,
+});
+
+// ---------------------------------------------------------------------------
+// AI Generation Record (Phase 5) — provenance of AI-generated content
+// (plan §17): provider/model/prompt version, what was analyzed or
+// generated, and (for a template-draft generation) the Question Blueprint
+// that constrained it. Written only on a successful, Zod-validated
+// generation — a failed call produces nothing to record (plan §28: the
+// reviewer sees the raw output and retries, nothing unvalidated persists).
+// ---------------------------------------------------------------------------
+
+export const aiGenerationRecords = sqliteTable("ai_generation_records", {
+  id: id(),
+  kind: text("kind", { enum: ["job_analysis", "template_draft"] }).notNull(),
+  jobDescriptionId: text("job_description_id").references(() => jobDescriptions.id, {
+    onDelete: "set null",
+  }),
+  templateId: text("template_id").references(() => interviewTemplates.id, {
+    onDelete: "set null",
+  }),
+  provider: text("provider").notNull(),
+  model: text("model").notNull(),
+  promptVersion: text("prompt_version").notNull(),
+  // The Question Blueprint (coverage/difficulty/type distribution per
+  // competency — plan §39.6) that constrained a "template_draft" generation.
+  // Null for "job_analysis" records, which have no blueprint step.
+  blueprint: text("blueprint", { mode: "json" }),
   ...timestamps,
 });
 
