@@ -16,23 +16,46 @@ import {
   type DecisionMode,
   type FinalDecision,
 } from "@/domain/interviews/decision";
-import { isSessionEditable } from "@/domain/interviews/session-lifecycle";
+import { canReopenSession, isSessionDecided, isSessionEditable } from "@/domain/interviews/session-lifecycle";
 import type { MandatoryRequirementStatus, QuestionScore } from "@/domain/scoring/types";
 import { getQuestion, listCompetencies } from "@/features/templates/queries";
 import { buildSessionEvaluationState, getSession } from "./queries";
 import { computeFullScoringResult } from "./scoring";
 
 class SessionNotEditableError extends Error {
-  constructor() {
-    super("This interview has already been finished — reopen it (Phase 11) before changing ratings.");
+  constructor(message: string) {
+    super(message);
     this.name = "SessionNotEditableError";
   }
 }
 
+/** Guards question ratings/notes — the "conducting the interview" phase
+ * ends the moment `finishRating` moves a session past `in_progress`, and
+ * only Reopen can bring it back (plan §16/Phase 11). */
 async function requireEditableSession(sessionId: string) {
   const session = await getSession(sessionId);
   if (!session) throw new Error("Session not found.");
-  if (!isSessionEditable(session)) throw new SessionNotEditableError();
+  if (!isSessionEditable(session)) {
+    throw new SessionNotEditableError(
+      "This interview has already been finished — reopen it before changing ratings."
+    );
+  }
+  return session;
+}
+
+/** Guards the Summary screen's own inputs (Mandatory Requirement status,
+ * the English level) — unlike question ratings, these stay editable while
+ * `completed` (that's the whole point of visiting Summary before a decision
+ * exists: to finish evaluating the gates a decision depends on). Only
+ * `decided` freezes them, matching {@link isSessionDecided}. */
+async function requireNotDecided(sessionId: string) {
+  const session = await getSession(sessionId);
+  if (!session) throw new Error("Session not found.");
+  if (isSessionDecided(session)) {
+    throw new SessionNotEditableError(
+      "This interview has already been decided — reopen it before changing this."
+    );
+  }
   return session;
 }
 
@@ -125,7 +148,7 @@ export async function updateMandatoryRequirementStatus(
   requirementId: string,
   status: MandatoryRequirementStatus
 ) {
-  await requireEditableSession(sessionId);
+  await requireNotDecided(sessionId);
   await db
     .insert(mandatoryRequirementEvaluations)
     .values({ sessionId, requirementId, status })
@@ -140,7 +163,7 @@ export async function updateMandatoryRequirementStatus(
  * to the `supplementaryAssessments` table (plan §9) but only "english" is
  * wired up yet. */
 export async function updateEnglishAssessment(sessionId: string, level: number | null) {
-  await requireEditableSession(sessionId);
+  await requireNotDecided(sessionId);
   await db
     .insert(supplementaryAssessments)
     .values({ sessionId, kind: "english", level })
@@ -231,4 +254,34 @@ export async function recordDecision(sessionId: string, input: RecordDecisionInp
     .where(eq(interviewSessions.id, sessionId));
 
   return { result, finalDecision };
+}
+
+/**
+ * Reopens a `completed` or `decided` session back to `in_progress` (plan
+ * §16/Phase 11) — the only path back to editable ratings once
+ * `finishRating` or `recordDecision` has locked them. Deliberately doesn't
+ * touch the existing `InterviewDecision` or delete anything: the prior
+ * decision stays visible on the Summary screen (as history-of-one, per the
+ * POC's no-audit-trail limitation, plan §21/§38) until the interviewer
+ * records a new one, and a subsequent `generateReport` call produces a
+ * *second* `InterviewReport` row rather than replacing the first (plan
+ * §24's "regenerating a report ... produces a new version only through an
+ * explicit reopen action").
+ */
+export async function reopenSession(sessionId: string) {
+  const session = await getSession(sessionId);
+  if (!session) throw new Error("Session not found.");
+  if (!canReopenSession(session)) {
+    throw new Error("Only a completed or decided session can be reopened.");
+  }
+
+  await db
+    .update(interviewSessions)
+    .set({
+      status: "in_progress",
+      reopenedAt: new Date(),
+      reopenCount: session.reopenCount + 1,
+      updatedAt: new Date(),
+    })
+    .where(eq(interviewSessions.id, sessionId));
 }

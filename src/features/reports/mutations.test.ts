@@ -8,6 +8,7 @@ import { createCompetency, createMandatoryRequirement, createQuestion } from "@/
 import {
   rateQuestion,
   recordDecision,
+  reopenSession,
   updateMandatoryRequirementStatus,
 } from "@/features/interviews/mutations";
 import { generateReport } from "./mutations";
@@ -60,7 +61,7 @@ async function createDecidedSessionFixture() {
   await updateMandatoryRequirementStatus(session.id, requirement.id, "met");
   await recordDecision(session.id, { mode: "accept" });
 
-  return { session };
+  return { session, question };
 }
 
 describe("generateReport", () => {
@@ -117,4 +118,31 @@ describe("generateReport", () => {
   it("throws when the session doesn't exist", async () => {
     await expect(generateReport(randomUUID())).rejects.toThrow(/not found/);
   });
+
+  // Plan §11/Phase 11's testing requirement: finalize, reopen, re-rate,
+  // re-finalize, confirm two distinct InterviewReport records exist.
+  it("a full finalize -> reopen -> re-rate -> re-finalize cycle produces a second, distinct report", async () => {
+    const { session, question } = await createDecidedSessionFixture();
+
+    const firstReport = await generateReport(session.id);
+
+    await reopenSession(session.id);
+    await rateQuestion(session.id, question.id, 1); // was 5 -> now fails the critical bar
+    await recordDecision(session.id, {
+      mode: "accept",
+    });
+
+    const secondReport = await generateReport(session.id);
+
+    expect(secondReport.id).not.toBe(firstReport.id);
+    expect(secondReport.filePath).not.toBe(firstReport.filePath);
+
+    const reports = await listReportsForSession(session.id);
+    expect(reports).toHaveLength(2);
+
+    const finalDecision = await db.query.interviewDecisions.findFirst({
+      where: (t, { eq: eqOp }) => eqOp(t.sessionId, session.id),
+    });
+    expect(finalDecision?.finalDecision).toBe("FAIL");
+  }, 30000);
 });

@@ -3,12 +3,12 @@ import { notFound } from "next/navigation";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { canGenerateReport } from "@/domain/interviews/session-lifecycle";
+import { canGenerateReport, canReopenSession, isSessionDecided } from "@/domain/interviews/session-lifecycle";
 import { canRecordDecision } from "@/domain/interviews/decision";
 import { buildNarrative } from "@/domain/interviews/narrative";
 import { getStageConfig, type InterviewStage } from "@/domain/interviews/stage-config";
-import type { InterviewStatus } from "@/domain/scoring/types";
-import { recordDecisionAction } from "@/features/interviews/actions";
+import type { InterviewStatus, MandatoryRequirementStatus } from "@/domain/scoring/types";
+import { recordDecisionAction, reopenSessionAction } from "@/features/interviews/actions";
 import { DecisionForm } from "@/features/interviews/decision-form";
 import { EnglishAssessmentControl } from "@/features/interviews/english-assessment-control";
 import { MandatoryRequirementControl } from "@/features/interviews/mandatory-requirement-control";
@@ -18,6 +18,7 @@ import {
   getSupplementaryAssessment,
   listMandatoryRequirementEvaluations,
 } from "@/features/interviews/queries";
+import { ReopenSessionButton } from "@/features/interviews/reopen-session-button";
 import { computeFullScoringResult } from "@/features/interviews/scoring";
 import { getPosition } from "@/features/positions/queries";
 import { generateReportAction } from "@/features/reports/actions";
@@ -33,6 +34,17 @@ const STATUS_VARIANT: Record<InterviewStatus, "default" | "secondary" | "destruc
   FAIL: "destructive",
   BORDERLINE: "secondary",
   PASS: "default",
+};
+
+const MANDATORY_STATUS_LABEL: Record<MandatoryRequirementStatus, string> = {
+  met: "Met",
+  not_met: "Not Met",
+  unknown: "Unknown",
+};
+const MANDATORY_STATUS_VARIANT: Record<MandatoryRequirementStatus, "default" | "destructive" | "outline"> = {
+  met: "default",
+  not_met: "destructive",
+  unknown: "outline",
 };
 
 export default async function InterviewSummaryPage({
@@ -107,9 +119,14 @@ export default async function InterviewSummaryPage({
                 </Badge>
               </div>
             </div>
-            <Badge variant={STATUS_VARIANT[result.status]} className="text-[13px]">
-              {statusLabel}
-            </Badge>
+            <div className="flex flex-col items-end gap-2">
+              <Badge variant={STATUS_VARIANT[result.status]} className="text-[13px]">
+                {statusLabel}
+              </Badge>
+              {canReopenSession(session) ? (
+                <ReopenSessionButton action={reopenSessionAction.bind(null, sessionId)} />
+              ) : null}
+            </div>
           </CardHeader>
         </Card>
 
@@ -190,11 +207,17 @@ export default async function InterviewSummaryPage({
                         <p className="text-[11.5px] text-muted-foreground">{requirement.description}</p>
                       ) : null}
                     </div>
-                    <MandatoryRequirementControl
-                      sessionId={sessionId}
-                      requirementId={requirement.id}
-                      currentStatus={mrStatusByRequirementId.get(requirement.id) ?? "unknown"}
-                    />
+                    {isSessionDecided(session) ? (
+                      <Badge variant={MANDATORY_STATUS_VARIANT[mrStatusByRequirementId.get(requirement.id) ?? "unknown"]}>
+                        {MANDATORY_STATUS_LABEL[mrStatusByRequirementId.get(requirement.id) ?? "unknown"]}
+                      </Badge>
+                    ) : (
+                      <MandatoryRequirementControl
+                        sessionId={sessionId}
+                        requirementId={requirement.id}
+                        currentStatus={mrStatusByRequirementId.get(requirement.id) ?? "unknown"}
+                      />
+                    )}
                   </li>
                 ))}
               </ul>
@@ -212,7 +235,13 @@ export default async function InterviewSummaryPage({
                 Optional supplementary module — only gates the decision if the template
                 marks it required.
               </p>
-              <EnglishAssessmentControl sessionId={sessionId} currentLevel={englishAssessment?.level ?? null} />
+              {isSessionDecided(session) ? (
+                <Badge variant="outline" className="w-fit">
+                  Level: {englishAssessment?.level ?? "Not assessed"}
+                </Badge>
+              ) : (
+                <EnglishAssessmentControl sessionId={sessionId} currentLevel={englishAssessment?.level ?? null} />
+              )}
             </CardContent>
           </Card>
         ) : null}

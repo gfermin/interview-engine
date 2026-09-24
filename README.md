@@ -6,8 +6,10 @@ decisions, data model, and phased implementation plan live in
 [`docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md`](../Prompts/docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md)
 in the sibling `Prompts` project.
 
-**Status:** Phase 10 (PDF Reporting) complete.
-Phases 0-10 done: app shell + SQLite/Drizzle (1), ScoringEngine/
+**Status:** Phase 11 (Persistence / History / Versioning Hardening) complete
+— **this is the POC completion** (plan §11: "this phase's completion is the
+POC completion").
+Phases 0-11 done: app shell + SQLite/Drizzle (1), ScoringEngine/
 CompletenessEngine/CriticalRequirementEngine + full schema (2), Position +
 Job Description management with Role Family/Seniority (3), the Template
 builder — Competency/MandatoryRequirement/Question CRUD, reordering,
@@ -61,12 +63,28 @@ written to `.data/reports/` and referenced by an immutable
 `InterviewReport` row; a download route
 (`/api/reports/[id]`) streams the bytes back, and regenerating adds a new
 report rather than overwriting the last one (10).
+and an Interview History screen (`/interviews`) listing and filtering every
+session by position/candidate/stage/status, plus an explicit "Reopen"
+action — the only way back to an editable session once `finishRating` or
+`recordDecision` has locked it. Reopening sends the session back to
+`in_progress` and stamps `reopenedAt`/`reopenCount`; it doesn't delete the
+prior decision or report, which stay visible until the interviewer
+re-decides, and generating a report again after a reopen produces a
+*second*, distinct `InterviewReport` rather than overwriting the first
+(11). Hardening this phase also caught and fixed a real Phase 9 bug: the
+Summary screen's own Mandatory Requirement and English controls were
+guarded by the *ratings* lock (`in_progress`-only) instead of the *decision*
+lock (`decided`-only), so they broke the moment "View Summary" moved a
+session to `completed` — before a decision even existed. They're now
+guarded correctly, and read-only once a session is `decided`.
 Requires `ANTHROPIC_API_KEY` **or** `GEMINI_API_KEY` in `.env` to actually
 call an AI provider — without either, AI actions surface a clear error and
 everything else keeps working offline. Requires Playwright's Chromium
 browser to be installed locally (see Getting started) — without it, report
 generation fails with a clear error and everything else keeps working.
-Persistence / History / Versioning Hardening (Phase 11) is next.
+**This completes the core POC loop (Phases 1-11).** Phase 12 (BambooHR
+Integration POC) is next, followed by Phase 13 (Hardening/Testing/UX
+Polish) and Phase 14 (Production Readiness).
 
 ## Stack
 

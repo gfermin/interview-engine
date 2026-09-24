@@ -21,9 +21,27 @@ export function isSessionEditable(session: SessionLike): boolean {
   return session.status === "in_progress";
 }
 
+/** `decided` is the terminal, fully-frozen state — a recorded
+ * `InterviewDecision` exists and every input that produced it should stay
+ * exactly as it was until an explicit Reopen (plan §16/Phase 11). */
+export function isSessionDecided(session: SessionLike): boolean {
+  return session.status === "decided";
+}
+
 /** A report is "generated only from a finalized InterviewSession + its
  * InterviewDecision" (plan §24) — `decided` is the only status that
  * guarantees an `InterviewDecision` row exists to report on. */
 export function canGenerateReport(session: SessionLike): boolean {
-  return session.status === "decided";
+  return isSessionDecided(session);
+}
+
+/**
+ * Reopen (plan §16/Phase 11) undoes whichever lock is currently in effect —
+ * `completed` (rating finished, no decision yet) or `decided` (a decision
+ * was recorded) — sending the session back to `in_progress`. Equivalent to
+ * "not editable," but named for its own call sites so a reader doesn't have
+ * to mentally invert `isSessionEditable` to see when Reopen applies.
+ */
+export function canReopenSession(session: SessionLike): boolean {
+  return !isSessionEditable(session);
 }

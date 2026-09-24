@@ -7,6 +7,7 @@ import {
   finishRating,
   rateQuestion,
   recordDecision,
+  reopenSession,
   updateEnglishAssessment,
   updateMandatoryRequirementStatus,
   updateQuestionNotes,
@@ -91,4 +92,13 @@ export async function recordDecisionAction(
   revalidatePath(`/interviews/${sessionId}/summary`);
   revalidatePath(`/candidates`);
   return {};
+}
+
+/** Reopens a finished session and sends the interviewer back to the rating
+ * screen, where ratings are editable again (plan §16/Phase 11). */
+export async function reopenSessionAction(sessionId: string) {
+  await reopenSession(sessionId);
+  revalidatePath(`/interviews/${sessionId}`);
+  revalidatePath(`/interviews/${sessionId}/summary`);
+  redirect(`/interviews/${sessionId}`);
 }
