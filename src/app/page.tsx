@@ -10,22 +10,22 @@ import {
 
 const NEXT_UP = [
   {
-    phase: "Phase 5",
-    title: "AI JD Analysis & Question Generation",
+    phase: "Phase 9",
+    title: "Scoring & Decision Engine",
     detail:
-      "Position + Role Family + Seniority + Stage + JD, jointly, through JD analysis, a competency model, a question blueprint, and seniority-aware rubrics.",
+      "Wire the ScoringEngine into a Summary screen: calculated status/reason, the Mandatory Requirement gate, and the human accept/override/forced-call decision workflow.",
   },
   {
-    phase: "Phase 6",
-    title: "Interview Template Review / Approval",
+    phase: "Phase 10",
+    title: "PDF Reporting",
     detail:
-      "Human review/edit/approve of AI-generated content, including the role/seniority mismatch banner.",
+      "Generate a professional PDF from a finalized InterviewSession using Playwright print-to-PDF from a server-rendered HTML template.",
   },
   {
-    phase: "Phase 7",
-    title: "Candidate Management",
+    phase: "Phase 11",
+    title: "Persistence / History / Versioning Hardening",
     detail:
-      "Candidate CRUD and roster, replacing the artifact's single-candidate-slot model — the first real use of a Template's lock-on-use guard.",
+      "Interview history list/search and an explicit 'reopen' flow for a finalized session, hardening the template-versioning guarantees before the POC is done.",
   },
 ];
 
@@ -38,18 +38,22 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
               <CardTitle className="text-[15px]">
-                Phase 4 — Interview Template Engine
+                Phase 8 — Live Interview Engine
               </CardTitle>
               <CardDescription className="mt-1">
-                Templates are versioned and publishable: hand-author
-                Competencies (with per-competency Expected Depth),
-                MandatoryRequirements, and Questions for both the Technical
-                Interview and First Screening stages, then publish — a
-                template locks the moment a candidate Session references it
-                (Phase 7), and further edits require a new version.
+                The artifact&apos;s question-card rating UI — 0-5/N/A rate
+                bar, collapsible expected-answer/rubric/follow-up panels,
+                autosaving notes — rebuilt as componentized, database-backed
+                React. Every rating recomputes the same{" "}
+                <code>ScoringEngine</code>/<code>CompletenessEngine</code>{" "}
+                from Phase 2 in place, driving live overall/completion/
+                critical chips and a per-competency section nav with status
+                icons (○/●/✓/⚠), exactly like the artifact&apos;s{" "}
+                <code>recalc()</code>-on-every-interaction pattern — now
+                backed by real persistence instead of <code>localStorage</code>.
               </CardDescription>
             </div>
-            <Button size="sm" render={<Link href="/templates">Open Templates</Link>} />
+            <Button size="sm" render={<Link href="/candidates">Open Candidates</Link>} />
           </CardHeader>
         </Card>
 

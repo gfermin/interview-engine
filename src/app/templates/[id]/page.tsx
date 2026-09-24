@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/table";
 import { getStageConfig, type InterviewStage } from "@/domain/interviews/stage-config";
 import { isTemplateEditable } from "@/domain/interviews/template-versioning";
-import { getPosition } from "@/features/positions/queries";
+import { getJobDescription, getPosition } from "@/features/positions/queries";
 import {
   createNewVersionAction,
   deleteCompetencyAction,
@@ -28,7 +28,14 @@ import {
   publishTemplateAction,
   updateScoringConfigAction,
 } from "@/features/templates/actions";
+import { AIActionButton, RegenerateQuestionButton } from "@/features/templates/ai-components";
 import {
+  analyzeJobDescriptionAction,
+  generateTemplateDraftAction,
+  regenerateQuestionAction,
+} from "@/features/templates/ai-actions";
+import {
+  getLatestJobAnalysis,
   getTemplate,
   listCompetencies,
   listMandatoryRequirements,
@@ -55,12 +62,17 @@ export default async function TemplateDetailPage({
   if (!template) notFound();
 
   const stage = template.stage as InterviewStage;
-  const [position, competencies, mandatoryRequirements, questions] = await Promise.all([
-    getPosition(template.positionId),
-    listCompetencies(id),
-    listMandatoryRequirements(id),
-    listQuestions(id),
-  ]);
+  const [position, competencies, mandatoryRequirements, questions, jobDescription] =
+    await Promise.all([
+      getPosition(template.positionId),
+      listCompetencies(id),
+      listMandatoryRequirements(id),
+      listQuestions(id),
+      template.jobDescriptionId ? getJobDescription(template.jobDescriptionId) : null,
+    ]);
+  const jobAnalysis = template.jobDescriptionId
+    ? await getLatestJobAnalysis(template.jobDescriptionId)
+    : null;
 
   const editable = isTemplateEditable(template);
   const stageConfig = getStageConfig(stage);
@@ -71,6 +83,9 @@ export default async function TemplateDetailPage({
     list.push(q);
     questionsByCompetency.set(q.competencyId, list);
   }
+
+  const roleFamilyMismatch = mismatches(position?.roleFamily ?? null, jobAnalysis?.detectedRoleFamily ?? null);
+  const seniorityMismatch = mismatches(position?.seniority ?? null, jobAnalysis?.detectedSeniority ?? null);
 
   return (
     <>
@@ -113,6 +128,77 @@ export default async function TemplateDetailPage({
               )}
             </div>
           </CardHeader>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-[13.5px]">Job Description &amp; AI Analysis</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {!jobDescription ? (
+              <p className="text-sm text-muted-foreground">
+                This template isn&apos;t linked to a Job Description version.
+                Add one on the{" "}
+                <Link href={`/positions/${template.positionId}`} className="underline">
+                  Position
+                </Link>
+                , then create a new template.
+              </p>
+            ) : (
+              <>
+                <details>
+                  <summary className="cursor-pointer text-[12.5px] text-muted-foreground">
+                    Job Description text (v{jobDescription.version})
+                  </summary>
+                  <p className="mt-2 max-h-48 overflow-auto rounded-lg border border-border bg-muted/40 p-3 text-[12.5px] whitespace-pre-wrap">
+                    {jobDescription.rawText}
+                  </p>
+                </details>
+
+                {editable ? (
+                  <AIActionButton
+                    action={analyzeJobDescriptionAction.bind(null, template.id)}
+                    label={jobAnalysis ? "Re-analyze Job Description" : "Analyze Job Description"}
+                    pendingLabel="Analyzing..."
+                  />
+                ) : null}
+
+                {jobAnalysis ? (
+                  <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      <Badge variant={roleFamilyMismatch ? "destructive" : "secondary"}>
+                        Detected role: {jobAnalysis.detectedRoleFamily ?? "—"}
+                      </Badge>
+                      <Badge variant={seniorityMismatch ? "destructive" : "secondary"}>
+                        Detected seniority: {jobAnalysis.detectedSeniority ?? "—"}
+                      </Badge>
+                    </div>
+                    {roleFamilyMismatch || seniorityMismatch ? (
+                      <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-[12px] text-amber-700 dark:text-amber-400">
+                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                        <p>
+                          The Job Description reads differently than the
+                          Position&apos;s selected Role Family/Seniority
+                          (&ldquo;{position?.roleFamily ?? "—"}&rdquo; /{" "}
+                          &ldquo;{position?.seniority ?? "—"}&rdquo;). Your
+                          selection is not changed automatically — review
+                          before generating.
+                        </p>
+                      </div>
+                    ) : null}
+                    <dl className="grid grid-cols-1 gap-2 text-[12.5px] sm:grid-cols-3">
+                      <RequirementList label="Mandatory" items={jobAnalysis.mandatoryRequirements} />
+                      <RequirementList label="Preferred" items={jobAnalysis.preferredRequirements} />
+                      <RequirementList label="Optional" items={jobAnalysis.optionalRequirements} />
+                    </dl>
+                    {jobAnalysis.notes ? (
+                      <p className="text-[12px] text-muted-foreground">{jobAnalysis.notes}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </>
+            )}
+          </CardContent>
         </Card>
 
         <Card>
@@ -161,7 +247,19 @@ export default async function TemplateDetailPage({
           </CardHeader>
           <CardContent className="p-0">
             {competencies.length === 0 ? (
-              <p className="px-6 pb-4 text-sm text-muted-foreground">No competencies yet.</p>
+              <div className="flex flex-col gap-3 px-6 pb-4">
+                <p className="text-sm text-muted-foreground">
+                  No competencies yet — add them manually above, or generate a
+                  draft from the Job Analysis.
+                </p>
+                {editable && jobAnalysis ? (
+                  <AIActionButton
+                    action={generateTemplateDraftAction.bind(null, template.id)}
+                    label="Generate Draft (Competencies, Requirements & Questions)"
+                    pendingLabel="Generating draft... this can take a minute"
+                  />
+                ) : null}
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -349,7 +447,7 @@ export default async function TemplateDetailPage({
                               </div>
                             </div>
                             {editable ? (
-                              <div className="flex shrink-0 gap-1">
+                              <div className="flex shrink-0 items-start gap-1">
                                 <RowActionButton
                                   action={moveQuestionAction.bind(null, id, q.id, "up")}
                                   icon={<ChevronUp />}
@@ -359,6 +457,9 @@ export default async function TemplateDetailPage({
                                   action={moveQuestionAction.bind(null, id, q.id, "down")}
                                   icon={<ChevronDown />}
                                   label="Move down"
+                                />
+                                <RegenerateQuestionButton
+                                  action={regenerateQuestionAction.bind(null, id, q.id)}
                                 />
                                 <Button
                                   variant="ghost"
@@ -392,11 +493,37 @@ export default async function TemplateDetailPage({
   );
 }
 
+/** Non-blocking mismatch check (plan §39.3) — the system never overrides
+ * the human's selection, it only flags a divergence for review. */
+function mismatches(selected: string | null, detected: string | null): boolean {
+  if (!selected || !detected) return false;
+  return selected.trim().toLowerCase() !== detected.trim().toLowerCase();
+}
+
 function ConfigStat({ label, value }: { label: string; value: number }) {
   return (
     <div>
       <dt className="text-[11px] text-muted-foreground">{label}</dt>
       <dd className="font-mono text-sm">{value}%</dd>
+    </div>
+  );
+}
+
+function RequirementList({ label, items }: { label: string; items: string[] }) {
+  return (
+    <div>
+      <dt className="text-[11px] font-medium text-muted-foreground">{label}</dt>
+      <dd>
+        {items.length === 0 ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          <ul className="list-disc pl-4">
+            {items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        )}
+      </dd>
     </div>
   );
 }

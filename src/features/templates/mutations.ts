@@ -1,12 +1,15 @@
 import { and, asc, desc, eq, gt, lt } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  aiGenerationRecords,
   competencies,
   interviewTemplates,
+  jobAnalyses,
   mandatoryRequirements,
   questions,
 } from "@/db/schema";
 import { checkPublishable, isTemplateEditable } from "@/domain/interviews/template-versioning";
+import type { JobAnalysisResult, TemplateDraft, TemplateDraftQuestion } from "@/services/ai/schemas";
 import type {
   CompetencyFormValues,
   MandatoryRequirementFormValues,
@@ -227,15 +230,18 @@ export async function moveCompetency(id: string, direction: "up" | "down") {
   });
   if (!sibling) return;
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(competencies)
+  // better-sqlite3 transactions must be synchronous (drizzle's TS signature
+  // doesn't enforce this, but an async callback throws at runtime — see
+  // mutations.test.ts) — call `.run()` directly rather than `await`.
+  db.transaction((tx) => {
+    tx.update(competencies)
       .set({ sortOrder: sibling.sortOrder })
-      .where(eq(competencies.id, competency.id));
-    await tx
-      .update(competencies)
+      .where(eq(competencies.id, competency.id))
+      .run();
+    tx.update(competencies)
       .set({ sortOrder: competency.sortOrder })
-      .where(eq(competencies.id, sibling.id));
+      .where(eq(competencies.id, sibling.id))
+      .run();
   });
 }
 
@@ -299,15 +305,15 @@ export async function moveMandatoryRequirement(id: string, direction: "up" | "do
   });
   if (!sibling) return;
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(mandatoryRequirements)
+  db.transaction((tx) => {
+    tx.update(mandatoryRequirements)
       .set({ sortOrder: sibling.sortOrder })
-      .where(eq(mandatoryRequirements.id, requirement.id));
-    await tx
-      .update(mandatoryRequirements)
+      .where(eq(mandatoryRequirements.id, requirement.id))
+      .run();
+    tx.update(mandatoryRequirements)
       .set({ sortOrder: requirement.sortOrder })
-      .where(eq(mandatoryRequirements.id, sibling.id));
+      .where(eq(mandatoryRequirements.id, sibling.id))
+      .run();
   });
 }
 
@@ -341,6 +347,44 @@ export async function updateQuestion(id: string, input: QuestionFormValues) {
   return updated;
 }
 
+/**
+ * Replaces a question's content in place (Phase 6) — same `id`,
+ * `competencyId`, `templateId`, and `sortOrder` as before, only the
+ * AI-generated fields change. Deliberately an update, not a delete+insert:
+ * the plan's own stated risk for this feature is "could drift the
+ * question's id/order," which an in-place update sidesteps entirely.
+ */
+export async function applyRegeneratedQuestion(
+  id: string,
+  regenerated: TemplateDraftQuestion,
+  options: { includeCodeExercises: boolean }
+) {
+  const question = await getQuestion(id);
+  if (!question) throw new Error("Question not found.");
+  await requireEditableTemplate(question.templateId);
+
+  const [updated] = await db
+    .update(questions)
+    .set({
+      text: regenerated.text,
+      difficulty: regenerated.difficulty,
+      importance: regenerated.importance,
+      expected: regenerated.expected,
+      strong: regenerated.strong,
+      acceptable: regenerated.acceptable,
+      concepts: regenerated.concepts,
+      redFlags: regenerated.redFlags,
+      followUps: regenerated.followUps,
+      rubric: regenerated.rubric,
+      code: options.includeCodeExercises ? regenerated.code : null,
+      solution: options.includeCodeExercises ? regenerated.solution : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(questions.id, id))
+    .returning();
+  return updated;
+}
+
 export async function deleteQuestion(id: string) {
   const question = await getQuestion(id);
   if (!question) return;
@@ -367,14 +411,138 @@ export async function moveQuestion(id: string, direction: "up" | "down") {
   });
   if (!sibling) return;
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(questions)
+  db.transaction((tx) => {
+    tx.update(questions)
       .set({ sortOrder: sibling.sortOrder })
-      .where(eq(questions.id, question.id));
-    await tx
-      .update(questions)
+      .where(eq(questions.id, question.id))
+      .run();
+    tx.update(questions)
       .set({ sortOrder: question.sortOrder })
-      .where(eq(questions.id, sibling.id));
+      .where(eq(questions.id, sibling.id))
+      .run();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// AI generation (Phase 5)
+// ---------------------------------------------------------------------------
+
+export async function saveJobAnalysis(jobDescriptionId: string, result: JobAnalysisResult) {
+  const [created] = await db
+    .insert(jobAnalyses)
+    .values({
+      jobDescriptionId,
+      detectedRoleFamily: result.detectedRoleFamily,
+      detectedSeniority: result.detectedSeniority,
+      mandatoryRequirements: result.mandatoryRequirements,
+      preferredRequirements: result.preferredRequirements,
+      optionalRequirements: result.optionalRequirements,
+      notes: result.notes,
+    })
+    .returning();
+  return created;
+}
+
+interface RecordAIGenerationInput {
+  kind: "job_analysis" | "template_draft" | "question_regeneration";
+  jobDescriptionId?: string | null;
+  templateId?: string | null;
+  provider: string;
+  model: string;
+  promptVersion: string;
+  blueprint?: unknown;
+}
+
+/** Provenance row (plan §17) — written only after a generation has already
+ * been Zod-validated and (for a draft) persisted; a failed call never
+ * reaches here (see ai-actions.ts). */
+export async function recordAIGeneration(input: RecordAIGenerationInput) {
+  const [created] = await db
+    .insert(aiGenerationRecords)
+    .values({
+      kind: input.kind,
+      jobDescriptionId: input.jobDescriptionId ?? null,
+      templateId: input.templateId ?? null,
+      provider: input.provider,
+      model: input.model,
+      promptVersion: input.promptVersion,
+      blueprint: input.blueprint ?? null,
+    })
+    .returning();
+  return created;
+}
+
+/**
+ * Bulk-inserts an AI-generated draft's Competencies (each with its
+ * Question-Blueprint-constrained Questions) and MandatoryRequirements into
+ * an editable template, in one transaction. Only meant to populate a fresh
+ * draft (the caller enforces the template's Competency list is currently
+ * empty) — this does not merge into or replace hand-authored content.
+ */
+export async function applyGeneratedDraft(
+  templateId: string,
+  draft: TemplateDraft,
+  options: { includeCodeExercises: boolean }
+) {
+  await requireEditableTemplate(templateId);
+
+  // better-sqlite3 transactions must be synchronous (see mutations.test.ts) —
+  // use `.get()`/`.run()` directly rather than `await`/`.returning()`'s
+  // thenable, which would silently escape the transaction (and briefly threw
+  // "Transaction function cannot return a promise" here during development).
+  db.transaction((tx) => {
+    draft.competencies.forEach((draftCompetency, competencyIndex) => {
+      const competency = tx
+        .insert(competencies)
+        .values({
+          templateId,
+          name: draftCompetency.name,
+          weight: draftCompetency.weight,
+          critical: draftCompetency.critical,
+          expectedDepth: draftCompetency.expectedDepth,
+          sortOrder: competencyIndex,
+        })
+        .returning()
+        .get();
+
+      draftCompetency.questions.forEach((draftQuestion, questionIndex) => {
+        tx.insert(questions)
+          .values({
+            templateId,
+            competencyId: competency.id,
+            text: draftQuestion.text,
+            difficulty: draftQuestion.difficulty,
+            importance: draftQuestion.importance,
+            expected: draftQuestion.expected,
+            strong: draftQuestion.strong,
+            acceptable: draftQuestion.acceptable,
+            concepts: draftQuestion.concepts,
+            redFlags: draftQuestion.redFlags,
+            followUps: draftQuestion.followUps,
+            rubric: draftQuestion.rubric,
+            // Defensive: strip code/solution even if the model returned
+            // them for a stage that doesn't use hands-on exercises (plan
+            // §39.7's "AI review doesn't gate what only a human should
+            // approve" — this is data hygiene, not a review step).
+            code: options.includeCodeExercises ? draftQuestion.code : null,
+            solution: options.includeCodeExercises ? draftQuestion.solution : null,
+            sortOrder: questionIndex,
+          })
+          .run();
+      });
+    });
+
+    if (draft.mandatoryRequirements.length > 0) {
+      tx.insert(mandatoryRequirements)
+        .values(
+          draft.mandatoryRequirements.map((requirement, index) => ({
+            templateId,
+            label: requirement.label,
+            description: requirement.description,
+            sortOrder: index,
+          }))
+        )
+        .run();
+    }
   });
 }

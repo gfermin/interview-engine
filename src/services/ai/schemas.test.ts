@@ -1,0 +1,135 @@
+import { describe, expect, it } from "vitest";
+import { jobAnalysisResultSchema, templateDraftSchema } from "./schemas";
+
+describe("jobAnalysisResultSchema", () => {
+  const valid = {
+    detectedRoleFamily: "Quality Assurance",
+    detectedSeniority: "Mid-Level",
+    mandatoryRequirements: ["5+ years test automation"],
+    preferredRequirements: ["JMeter experience"],
+    optionalRequirements: [],
+    notes: "Emphasizes performance testing more than a typical QA posting.",
+  };
+
+  it("accepts a well-formed job analysis", () => {
+    expect(jobAnalysisResultSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("accepts null detected role/seniority (the JD may not signal either clearly)", () => {
+    const result = jobAnalysisResultSchema.safeParse({
+      ...valid,
+      detectedRoleFamily: null,
+      detectedSeniority: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a missing required field", () => {
+    const { notes: _notes, ...missingNotes } = valid;
+    expect(jobAnalysisResultSchema.safeParse(missingNotes).success).toBe(false);
+  });
+
+  it("rejects a non-array requirements field", () => {
+    const result = jobAnalysisResultSchema.safeParse({
+      ...valid,
+      mandatoryRequirements: "5+ years test automation",
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("templateDraftSchema", () => {
+  const validQuestion = {
+    text: "How do you handle flaky tests in CI?",
+    difficulty: "hard",
+    importance: "core",
+    expected: "Investigates root cause rather than retrying blindly.",
+    strong: null,
+    acceptable: null,
+    concepts: ["flakiness", "CI vs local"],
+    redFlags: ["Immediately suggests retry-until-pass"],
+    followUps: ["How would you quantify flakiness across the suite?"],
+    rubric: ["0 - no strategy", "5 - systematic investigation"],
+    code: null,
+    solution: null,
+  };
+
+  const validDraft = {
+    competencies: [
+      {
+        name: "Programming",
+        weight: 60,
+        critical: true,
+        expectedDepth: "Explains WHY, not just HOW.",
+        blueprint: { coverage: "core language + testing", questionTypeMix: "2 practical / 1 debugging" },
+        questions: [validQuestion],
+      },
+      {
+        name: "SQL",
+        weight: 40,
+        critical: false,
+        expectedDepth: "Writes correct joins and explains query plans.",
+        blueprint: { coverage: "joins, indexing", questionTypeMix: "1 practical" },
+        questions: [validQuestion],
+      },
+    ],
+    mandatoryRequirements: [{ label: "Work authorization", description: null }],
+  };
+
+  it("accepts a well-formed draft", () => {
+    const result = templateDraftSchema.safeParse(validDraft);
+    expect(result.success).toBe(true);
+  });
+
+  it("defaults an omitted mandatoryRequirements list to an empty array", () => {
+    const { mandatoryRequirements: _mr, ...withoutRequirements } = validDraft;
+    const result = templateDraftSchema.safeParse(withoutRequirements);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.mandatoryRequirements).toEqual([]);
+  });
+
+  it("rejects a draft with zero competencies", () => {
+    expect(
+      templateDraftSchema.safeParse({ ...validDraft, competencies: [] }).success
+    ).toBe(false);
+  });
+
+  it("rejects a competency with zero questions", () => {
+    const result = templateDraftSchema.safeParse({
+      ...validDraft,
+      competencies: [{ ...validDraft.competencies[0], questions: [] }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an invalid difficulty value", () => {
+    const result = templateDraftSchema.safeParse({
+      ...validDraft,
+      competencies: [
+        {
+          ...validDraft.competencies[0],
+          questions: [{ ...validQuestion, difficulty: "impossible" }],
+        },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("defaults omitted optional question fields to empty arrays / null", () => {
+    const minimalQuestion = {
+      text: "What is a Page Object?",
+      difficulty: "easy",
+      importance: "core",
+    };
+    const result = templateDraftSchema.safeParse({
+      ...validDraft,
+      competencies: [{ ...validDraft.competencies[0], questions: [minimalQuestion] }],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const q = result.data.competencies[0].questions[0];
+      expect(q.concepts).toEqual([]);
+      expect(q.expected).toBeNull();
+    }
+  });
+});
