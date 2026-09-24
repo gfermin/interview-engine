@@ -6,8 +6,8 @@ decisions, data model, and phased implementation plan live in
 [`docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md`](../Prompts/docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md)
 in the sibling `Prompts` project.
 
-**Status:** Phase 6 (Interview Template Review / Approval) complete.
-Phases 0-6 done: app shell + SQLite/Drizzle (1), ScoringEngine/
+**Status:** Phase 7 (Candidate Management) complete.
+Phases 0-7 done: app shell + SQLite/Drizzle (1), ScoringEngine/
 CompletenessEngine/CriticalRequirementEngine + full schema (2), Position +
 Job Description management with Role Family/Seniority (3), the Template
 builder — Competency/MandatoryRequirement/Question CRUD, reordering,
@@ -19,15 +19,18 @@ behind forced tool-use, wired into the builder as "Analyze Job Description"
 Zod-validated before touching the database, with an `AIGenerationRecord`
 kept for provenance) (5), a second `AIProvider` implementation,
 `GeminiProvider`, for free-tier local testing without spending Anthropic
-credits (5.5, plan §38 addendum), and per-question AI "Regenerate" — re-
-calls AI for one question only, replacing it in place (same id/order) so
-the rest of the template and sibling questions are untouched (6). Most of
-Phase 6's stated scope (edit-in-place, delete, reorder, Approve & Publish,
-the mismatch banner) had already shipped in Phases 4/5; regenerate was the
-genuinely new piece. Requires `ANTHROPIC_API_KEY` **or** `GEMINI_API_KEY`
-in `.env` to actually call an AI provider — without either, AI actions
+credits (5.5, plan §38 addendum), per-question AI "Regenerate" — re-calls
+AI for one question only, replacing it in place (same id/order) so the
+rest of the template and sibling questions are untouched (6), and a
+Candidate roster (create/edit, notes) with a "Start Interview Session"
+flow that picks any published (approved or locked) Template and creates
+an `InterviewSession` against its exact version — the first real exercise
+of Phase 4's lock-on-use guard: an `approved` Template flips to `locked`
+the moment a Session references it, and a `draft` Template is refused
+outright (7). Requires `ANTHROPIC_API_KEY` **or** `GEMINI_API_KEY` in
+`.env` to actually call an AI provider — without either, AI actions
 surface a clear error and everything else keeps working offline.
-Candidate Management (Phase 7) is next.
+Live Interview Engine (Phase 8) is next.
 
 ## Stack
 
@@ -75,7 +78,7 @@ chosen over IndexedDB/Postgres for the POC.
 
 ```
 src/
-  app/                  # Next.js routes (positions, templates)
+  app/                  # Next.js routes (positions, templates, candidates)
   components/
     layout/              # App shell (sidebar, topbar)
     ui/                   # shadcn/ui primitives
@@ -86,6 +89,7 @@ src/
   features/
     positions/            # Position + Job Description CRUD
     templates/             # Template/Competency/MandatoryRequirement/Question CRUD + versioning + AI actions
+    candidates/            # Candidate CRUD + start-Interview-Session flow
   services/
     ai/                    # AIProvider interface, provider.ts selector, ClaudeProvider + GeminiProvider, prompts, Zod output schemas
   lib/                  # Shared utilities

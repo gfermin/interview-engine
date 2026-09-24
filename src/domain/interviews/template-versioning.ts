@@ -70,3 +70,29 @@ export function checkPublishable(
 export function sumWeights(competencies: CompetencyLike[]): number {
   return competencies.reduce((sum, c) => sum + c.weight, 0);
 }
+
+/**
+ * A Session can only be started against a published Template — `approved`
+ * (reviewed, not yet used) or `locked` (already in use by another Session;
+ * one version can back more than one candidate). A `draft` is excluded: it
+ * hasn't been through the human review/approve gate (ADR-004) yet.
+ *
+ * This is the guard Phase 4 wrote ahead of time and Phase 7 is the first to
+ * exercise for real (plan §21/Phase 4's "write the guard now, exercise it
+ * in Phase 7").
+ */
+export function canStartSession(template: TemplateLike): boolean {
+  return template.status === "approved" || template.status === "locked";
+}
+
+/**
+ * Lock-on-first-use (plan §22, ADR-008): the moment a Session is created
+ * against an `approved` version, it transitions to `locked` so further
+ * edits require forking a new version instead of mutating history out from
+ * under a completed/in-progress evaluation. An already-`locked` template
+ * stays `locked` — a second or third Session against the same version
+ * doesn't need to (and can't) re-trigger the transition.
+ */
+export function statusAfterSessionCreated(template: TemplateLike): TemplateStatus {
+  return template.status === "approved" ? "locked" : template.status;
+}

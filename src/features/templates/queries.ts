@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
 import {
   competencies,
@@ -30,6 +30,28 @@ export function getTemplate(id: string) {
   return db.query.interviewTemplates.findFirst({
     where: eq(interviewTemplates.id, id),
   });
+}
+
+/** Templates a candidate can actually be interviewed against (plan §22/
+ * Phase 7) — `approved` (published, not yet used) or `locked` (already in
+ * use by another session; a version can back more than one candidate's
+ * session). A `draft` is excluded: it hasn't been through the human
+ * review/approve gate (ADR-004) yet. */
+export function listPublishedTemplates() {
+  return db
+    .select({
+      id: interviewTemplates.id,
+      name: interviewTemplates.name,
+      stage: interviewTemplates.stage,
+      version: interviewTemplates.version,
+      status: interviewTemplates.status,
+      positionId: positions.id,
+      positionTitle: positions.title,
+    })
+    .from(interviewTemplates)
+    .innerJoin(positions, eq(interviewTemplates.positionId, positions.id))
+    .where(ne(interviewTemplates.status, "draft"))
+    .orderBy(desc(interviewTemplates.createdAt));
 }
 
 export function listCompetencies(templateId: string) {
