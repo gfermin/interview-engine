@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -242,13 +242,9 @@ export default async function TemplateDetailPage({
                 Weights: {weightSum}%
               </Badge>
               {editable ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  render={<Link href={`/templates/${id}/competencies/new`} />}
-                >
+                <ButtonLink size="sm" variant="outline" href={`/templates/${id}/competencies/new`}>
                   <Plus /> Add Competency
-                </Button>
+                </ButtonLink>
               ) : null}
             </div>
           </CardHeader>
@@ -302,16 +298,14 @@ export default async function TemplateDetailPage({
                               icon={<ChevronDown />}
                               label="Move down"
                             />
-                            <Button
+                            <ButtonLink
                               variant="ghost"
                               size="icon-sm"
-                              render={
-                                <Link href={`/templates/${id}/competencies/${c.id}/edit`} />
-                              }
+                              href={`/templates/${id}/competencies/${c.id}/edit`}
                               aria-label="Edit"
                             >
                               <Pencil />
-                            </Button>
+                            </ButtonLink>
                             <RowActionButton
                               action={deleteCompetencyAction.bind(null, id, c.id)}
                               icon={<Trash2 />}
@@ -334,13 +328,9 @@ export default async function TemplateDetailPage({
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-[13.5px]">Mandatory Requirements</CardTitle>
             {editable ? (
-              <Button
-                size="sm"
-                variant="outline"
-                render={<Link href={`/templates/${id}/requirements/new`} />}
-              >
+              <ButtonLink size="sm" variant="outline" href={`/templates/${id}/requirements/new`}>
                 <Plus /> Add Requirement
-              </Button>
+              </ButtonLink>
             ) : null}
           </CardHeader>
           <CardContent className="p-0">
@@ -378,14 +368,14 @@ export default async function TemplateDetailPage({
                               icon={<ChevronDown />}
                               label="Move down"
                             />
-                            <Button
+                            <ButtonLink
                               variant="ghost"
                               size="icon-sm"
-                              render={<Link href={`/templates/${id}/requirements/${r.id}/edit`} />}
+                              href={`/templates/${id}/requirements/${r.id}/edit`}
                               aria-label="Edit"
                             >
                               <Pencil />
-                            </Button>
+                            </ButtonLink>
                             <RowActionButton
                               action={deleteMandatoryRequirementAction.bind(null, id, r.id)}
                               icon={<Trash2 />}
@@ -426,15 +416,13 @@ export default async function TemplateDetailPage({
                     <div className="flex items-center justify-between">
                       <h3 className="text-[12.5px] font-semibold">{c.name}</h3>
                       {editable ? (
-                        <Button
+                        <ButtonLink
                           size="xs"
                           variant="outline"
-                          render={
-                            <Link href={`/templates/${id}/questions/new?competencyId=${c.id}`} />
-                          }
+                          href={`/templates/${id}/questions/new?competencyId=${c.id}`}
                         >
                           <Plus /> Add Question
-                        </Button>
+                        </ButtonLink>
                       ) : null}
                     </div>
                     {competencyQuestions.length === 0 ? (
@@ -472,14 +460,14 @@ export default async function TemplateDetailPage({
                                 <RegenerateQuestionButton
                                   action={regenerateQuestionAction.bind(null, id, q.id)}
                                 />
-                                <Button
+                                <ButtonLink
                                   variant="ghost"
                                   size="icon-sm"
-                                  render={<Link href={`/templates/${id}/questions/${q.id}/edit`} />}
+                                  href={`/templates/${id}/questions/${q.id}/edit`}
                                   aria-label="Edit"
                                 >
                                   <Pencil />
-                                </Button>
+                                </ButtonLink>
                                 <RowActionButton
                                   action={deleteQuestionAction.bind(null, id, q.id)}
                                   icon={<Trash2 />}

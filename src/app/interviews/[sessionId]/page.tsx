@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { calculateSectionStatus } from "@/domain/interviews/section-status";
 import { canReopenSession, isSessionEditable, SESSION_STATUS_LABELS } from "@/domain/interviews/session-lifecycle";
@@ -101,11 +101,9 @@ export default async function LiveInterviewPage({
                   </Button>
                 </form>
               ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  render={<Link href={`/interviews/${sessionId}/summary`}>View Summary</Link>}
-                />
+                <ButtonLink size="sm" variant="outline" href={`/interviews/${sessionId}/summary`}>
+                  View Summary
+                </ButtonLink>
               )}
             </div>
           </CardHeader>

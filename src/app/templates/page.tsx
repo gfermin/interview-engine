@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -34,7 +34,7 @@ export default async function TemplatesPage() {
             Versioned, publishable interview definitions — one per
             Position + Stage (plan §22, ADR-008).
           </p>
-          <Button render={<Link href="/templates/new">New Template</Link>} />
+          <ButtonLink href="/templates/new">New Template</ButtonLink>
         </div>
 
         <Card>

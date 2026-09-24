@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { AppTopbar } from "@/components/layout/app-topbar";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -9,12 +8,6 @@ import {
 } from "@/components/ui/card";
 
 const NEXT_UP = [
-  {
-    phase: "Phase 13 (continued)",
-    title: "Hardening backlog (plan §40)",
-    detail:
-      "A confirmed DecisionForm state bug after Reopen, jargon-y/leaky error messages, missing error.tsx/not-found.tsx, a few data-integrity gaps, and most of the test-coverage gaps (createNewTemplateVersion most notably) — audited and recorded, not yet fixed.",
-  },
   {
     phase: "Phase 12",
     title: "BambooHR Integration POC",
@@ -38,7 +31,7 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
               <CardTitle className="text-[15px]">
-                Phase 13 — Hardening / Testing / UX Polish (in progress)
+                Phase 13 — Hardening / Testing / UX Polish (done)
               </CardTitle>
               <CardDescription className="mt-1">
                 The core POC loop (Phases 1-11) is done. Since this
@@ -51,16 +44,20 @@ export default function DashboardPage() {
                 immediately: friendly stage-aware labels in place of raw
                 enums on the Summary screen, a fixed duplicate-text
                 template picker, one shared session-status label map, and
-                a clearer interview-history empty state. Findings that need
-                an actual logic change — a confirmed <code>DecisionForm</code>{" "}
-                state bug, several leaky/jargon-y error messages, missing{" "}
-                <code>error.tsx</code>, a few data-integrity gaps, and most
-                of the test-coverage gaps — are tracked in <code>§40</code>{" "}
-                as a reviewed backlog rather than fixed opportunistically
-                mid-audit.
+                a clearer interview-history empty state. A follow-up pass
+                (<code>§40.7</code>) then resolved everything that needed an
+                actual logic change: the confirmed <code>DecisionForm</code>{" "}
+                state bug, every leaky/jargon-y error message, a missing{" "}
+                <code>error.tsx</code>/<code>not-found.tsx</code>, the
+                data-integrity gaps, and the test-coverage backlog (incl.{" "}
+                <code>createNewTemplateVersion</code>, the delete/update/move
+                mutations, and <code>listSessions</code> filters) — 267
+                unit/component tests pass, up from 207.
               </CardDescription>
             </div>
-            <Button size="sm" render={<Link href="/interviews">Open History</Link>} />
+            <ButtonLink size="sm" href="/interviews">
+              Open History
+            </ButtonLink>
           </CardHeader>
         </Card>
 

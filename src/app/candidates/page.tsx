@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AppTopbar } from "@/components/layout/app-topbar";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -29,7 +29,7 @@ export default async function CandidatesPage() {
             A candidate can have many Interview Sessions — different stages,
             or a re-interview (plan §23).
           </p>
-          <Button render={<Link href="/candidates/new">New Candidate</Link>} />
+          <ButtonLink href="/candidates/new">New Candidate</ButtonLink>
         </div>
 
         <Card>
