@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1790195236072,
+      "tag": "0000_organic_terror",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1790196335217,
+      "tag": "0001_military_ultimatum",
+      "breakpoints": true
+    }
+  ]
+}
