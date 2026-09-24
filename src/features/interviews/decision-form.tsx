@@ -4,7 +4,14 @@ import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { requiresForcedCall, requiresReason, type DecisionMode, type FinalDecision } from "@/domain/interviews/decision";
+import {
+  isValidDecisionMode,
+  requiresForcedCall,
+  requiresReason,
+  type DecisionMode,
+  type FinalDecision,
+} from "@/domain/interviews/decision";
+import { statusLabelFor, type InterviewStage } from "@/domain/interviews/stage-config";
 import type { InterviewStatus } from "@/domain/scoring/types";
 import type { FormActionState } from "./actions";
 
@@ -20,6 +27,7 @@ interface DecisionFormProps {
     formData: FormData
   ) => Promise<FormActionState | undefined>;
   status: InterviewStatus;
+  stage: InterviewStage;
   existingDecision?: ExistingDecision | null;
 }
 
@@ -32,14 +40,28 @@ interface DecisionFormProps {
  * BORDERLINE only ever offers a forced call, PASS/FAIL only ever offer
  * accept/override.
  */
-export function DecisionForm({ action, status, existingDecision }: DecisionFormProps) {
+export function DecisionForm({ action, status, stage, existingDecision }: DecisionFormProps) {
   const [state, formAction, pending] = useActionState<
     FormActionState | undefined,
     FormData
   >(action, undefined);
 
   const forced = requiresForcedCall(status);
-  const [mode, setMode] = useState<DecisionMode>(existingDecision?.mode ?? (forced ? "forced_call" : "accept"));
+  // `existingDecision?.mode` is only a valid initial value if it's still
+  // legal for the *current* status (§40.1) — a Reopen + re-rate can move the
+  // calculated status (e.g. PASS -> BORDERLINE) without this component
+  // unmounting, which would otherwise leave `mode: "accept"` selected for a
+  // status that only accepts a forced call. The parent also keys this
+  // component by `status` (see summary/page.tsx) so a status change forces a
+  // clean remount; this check is the belt to that braces for any path that
+  // reaches the same component instance regardless.
+  const initialMode =
+    existingDecision && isValidDecisionMode(status, existingDecision.mode)
+      ? existingDecision.mode
+      : forced
+        ? "forced_call"
+        : "accept";
+  const [mode, setMode] = useState<DecisionMode>(initialMode);
   const [forcedChoice, setForcedChoice] = useState<FinalDecision>(
     existingDecision?.finalDecision ?? "PASS"
   );
@@ -62,14 +84,14 @@ export function DecisionForm({ action, status, existingDecision }: DecisionFormP
             variant={forcedChoice === "PASS" ? "default" : "outline"}
             onClick={() => setForcedChoice("PASS")}
           >
-            Force PASS
+            Force {statusLabelFor(stage, "PASS")}
           </Button>
           <Button
             type="button"
             variant={forcedChoice === "FAIL" ? "default" : "outline"}
             onClick={() => setForcedChoice("FAIL")}
           >
-            Force FAIL
+            Force {statusLabelFor(stage, "FAIL")}
           </Button>
         </div>
       ) : (

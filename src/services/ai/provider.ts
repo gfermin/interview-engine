@@ -37,7 +37,7 @@ export function getAIProvider(): AIProvider {
   if (process.env.GEMINI_API_KEY) return buildGeminiProvider();
 
   throw new AIProviderNotConfiguredError(
-    "No AI provider is configured. Add ANTHROPIC_API_KEY (recommended, see ADR-005) or GEMINI_API_KEY (free tier, see plan §38 Phase 5.5) to .env to enable AI-assisted JD analysis and question generation (plan §17/Phase 5)."
+    "No AI provider is configured. Add ANTHROPIC_API_KEY (recommended) or GEMINI_API_KEY (free tier) to your .env file to enable AI-assisted JD analysis and question generation."
   );
 }
 

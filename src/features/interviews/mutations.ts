@@ -10,6 +10,7 @@ import {
 } from "@/db/schema";
 import { calculateCompetencyStats } from "@/domain/scoring";
 import {
+  describeInvalidDecisionMode,
   isValidDecisionMode,
   requiresReason,
   resolveFinalDecision,
@@ -18,7 +19,7 @@ import {
 } from "@/domain/interviews/decision";
 import { canReopenSession, isSessionDecided, isSessionEditable } from "@/domain/interviews/session-lifecycle";
 import type { MandatoryRequirementStatus, QuestionScore } from "@/domain/scoring/types";
-import { getQuestion, listCompetencies } from "@/features/templates/queries";
+import { getMandatoryRequirement, getQuestion, listCompetencies } from "@/features/templates/queries";
 import { buildSessionEvaluationState, getSession } from "./queries";
 import { computeFullScoringResult } from "./scoring";
 
@@ -100,9 +101,17 @@ export async function rateQuestion(
   questionId: string,
   value: QuestionScore
 ) {
-  await requireEditableSession(sessionId);
+  const session = await requireEditableSession(sessionId);
   const question = await getQuestion(questionId);
   if (!question) throw new Error("Question not found.");
+  // Defensive cross-template guard (§40.4) — reachable only through
+  // Next.js's encrypted bound-server-action closures, not raw client-
+  // controlled FormData, but a mismatch should still be rejected rather
+  // than silently rating a question that isn't even part of this session's
+  // template.
+  if (question.templateId !== session.templateId) {
+    throw new Error("This question doesn't belong to this session's template.");
+  }
 
   const score = typeof value === "number" ? value : null;
   const isNa = value === "na";
@@ -148,7 +157,11 @@ export async function updateMandatoryRequirementStatus(
   requirementId: string,
   status: MandatoryRequirementStatus
 ) {
-  await requireNotDecided(sessionId);
+  const session = await requireNotDecided(sessionId);
+  const requirement = await getMandatoryRequirement(requirementId);
+  if (!requirement || requirement.templateId !== session.templateId) {
+    throw new Error("This requirement doesn't belong to this session's template.");
+  }
   await db
     .insert(mandatoryRequirementEvaluations)
     .values({ sessionId, requirementId, status })
@@ -214,9 +227,7 @@ export async function recordDecision(sessionId: string, input: RecordDecisionInp
   const result = await computeFullScoringResult(sessionId, session.templateId);
 
   if (!isValidDecisionMode(result.status, input.mode)) {
-    throw new Error(
-      `A "${input.mode}" decision isn't valid for a calculated status of "${result.status}".`
-    );
+    throw new Error(describeInvalidDecisionMode(result.status, input.mode));
   }
   if (requiresReason(input.mode) && !input.reason?.trim()) {
     throw new Error("A reason is required for an override or a forced call.");
@@ -272,7 +283,7 @@ export async function reopenSession(sessionId: string) {
   const session = await getSession(sessionId);
   if (!session) throw new Error("Session not found.");
   if (!canReopenSession(session)) {
-    throw new Error("Only a completed or decided session can be reopened.");
+    throw new Error("Only a finished interview can be reopened.");
   }
 
   await db

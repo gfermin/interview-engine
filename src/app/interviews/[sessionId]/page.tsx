@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { calculateSectionStatus } from "@/domain/interviews/section-status";
-import { canReopenSession, isSessionEditable } from "@/domain/interviews/session-lifecycle";
+import { canReopenSession, isSessionEditable, SESSION_STATUS_LABELS } from "@/domain/interviews/session-lifecycle";
 import { computeSessionScoring } from "@/domain/interviews/session-scoring";
 import { STAGE_LABELS, type InterviewStage } from "@/domain/interviews/stage-config";
 import type { QuestionScore } from "@/domain/scoring/types";
@@ -115,8 +115,8 @@ export default async function LiveInterviewPage({
           <Card>
             <CardContent className="flex items-center justify-between gap-2 p-4">
               <p className="text-[12.5px] text-muted-foreground">
-                This interview has been finished ({session.status}) — ratings are read-only.
-                Reopen it to make further changes.
+                This interview has been finished ({SESSION_STATUS_LABELS[session.status]}) —
+                ratings are read-only. Reopen it to make further changes.
               </p>
               {canReopenSession(session) ? (
                 <ReopenSessionButton action={reopenSessionAction.bind(null, sessionId)} />

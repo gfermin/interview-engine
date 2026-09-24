@@ -1,8 +1,8 @@
 // Composes the Phase 2 scoring engines for a live interview session (Phase
 // 8). Still pure — plain data in, plain data out — it just saves every
 // caller from re-deriving the same three-engine pipeline. MandatoryRequirement
-// evaluation isn't wired into the live rating screen yet (that's Phase 9's
-// Summary/Decision screen), so it's passed through as empty here; the
+// evaluation is deliberately left out here — it lives on the Summary/
+// Decision screen instead (Phase 9) — so it's passed through as empty; the
 // resulting `criticalCompetencyStatus` is unaffected by that omission.
 import {
   calculateCompetencyStats,

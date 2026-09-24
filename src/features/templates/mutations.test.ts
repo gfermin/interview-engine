@@ -9,11 +9,22 @@ import {
   applyGeneratedDraft,
   applyRegeneratedQuestion,
   createCompetency,
+  createMandatoryRequirement,
+  createNewTemplateVersion,
   createQuestion,
+  deleteCompetency,
+  deleteMandatoryRequirement,
+  deleteQuestion,
   moveCompetency,
+  moveMandatoryRequirement,
+  moveQuestion,
   publishTemplate,
   recordAIGeneration,
   saveJobAnalysis,
+  updateCompetency,
+  updateMandatoryRequirement,
+  updateQuestion,
+  updateScoringConfig,
 } from "./mutations";
 
 async function createTestTemplate(stage: "technical" | "screening" = "technical") {
@@ -398,5 +409,469 @@ describe("applyRegeneratedQuestion", () => {
     await expect(
       applyRegeneratedQuestion(original.id, sampleRegenerated, { includeCodeExercises: true })
     ).rejects.toThrow(/no longer editable/);
+  });
+});
+
+// §40.5 item 1: createNewTemplateVersion had zero coverage despite being
+// one of the more complex mutations in the codebase (version-fork,
+// competencyId remapping, the "already a draft" refusal).
+describe("createNewTemplateVersion", () => {
+  async function createPublishedTemplateWithContent() {
+    const { template } = await createTestTemplate("technical");
+    const competency = await createCompetency(template.id, {
+      name: "Programming",
+      weight: 100,
+      critical: true,
+      expectedDepth: "Explains WHY, not just HOW.",
+    });
+    const question = await createQuestion(template.id, {
+      competencyId: competency.id,
+      text: "How do you debug a flaky test?",
+      difficulty: "hard",
+      importance: "core",
+      expected: "Investigates root cause.",
+      strong: null,
+      acceptable: null,
+      concepts: ["flakiness"],
+      redFlags: [],
+      followUps: [],
+      rubric: ["0 - no strategy", "5 - systematic investigation"],
+      code: null,
+      solution: null,
+    });
+    const requirement = await createMandatoryRequirement(template.id, {
+      label: "Work authorization",
+      description: null,
+    });
+    await publishTemplate(template.id);
+    return { template, competency, question, requirement };
+  }
+
+  it("forks competencies, questions (remapped competencyId), and mandatory requirements into a new draft", async () => {
+    const { template, competency, question, requirement } = await createPublishedTemplateWithContent();
+
+    const newVersion = await createNewTemplateVersion(template.id);
+
+    expect(newVersion.version).toBe(template.version + 1);
+    expect(newVersion.status).toBe("draft");
+    expect(newVersion.positionId).toBe(template.positionId);
+    expect(newVersion.stage).toBe(template.stage);
+
+    const newCompetencies = await db.query.competencies.findMany({
+      where: eq(competencies.templateId, newVersion.id),
+    });
+    expect(newCompetencies).toHaveLength(1);
+    expect(newCompetencies[0].id).not.toBe(competency.id);
+    expect(newCompetencies[0].name).toBe("Programming");
+    expect(newCompetencies[0].expectedDepth).toBe("Explains WHY, not just HOW.");
+
+    const newQuestions = await db.query.questions.findMany({
+      where: eq(questions.templateId, newVersion.id),
+    });
+    expect(newQuestions).toHaveLength(1);
+    expect(newQuestions[0].id).not.toBe(question.id);
+    // The whole point of the fork: the copied question points at the *new*
+    // template's competency, not the source's.
+    expect(newQuestions[0].competencyId).toBe(newCompetencies[0].id);
+    expect(newQuestions[0].text).toBe("How do you debug a flaky test?");
+    expect(newQuestions[0].concepts).toEqual(["flakiness"]);
+
+    const newRequirements = await db.query.mandatoryRequirements.findMany({
+      where: (r, { eq: eqOp }) => eqOp(r.templateId, newVersion.id),
+    });
+    expect(newRequirements).toHaveLength(1);
+    expect(newRequirements[0].id).not.toBe(requirement.id);
+    expect(newRequirements[0].label).toBe("Work authorization");
+  });
+
+  it("leaves the source template and its content untouched", async () => {
+    const { template, competency } = await createPublishedTemplateWithContent();
+
+    await createNewTemplateVersion(template.id);
+
+    const source = await db.query.interviewTemplates.findFirst({
+      where: eq(interviewTemplates.id, template.id),
+    });
+    expect(source?.status).toBe("approved");
+    expect(source?.version).toBe(template.version);
+
+    const sourceCompetencies = await db.query.competencies.findMany({
+      where: eq(competencies.templateId, template.id),
+    });
+    expect(sourceCompetencies).toHaveLength(1);
+    expect(sourceCompetencies[0].id).toBe(competency.id);
+  });
+
+  it("carries over the scoring configuration", async () => {
+    const { template } = await createTestTemplate("technical");
+    await createCompetency(template.id, { name: "x", weight: 100, critical: false, expectedDepth: null });
+    // Scoring config must be set while still a draft (updateScoringConfig
+    // itself requires an editable template) — publish only afterward.
+    await updateScoringConfig(template.id, {
+      passThreshold: 85,
+      borderlineMin: 60,
+      criticalMin: 55,
+      minCompletion: 80,
+      englishRequired: true,
+      englishMinLevel: 4,
+    });
+    await publishTemplate(template.id);
+
+    const newVersion = await createNewTemplateVersion(template.id);
+
+    expect(newVersion.passThreshold).toBe(85);
+    expect(newVersion.borderlineMin).toBe(60);
+    expect(newVersion.englishRequired).toBe(true);
+    expect(newVersion.englishMinLevel).toBe(4);
+  });
+
+  it("refuses when the template is still a draft", async () => {
+    const { template } = await createTestTemplate();
+
+    await expect(createNewTemplateVersion(template.id)).rejects.toThrow(/already a draft/);
+  });
+
+  it("throws when the template doesn't exist", async () => {
+    await expect(createNewTemplateVersion(randomUUID())).rejects.toThrow(/not found/);
+  });
+});
+
+// §40.5 item 2: delete/update mutations and the shared "not editable" guard
+// they all depend on had no coverage at all.
+describe("editable-template guard shared by delete/update mutations", () => {
+  it("updateCompetency refuses once the template is published", async () => {
+    const { template } = await createTestTemplate();
+    const competency = await createCompetency(template.id, {
+      name: "Programming",
+      weight: 100,
+      critical: false,
+      expectedDepth: null,
+    });
+    await publishTemplate(template.id);
+
+    await expect(
+      updateCompetency(competency.id, { name: "Renamed", weight: 100, critical: false, expectedDepth: null })
+    ).rejects.toThrow(/no longer editable/);
+  });
+
+  it("deleteCompetency refuses once the template is published", async () => {
+    const { template } = await createTestTemplate();
+    const competency = await createCompetency(template.id, {
+      name: "Programming",
+      weight: 100,
+      critical: false,
+      expectedDepth: null,
+    });
+    await publishTemplate(template.id);
+
+    await expect(deleteCompetency(competency.id)).rejects.toThrow(/no longer editable/);
+  });
+
+  it("updateMandatoryRequirement refuses once the template is published", async () => {
+    const { template } = await createTestTemplate();
+    await createCompetency(template.id, { name: "x", weight: 100, critical: false, expectedDepth: null });
+    const requirement = await createMandatoryRequirement(template.id, {
+      label: "Work authorization",
+      description: null,
+    });
+    await publishTemplate(template.id);
+
+    await expect(
+      updateMandatoryRequirement(requirement.id, { label: "Renamed", description: null })
+    ).rejects.toThrow(/no longer editable/);
+  });
+
+  it("deleteMandatoryRequirement refuses once the template is published", async () => {
+    const { template } = await createTestTemplate();
+    await createCompetency(template.id, { name: "x", weight: 100, critical: false, expectedDepth: null });
+    const requirement = await createMandatoryRequirement(template.id, {
+      label: "Work authorization",
+      description: null,
+    });
+    await publishTemplate(template.id);
+
+    await expect(deleteMandatoryRequirement(requirement.id)).rejects.toThrow(/no longer editable/);
+  });
+
+  it("updateQuestion refuses once the template is published", async () => {
+    const { template } = await createTestTemplate();
+    const competency = await createCompetency(template.id, {
+      name: "Programming",
+      weight: 100,
+      critical: false,
+      expectedDepth: null,
+    });
+    const question = await createQuestion(template.id, {
+      competencyId: competency.id,
+      text: "Original",
+      difficulty: "easy",
+      importance: "core",
+      expected: null,
+      strong: null,
+      acceptable: null,
+      concepts: [],
+      redFlags: [],
+      followUps: [],
+      rubric: [],
+      code: null,
+      solution: null,
+    });
+    await publishTemplate(template.id);
+
+    await expect(
+      updateQuestion(question.id, {
+        competencyId: competency.id,
+        text: "Edited",
+        difficulty: "easy",
+        importance: "core",
+        expected: null,
+        strong: null,
+        acceptable: null,
+        concepts: [],
+        redFlags: [],
+        followUps: [],
+        rubric: [],
+        code: null,
+        solution: null,
+      })
+    ).rejects.toThrow(/no longer editable/);
+  });
+
+  it("deleteQuestion refuses once the template is published", async () => {
+    const { template } = await createTestTemplate();
+    const competency = await createCompetency(template.id, {
+      name: "Programming",
+      weight: 100,
+      critical: false,
+      expectedDepth: null,
+    });
+    const question = await createQuestion(template.id, {
+      competencyId: competency.id,
+      text: "Original",
+      difficulty: "easy",
+      importance: "core",
+      expected: null,
+      strong: null,
+      acceptable: null,
+      concepts: [],
+      redFlags: [],
+      followUps: [],
+      rubric: [],
+      code: null,
+      solution: null,
+    });
+    await publishTemplate(template.id);
+
+    await expect(deleteQuestion(question.id)).rejects.toThrow(/no longer editable/);
+  });
+
+  it("updateScoringConfig refuses once the template is published", async () => {
+    const { template } = await createTestTemplate();
+    await createCompetency(template.id, { name: "x", weight: 100, critical: false, expectedDepth: null });
+    await publishTemplate(template.id);
+
+    await expect(
+      updateScoringConfig(template.id, {
+        passThreshold: 70,
+        borderlineMin: 50,
+        criticalMin: 50,
+        minCompletion: 70,
+        englishRequired: false,
+        englishMinLevel: 3,
+      })
+    ).rejects.toThrow(/no longer editable/);
+  });
+});
+
+// §40.4's new defensive guard: a competencyId that doesn't belong to the
+// template being edited.
+describe("createQuestion/updateQuestion competency-ownership guard", () => {
+  it("createQuestion refuses a competencyId from a different template", async () => {
+    const { template: templateA } = await createTestTemplate();
+    const { template: templateB } = await createTestTemplate();
+    const competencyInB = await createCompetency(templateB.id, {
+      name: "SQL",
+      weight: 100,
+      critical: false,
+      expectedDepth: null,
+    });
+
+    await expect(
+      createQuestion(templateA.id, {
+        competencyId: competencyInB.id,
+        text: "Cross-template question",
+        difficulty: "easy",
+        importance: "core",
+        expected: null,
+        strong: null,
+        acceptable: null,
+        concepts: [],
+        redFlags: [],
+        followUps: [],
+        rubric: [],
+        code: null,
+        solution: null,
+      })
+    ).rejects.toThrow(/doesn't belong to this template/);
+  });
+
+  it("updateQuestion refuses reassigning a question to a competency from a different template", async () => {
+    const { template: templateA } = await createTestTemplate();
+    const { template: templateB } = await createTestTemplate();
+    const competencyInA = await createCompetency(templateA.id, {
+      name: "Programming",
+      weight: 100,
+      critical: false,
+      expectedDepth: null,
+    });
+    const competencyInB = await createCompetency(templateB.id, {
+      name: "SQL",
+      weight: 100,
+      critical: false,
+      expectedDepth: null,
+    });
+    const question = await createQuestion(templateA.id, {
+      competencyId: competencyInA.id,
+      text: "Original",
+      difficulty: "easy",
+      importance: "core",
+      expected: null,
+      strong: null,
+      acceptable: null,
+      concepts: [],
+      redFlags: [],
+      followUps: [],
+      rubric: [],
+      code: null,
+      solution: null,
+    });
+
+    await expect(
+      updateQuestion(question.id, {
+        competencyId: competencyInB.id,
+        text: "Original",
+        difficulty: "easy",
+        importance: "core",
+        expected: null,
+        strong: null,
+        acceptable: null,
+        concepts: [],
+        redFlags: [],
+        followUps: [],
+        rubric: [],
+        code: null,
+        solution: null,
+      })
+    ).rejects.toThrow(/doesn't belong to this template/);
+  });
+});
+
+// §40.5 item 3: only moveCompetency had a test; moveMandatoryRequirement and
+// moveQuestion reorder differently enough (moveQuestion is scoped to one
+// competency's list) to deserve their own.
+describe("moveMandatoryRequirement", () => {
+  it("swaps sortOrder with the sibling below", async () => {
+    const { template } = await createTestTemplate();
+    const first = await createMandatoryRequirement(template.id, { label: "Work authorization", description: null });
+    const second = await createMandatoryRequirement(template.id, { label: "Security clearance", description: null });
+    expect(first.sortOrder).toBe(0);
+    expect(second.sortOrder).toBe(1);
+
+    await moveMandatoryRequirement(first.id, "down");
+
+    const reordered = await db.query.mandatoryRequirements.findMany({
+      where: (r, { eq: eqOp }) => eqOp(r.templateId, template.id),
+      orderBy: (r, { asc }) => [asc(r.sortOrder)],
+    });
+    expect(reordered.map((r) => r.label)).toEqual(["Security clearance", "Work authorization"]);
+  });
+
+  it("is a no-op moving the first item further up", async () => {
+    const { template } = await createTestTemplate();
+    const first = await createMandatoryRequirement(template.id, { label: "Only one", description: null });
+
+    await moveMandatoryRequirement(first.id, "up");
+
+    const unchanged = await db.query.mandatoryRequirements.findFirst({
+      where: (r, { eq: eqOp }) => eqOp(r.id, first.id),
+    });
+    expect(unchanged?.sortOrder).toBe(0);
+  });
+});
+
+describe("moveQuestion", () => {
+  it("reorders within its own competency's question list, not across competencies", async () => {
+    const { template } = await createTestTemplate();
+    const competencyA = await createCompetency(template.id, {
+      name: "Programming",
+      weight: 50,
+      critical: false,
+      expectedDepth: null,
+    });
+    const competencyB = await createCompetency(template.id, {
+      name: "SQL",
+      weight: 50,
+      critical: false,
+      expectedDepth: null,
+    });
+    const a1 = await createQuestion(template.id, {
+      competencyId: competencyA.id,
+      text: "A1",
+      difficulty: "easy",
+      importance: "core",
+      expected: null,
+      strong: null,
+      acceptable: null,
+      concepts: [],
+      redFlags: [],
+      followUps: [],
+      rubric: [],
+      code: null,
+      solution: null,
+    });
+    await createQuestion(template.id, {
+      competencyId: competencyA.id,
+      text: "A2",
+      difficulty: "easy",
+      importance: "core",
+      expected: null,
+      strong: null,
+      acceptable: null,
+      concepts: [],
+      redFlags: [],
+      followUps: [],
+      rubric: [],
+      code: null,
+      solution: null,
+    });
+    const b1 = await createQuestion(template.id, {
+      competencyId: competencyB.id,
+      text: "B1",
+      difficulty: "easy",
+      importance: "core",
+      expected: null,
+      strong: null,
+      acceptable: null,
+      concepts: [],
+      redFlags: [],
+      followUps: [],
+      rubric: [],
+      code: null,
+      solution: null,
+    });
+
+    await moveQuestion(a1.id, "down");
+
+    const competencyAOrder = await db.query.questions.findMany({
+      where: eq(questions.competencyId, competencyA.id),
+      orderBy: (q, { asc }) => [asc(q.sortOrder)],
+    });
+    expect(competencyAOrder.map((q) => q.text)).toEqual(["A2", "A1"]);
+
+    // competency B's single question is untouched by A's reorder.
+    const competencyBQuestion = await db.query.questions.findFirst({
+      where: eq(questions.id, b1.id),
+    });
+    expect(competencyBQuestion?.sortOrder).toBe(0);
   });
 });

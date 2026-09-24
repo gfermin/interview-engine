@@ -35,6 +35,27 @@ export function isValidDecisionMode(status: InterviewStatus, mode: DecisionMode)
   return requiresForcedCall(status) ? mode === "forced_call" : mode !== "forced_call";
 }
 
+/**
+ * Plain-language explanation of why a given (status, mode) pair is invalid
+ * (§40.2) — the previous message (`A "${mode}" decision isn't valid for a
+ * calculated status of "${status}".`) read like a stack trace, not something
+ * a hiring-team interviewer should see verbatim. Only meaningful to call
+ * when {@link isValidDecisionMode} has already returned `false`. `mode`
+ * isn't read in the body — `status` alone determines which of the two
+ * invalid shapes applies (only 3 modes exist, and {@link isValidDecisionMode}
+ * already narrows which one was invalid) — but it's kept in the signature to
+ * mirror {@link isValidDecisionMode}'s shape at call sites.
+ */
+export function describeInvalidDecisionMode(status: InterviewStatus, _mode: DecisionMode): string {
+  if (!canRecordDecision(status)) {
+    return "This interview hasn't reached a status that can be decided yet.";
+  }
+  if (requiresForcedCall(status)) {
+    return "This result needs a forced Pass/Fail call.";
+  }
+  return "This result already has a calculated outcome — accept it or override it rather than forcing a call.";
+}
+
 /** Both `override` and `forced_call` require a reason (plan §21); a plain
  * `accept` doesn't — the interviewer agrees with a result that already has
  * its own calculated reason (`ScoringResult.reason`). */
@@ -55,7 +76,7 @@ export function resolveFinalDecision(
   forcedChoice?: FinalDecision
 ): FinalDecision {
   if (!isValidDecisionMode(status, mode)) {
-    throw new Error(`Mode "${mode}" is not valid for calculated status "${status}".`);
+    throw new Error(describeInvalidDecisionMode(status, mode));
   }
 
   if (mode === "forced_call") {

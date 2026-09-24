@@ -352,7 +352,9 @@ describe("recordDecision", () => {
     await rateQuestion(fixture.session.id, fixture.secondQuestion.id, 3);
     await updateMandatoryRequirementStatus(fixture.session.id, fixture.requirement.id, "met");
 
-    await expect(recordDecision(fixture.session.id, { mode: "accept" })).rejects.toThrow(/isn't valid/);
+    await expect(recordDecision(fixture.session.id, { mode: "accept" })).rejects.toThrow(
+      /needs a forced Pass\/Fail call/
+    );
 
     const { result, finalDecision } = await recordDecision(fixture.session.id, {
       mode: "forced_call",
@@ -377,7 +379,9 @@ describe("recordDecision", () => {
   it("refuses to record a decision before the interview reaches a judged status", async () => {
     const fixture = await createFixture();
     // Nothing rated yet -> NOT_EVALUATED.
-    await expect(recordDecision(fixture.session.id, { mode: "accept" })).rejects.toThrow(/isn't valid/);
+    await expect(recordDecision(fixture.session.id, { mode: "accept" })).rejects.toThrow(
+      /hasn't reached a status that can be decided/
+    );
   });
 
   it("changing a decision overwrites the prior one (no history kept, plan §21/§38)", async () => {
@@ -421,7 +425,7 @@ describe("session editability guard", () => {
 describe("reopenSession", () => {
   it("refuses to reopen a session that's still in_progress", async () => {
     const { session } = await createFixture();
-    await expect(reopenSession(session.id)).rejects.toThrow(/completed or decided/);
+    await expect(reopenSession(session.id)).rejects.toThrow(/Only a finished interview can be reopened/);
   });
 
   it("reopens a completed session back to in_progress and stamps reopenedAt/reopenCount", async () => {

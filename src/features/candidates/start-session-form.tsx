@@ -29,6 +29,17 @@ export function StartSessionForm({ action, templates }: StartSessionFormProps) {
     FormData
   >(action, undefined);
 
+  // Grouped by Position rather than prefixed onto every option's label — a
+  // template's own name often already repeats its Position title (e.g. "X —
+  // Technical Interview"), which used to show up twice per option (plan
+  // §40.6 polish fix).
+  const templatesByPosition = new Map<string, TemplateOption[]>();
+  for (const template of templates) {
+    const group = templatesByPosition.get(template.positionTitle) ?? [];
+    group.push(template);
+    templatesByPosition.set(template.positionTitle, group);
+  }
+
   return (
     <form action={formAction} className="flex flex-col gap-3">
       {state?.error ? (
@@ -41,11 +52,15 @@ export function StartSessionForm({ action, templates }: StartSessionFormProps) {
           <option value="" disabled>
             Select a Template...
           </option>
-          {templates.map((template) => (
-            <option key={template.id} value={template.id}>
-              {template.positionTitle} — {template.name} (
-              {STAGE_LABELS[template.stage as InterviewStage]}, v{template.version})
-            </option>
+          {[...templatesByPosition.entries()].map(([positionTitle, group]) => (
+            <optgroup key={positionTitle} label={positionTitle}>
+              {group.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name} ({STAGE_LABELS[template.stage as InterviewStage]}, v
+                  {template.version})
+                </option>
+              ))}
+            </optgroup>
           ))}
         </Select>
         {state?.fieldErrors?.templateId ? (

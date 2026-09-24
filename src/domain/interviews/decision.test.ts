@@ -76,9 +76,11 @@ describe("resolveFinalDecision", () => {
     expect(resolveFinalDecision("BORDERLINE", "forced_call", "FAIL")).toBe("FAIL");
   });
 
-  it("throws on an invalid mode/status combination", () => {
-    expect(() => resolveFinalDecision("BORDERLINE", "accept")).toThrow(/not valid/);
-    expect(() => resolveFinalDecision("PROVISIONAL", "forced_call", "PASS")).toThrow(/not valid/);
+  it("throws on an invalid mode/status combination, with a plain-language message (§40.2)", () => {
+    expect(() => resolveFinalDecision("BORDERLINE", "accept")).toThrow(/needs a forced Pass\/Fail call/);
+    expect(() => resolveFinalDecision("PROVISIONAL", "forced_call", "PASS")).toThrow(
+      /hasn't reached a status that can be decided/
+    );
   });
 
   it("throws when a forced call has no explicit choice", () => {

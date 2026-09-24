@@ -42,7 +42,11 @@ export default async function NewQuestionPage({
               </p>
             ) : competencies.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Add a competency before adding questions.
+                Add a{" "}
+                <Link href={`/templates/${id}/competencies/new`} className="underline">
+                  competency
+                </Link>{" "}
+                before adding questions.
               </p>
             ) : (
               <QuestionForm

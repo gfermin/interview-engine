@@ -12,6 +12,16 @@ export interface SessionLike {
   status: SessionStatus;
 }
 
+/** Shared display label for the raw `SessionStatus` enum — reused across
+ * the candidate page, the interview history list, and the live rating
+ * page's banner (plan §40.6 polish: those three used to each spell their
+ * own `status.replace("_", " ")` independently). */
+export const SESSION_STATUS_LABELS: Record<SessionStatus, string> = {
+  in_progress: "In Progress",
+  completed: "Completed",
+  decided: "Decided",
+};
+
 /** Ratings/notes can only change while a session is `in_progress`. Once
  * it's `completed` (interviewer moved on to the Summary screen) or
  * `decided` (a human decision was recorded), the evidence is frozen —
