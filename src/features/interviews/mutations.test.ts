@@ -17,6 +17,7 @@ import {
   finishRating,
   rateQuestion,
   recordDecision,
+  reopenSession,
   updateEnglishAssessment,
   updateMandatoryRequirementStatus,
   updateQuestionNotes,
@@ -226,6 +227,28 @@ describe("updateMandatoryRequirementStatus", () => {
     });
     expect(row?.status).toBe("unknown");
   });
+
+  it("still works once the session is completed — Summary's own inputs aren't locked by finishRating (regression)", async () => {
+    const { requirement, session } = await createFixture();
+    await finishRating(session.id);
+
+    await updateMandatoryRequirementStatus(session.id, requirement.id, "met");
+
+    const row = await db.query.mandatoryRequirementEvaluations.findFirst({
+      where: (t, { eq: eqOp }) => eqOp(t.sessionId, session.id),
+    });
+    expect(row?.status).toBe("met");
+  });
+
+  it("refuses once the session is decided", async () => {
+    const fixture = await createFixture();
+    await bringSessionToPass(fixture);
+    await recordDecision(fixture.session.id, { mode: "accept" });
+
+    await expect(
+      updateMandatoryRequirementStatus(fixture.session.id, fixture.requirement.id, "not_met")
+    ).rejects.toThrow(/already been decided/);
+  });
 });
 
 describe("updateEnglishAssessment", () => {
@@ -243,6 +266,26 @@ describe("updateEnglishAssessment", () => {
       where: and(eq(supplementaryAssessments.sessionId, session.id), eq(supplementaryAssessments.kind, "english")),
     });
     expect(row?.level).toBeNull();
+  });
+
+  it("still works once the session is completed (regression)", async () => {
+    const { session } = await createFixture();
+    await finishRating(session.id);
+
+    await updateEnglishAssessment(session.id, 5);
+
+    const row = await db.query.supplementaryAssessments.findFirst({
+      where: and(eq(supplementaryAssessments.sessionId, session.id), eq(supplementaryAssessments.kind, "english")),
+    });
+    expect(row?.level).toBe(5);
+  });
+
+  it("refuses once the session is decided", async () => {
+    const fixture = await createFixture();
+    await bringSessionToPass(fixture);
+    await recordDecision(fixture.session.id, { mode: "accept" });
+
+    await expect(updateEnglishAssessment(fixture.session.id, 3)).rejects.toThrow(/already been decided/);
   });
 });
 
@@ -372,5 +415,75 @@ describe("session editability guard", () => {
     await expect(
       updateQuestionNotes(fixture.session.id, fixture.question.id, "too late")
     ).rejects.toThrow(/already been finished/);
+  });
+});
+
+describe("reopenSession", () => {
+  it("refuses to reopen a session that's still in_progress", async () => {
+    const { session } = await createFixture();
+    await expect(reopenSession(session.id)).rejects.toThrow(/completed or decided/);
+  });
+
+  it("reopens a completed session back to in_progress and stamps reopenedAt/reopenCount", async () => {
+    const { session } = await createFixture();
+    await finishRating(session.id);
+
+    await reopenSession(session.id);
+
+    const updated = await db.query.interviewSessions.findFirst({ where: eq(interviewSessions.id, session.id) });
+    expect(updated?.status).toBe("in_progress");
+    expect(updated?.reopenedAt).not.toBeNull();
+    expect(updated?.reopenCount).toBe(1);
+  });
+
+  it("reopens a decided session and re-enables rating", async () => {
+    const fixture = await createFixture();
+    await bringSessionToPass(fixture);
+    await recordDecision(fixture.session.id, { mode: "accept" });
+
+    await reopenSession(fixture.session.id);
+
+    const updated = await db.query.interviewSessions.findFirst({
+      where: eq(interviewSessions.id, fixture.session.id),
+    });
+    expect(updated?.status).toBe("in_progress");
+
+    // Ratings, which were locked while decided, work again post-reopen.
+    await rateQuestion(fixture.session.id, fixture.question.id, 2);
+    const evaluation = await db.query.questionEvaluations.findFirst({
+      where: and(
+        eq(questionEvaluations.sessionId, fixture.session.id),
+        eq(questionEvaluations.questionId, fixture.question.id)
+      ),
+    });
+    expect(evaluation?.score).toBe(2);
+  });
+
+  it("increments reopenCount across multiple reopens", async () => {
+    const { session } = await createFixture();
+    await finishRating(session.id);
+    await reopenSession(session.id);
+    await finishRating(session.id);
+    await reopenSession(session.id);
+
+    const updated = await db.query.interviewSessions.findFirst({ where: eq(interviewSessions.id, session.id) });
+    expect(updated?.reopenCount).toBe(2);
+  });
+
+  it("leaves the prior decision visible (no history log) until a new one is recorded", async () => {
+    const fixture = await createFixture();
+    await bringSessionToPass(fixture);
+    await recordDecision(fixture.session.id, { mode: "accept" });
+
+    await reopenSession(fixture.session.id);
+
+    const decision = await db.query.interviewDecisions.findFirst({
+      where: (t, { eq: eqOp }) => eqOp(t.sessionId, fixture.session.id),
+    });
+    expect(decision?.finalDecision).toBe("PASS");
+  });
+
+  it("throws when the session doesn't exist", async () => {
+    await expect(reopenSession(randomUUID())).rejects.toThrow(/not found/);
   });
 });

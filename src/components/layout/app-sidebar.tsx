@@ -49,11 +49,13 @@ export function AppSidebar() {
 
       <div className="mt-auto flex flex-col gap-2 border-t border-border px-2.5 pt-3">
         <p className="text-[10.5px] leading-snug text-muted-foreground/80">
-          Local POC build — Phase 10 (PDF Reporting). Every phase from
-          Positions through a downloadable PDF report is live: rate an
-          interview, record its decision, then generate a professional,
-          Playwright-rendered report from that stored data — never a
-          screenshot of the live UI. History/reopen hardening is next.
+          Local POC build — Phase 11 (Persistence/History/Versioning
+          Hardening), completing the core POC loop (Phases 1-11). An
+          Interview History screen lists and filters every session across
+          every candidate; a decided (or completed) session can be
+          explicitly Reopened for further changes, after which it must be
+          re-decided and re-reported rather than silently updating what
+          already exists.
         </p>
       </div>
     </aside>

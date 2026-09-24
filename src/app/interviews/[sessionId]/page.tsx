@@ -5,14 +5,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { calculateSectionStatus } from "@/domain/interviews/section-status";
-import { isSessionEditable } from "@/domain/interviews/session-lifecycle";
+import { canReopenSession, isSessionEditable } from "@/domain/interviews/session-lifecycle";
 import { computeSessionScoring } from "@/domain/interviews/session-scoring";
 import { STAGE_LABELS, type InterviewStage } from "@/domain/interviews/stage-config";
 import type { QuestionScore } from "@/domain/scoring/types";
 import { listCompetencies } from "@/features/templates/queries";
-import { finishRatingAction } from "@/features/interviews/actions";
+import { finishRatingAction, reopenSessionAction } from "@/features/interviews/actions";
 import { buildSessionEvaluationState, getSessionDetail } from "@/features/interviews/queries";
 import { QuestionCard } from "@/features/interviews/question-card";
+import { ReopenSessionButton } from "@/features/interviews/reopen-session-button";
 import { SectionNav } from "@/features/interviews/section-nav";
 
 export const dynamic = "force-dynamic";
@@ -112,9 +113,14 @@ export default async function LiveInterviewPage({
 
         {!editable ? (
           <Card>
-            <CardContent className="flex items-center gap-2 p-4 text-[12.5px] text-muted-foreground">
-              This interview has been finished ({session.status}) — ratings are read-only.
-              Use Reopen (Phase 11) to make further changes.
+            <CardContent className="flex items-center justify-between gap-2 p-4">
+              <p className="text-[12.5px] text-muted-foreground">
+                This interview has been finished ({session.status}) — ratings are read-only.
+                Reopen it to make further changes.
+              </p>
+              {canReopenSession(session) ? (
+                <ReopenSessionButton action={reopenSessionAction.bind(null, sessionId)} />
+              ) : null}
             </CardContent>
           </Card>
         ) : null}

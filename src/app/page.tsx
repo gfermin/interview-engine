@@ -10,22 +10,22 @@ import {
 
 const NEXT_UP = [
   {
-    phase: "Phase 11",
-    title: "Persistence / History / Versioning Hardening",
-    detail:
-      "Interview history list/search and an explicit 'reopen' flow for a finalized session, hardening the template-versioning guarantees before the POC is done.",
-  },
-  {
     phase: "Phase 12",
     title: "BambooHR Integration POC",
     detail:
-      "Validate real BambooHR API capabilities and implement a minimal, mocked-by-default integration — deferred until the core loop (Phases 1-11) is proven.",
+      "Validate real BambooHR API capabilities and implement a minimal, mocked-by-default integration, now that the core loop (Phases 1-11) is proven.",
   },
   {
     phase: "Phase 13",
     title: "Hardening / Testing / UX Polish",
     detail:
       "Fill test coverage gaps and polish rough UX edges found during real usage of Phases 1-11 — no new features.",
+  },
+  {
+    phase: "Phase 14",
+    title: "Production Readiness",
+    detail:
+      "Authentication/RBAC, Postgres migration, encrypted storage, deployment target, observability — pending a decision to move toward shared/multi-user use.",
   },
 ];
 
@@ -38,25 +38,28 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
               <CardTitle className="text-[15px]">
-                Phase 10 — PDF Reporting
+                Phase 11 — Persistence / History / Versioning Hardening
               </CardTitle>
               <CardDescription className="mt-1">
-                A &ldquo;Generate Report&rdquo; action on the Summary
-                screen — available only once a session is{" "}
-                <code>decided</code> — renders a server-side HTML report
-                template through headless Chromium (<code>playwright</code>,
-                ADR-007) into a real PDF: candidate/position/stage/version,
-                the calculated status and decision, a competency breakdown
-                table, the Mandatory Requirement gate, the English
-                assessment, deterministic strengths/concerns, and the
-                narrative summary — every field the artifact&apos;s
-                plain-text report had, laid out as a designed document. The
-                PDF is stored on disk and referenced by an immutable{" "}
-                <code>InterviewReport</code> row; regenerating never
-                overwrites a prior report, it adds another one.
+                This phase&apos;s completion is the POC completion (plan
+                §11): an Interview History screen lists and filters every
+                session by position, candidate, stage, or status, and an
+                explicit &ldquo;Reopen&rdquo; action unfreezes a{" "}
+                <code>completed</code> or <code>decided</code> session back
+                to <code>in_progress</code>, stamping{" "}
+                <code>reopenedAt</code>/<code>reopenCount</code> rather than
+                silently editing history. Reopening doesn&apos;t erase the
+                prior decision or report — it stays visible until the
+                interviewer re-decides, and generating again produces a
+                second, distinct <code>InterviewReport</code> rather than
+                overwriting the first. Hardening this phase also surfaced
+                and fixed a real bug from Phase 9: the Summary screen&apos;s
+                own Mandatory Requirement and English controls were
+                incorrectly locked the moment a session left{" "}
+                <code>in_progress</code>, before a decision even existed.
               </CardDescription>
             </div>
-            <Button size="sm" render={<Link href="/candidates">Open Candidates</Link>} />
+            <Button size="sm" render={<Link href="/interviews">Open History</Link>} />
           </CardHeader>
         </Card>
 
