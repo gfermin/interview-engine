@@ -6,8 +6,8 @@ decisions, data model, and phased implementation plan live in
 [`docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md`](../Prompts/docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md)
 in the sibling `Prompts` project.
 
-**Status:** Phase 9 (Scoring & Decision Engine) complete.
-Phases 0-9 done: app shell + SQLite/Drizzle (1), ScoringEngine/
+**Status:** Phase 10 (PDF Reporting) complete.
+Phases 0-10 done: app shell + SQLite/Drizzle (1), ScoringEngine/
 CompletenessEngine/CriticalRequirementEngine + full schema (2), Position +
 Job Description management with Role Family/Seniority (3), the Template
 builder — Competency/MandatoryRequirement/Question CRUD, reordering,
@@ -51,17 +51,28 @@ reason except a plain accept. Recording a decision moves the session
 `in_progress` → `decided` (with `completed` as an intermediate "finished
 rating, not yet decided" state) and freezes its ratings read-only; changing
 a decision overwrites the prior one with no history kept — a confirmed POC
-limitation (plan §21/§38) (9).
+limitation (plan §21/§38) (9), and PDF reporting (ADR-007): a "Generate
+Report" action on the Summary screen (gated on the session being `decided`)
+renders a server-side HTML template — candidate/position/stage/version,
+calculated status and decision, competency breakdown, the Mandatory
+Requirement and English gates, deterministic strengths/concerns, and the
+narrative — through headless Chromium (`playwright`) into a real PDF,
+written to `.data/reports/` and referenced by an immutable
+`InterviewReport` row; a download route
+(`/api/reports/[id]`) streams the bytes back, and regenerating adds a new
+report rather than overwriting the last one (10).
 Requires `ANTHROPIC_API_KEY` **or** `GEMINI_API_KEY` in `.env` to actually
 call an AI provider — without either, AI actions surface a clear error and
-everything else keeps working offline.
-PDF Reporting (Phase 10) is next.
+everything else keeps working offline. Requires Playwright's Chromium
+browser to be installed locally (see Getting started) — without it, report
+generation fails with a clear error and everything else keeps working.
+Persistence / History / Versioning Hardening (Phase 11) is next.
 
 ## Stack
 
 Next.js (App Router, TypeScript) · Tailwind + shadcn/ui · SQLite via Drizzle
 ORM · Zod + React Hook Form · Vitest + Testing Library (unit/component) ·
-Playwright (E2E, and PDF generation from Phase 10 onward) · Claude
+Playwright (E2E, and PDF report generation as of Phase 10) · Claude
 (`@anthropic-ai/sdk`, recommended default) or Gemini (`@google/genai`, free
 tier) behind an `AIProvider` abstraction (`src/services/ai/`), live since
 Phase 5/5.5.
@@ -76,10 +87,16 @@ status-color semantics used from Phase 8 onward.
 ```bash
 cp .env.example .env
 npm install
+npx playwright install chromium
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+`npx playwright install chromium` downloads the browser binary Playwright
+needs — required for PDF report generation (Phase 10) and for
+`npm run test:e2e`; skip it and everything else in the app still works,
+but "Generate Report" will fail with a clear error until it's installed.
 
 ## Scripts
 
@@ -103,24 +120,26 @@ chosen over IndexedDB/Postgres for the POC.
 
 ```
 src/
-  app/                  # Next.js routes (positions, templates, candidates, interviews)
+  app/                  # Next.js routes (positions, templates, candidates, interviews) + api/reports/[id] download route
   components/
     layout/              # App shell (sidebar, topbar)
     ui/                   # shadcn/ui primitives
   db/                   # Drizzle schema + client
   domain/
     scoring/              # ScoringEngine/CompletenessEngine/CriticalRequirementEngine (pure)
-    interviews/            # Stage config, template versioning, session-scoring composition, section-status (all pure)
+    interviews/            # Stage config, template versioning, session lifecycle, session-scoring composition, section-status, decision state machine, narrative (all pure)
   features/
     positions/            # Position + Job Description CRUD
     templates/             # Template/Competency/MandatoryRequirement/Question CRUD + versioning + AI actions
     candidates/            # Candidate CRUD + start-Interview-Session flow
     interviews/            # Live rating + Summary/Decision screens: rate/notes/mandatory-requirement/English/decision mutations + actions, question card, rate bar, section nav, decision form
+    reports/               # generateReport mutation, report queries, "Generate Report" action + button
   services/
     ai/                    # AIProvider interface, provider.ts selector, ClaudeProvider + GeminiProvider, prompts, Zod output schemas
+    pdf/                   # HTML report template (pure) + Playwright render-to-PDF
   lib/                  # Shared utilities
 e2e/                  # Playwright specs
 ```
 
-See §32 of the implementation plan for the full target structure
-(`services/ai`, `services/pdf`, etc.) as later phases add them.
+See §32 of the implementation plan for the full target structure as later
+phases add to it.

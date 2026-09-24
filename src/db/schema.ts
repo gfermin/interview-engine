@@ -379,3 +379,25 @@ export const interviewDecisions = sqliteTable("interview_decisions", {
   reason: text("reason"),
   ...timestamps,
 });
+
+// ---------------------------------------------------------------------------
+// Interview Report (Phase 10) — an immutable PDF snapshot of a finalized
+// session. Generated only from a `decided` session (plan §24); intentionally
+// NOT unique on sessionId — Phase 11's "reopen -> re-finalize" flow produces
+// a second, later report for the same session rather than overwriting the
+// first, so history stays honest about what changed and when.
+// ---------------------------------------------------------------------------
+
+export const interviewReports = sqliteTable("interview_reports", {
+  id: id(),
+  sessionId: text("session_id")
+    .notNull()
+    .references(() => interviewSessions.id, { onDelete: "cascade" }),
+  // Relative to the project root (e.g. ".data/reports/<id>.pdf"), not an
+  // absolute path — the PDF bytes themselves live on disk, gitignored
+  // alongside the SQLite file, not as a DB blob (plan §26: local-only
+  // storage, nothing that needs a real object store for a single-user POC).
+  filePath: text("file_path").notNull(),
+  fileSize: integer("file_size").notNull(),
+  ...timestamps,
+});
