@@ -65,6 +65,33 @@ describe("schema round-trip", () => {
     expect(jobDescription.positionId).toBe(position.id);
     expect(jobDescription.status).toBe("draft");
 
+    const [jobAnalysis] = await db
+      .insert(schema.jobAnalyses)
+      .values({
+        jobDescriptionId: jobDescription.id,
+        detectedRoleFamily: "Quality Assurance",
+        detectedSeniority: "Mid-Level",
+        mandatoryRequirements: ["5+ years test automation experience"],
+        preferredRequirements: ["Experience with JMeter"],
+      })
+      .returning();
+    expect(jobAnalysis.detectedSeniority).toBe("Mid-Level");
+    // Task 2.4-style defaulting (plan §16): arrays default to [], not null.
+    expect(jobAnalysis.optionalRequirements).toEqual([]);
+
+    const [jobAnalysisRecord] = await db
+      .insert(schema.aiGenerationRecords)
+      .values({
+        kind: "job_analysis",
+        jobDescriptionId: jobDescription.id,
+        provider: "anthropic",
+        model: "claude-sonnet-5",
+        promptVersion: "job-analysis-v1",
+      })
+      .returning();
+    expect(jobAnalysisRecord.templateId).toBeNull();
+    expect(jobAnalysisRecord.blueprint).toBeNull();
+
     const [template] = await db
       .insert(schema.interviewTemplates)
       .values({
@@ -77,6 +104,24 @@ describe("schema round-trip", () => {
     expect(template.status).toBe("draft");
     expect(template.version).toBe(1);
     expect(template.passThreshold).toBe(70);
+
+    const [draftRecord] = await db
+      .insert(schema.aiGenerationRecords)
+      .values({
+        kind: "template_draft",
+        templateId: template.id,
+        provider: "anthropic",
+        model: "claude-sonnet-5",
+        promptVersion: "template-draft-v1",
+        blueprint: [
+          { competencyName: "Programming", coverage: "core language + testing", questionTypeMix: "2 practical / 1 debugging" },
+        ],
+      })
+      .returning();
+    expect(draftRecord.jobDescriptionId).toBeNull();
+    expect(draftRecord.blueprint).toEqual([
+      { competencyName: "Programming", coverage: "core language + testing", questionTypeMix: "2 practical / 1 debugging" },
+    ]);
 
     const [programming, sqlCompetency] = await db
       .insert(schema.competencies)

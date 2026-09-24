@@ -15,6 +15,13 @@
       "when": 1790196335217,
       "tag": "0001_military_ultimatum",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790221018834,
+      "tag": "0002_boring_manta",
+      "breakpoints": true
     }
   ]
 }

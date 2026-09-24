@@ -6,20 +6,29 @@ decisions, data model, and phased implementation plan live in
 [`docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md`](../Prompts/docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md)
 in the sibling `Prompts` project.
 
-**Status:** Phase 4 (Interview Template Engine) complete. Phases 0-4 done:
-app shell + SQLite/Drizzle (1), ScoringEngine/CompletenessEngine/
+**Status:** Phase 5 (AI JD Analysis & Question Generation) complete. Phases
+0-5 done: app shell + SQLite/Drizzle (1), ScoringEngine/CompletenessEngine/
 CriticalRequirementEngine + full schema (2), Position + Job Description
-management with Role Family/Seniority (3), and the Template builder —
+management with Role Family/Seniority (3), the Template builder —
 Competency/MandatoryRequirement/Question CRUD, reordering, draft/approved/
 locked versioning (ADR-008), and the per-stage (Technical/Screening) config
-map — with manually-authored content (4). AI generation (Phase 5) is next.
+map (4), and an `AIProvider` abstraction + `ClaudeProvider` behind forced
+tool-use, wired into the builder as "Analyze Job Description" (→
+`JobAnalysis`, with a non-blocking role/seniority mismatch flag) and
+"Generate Draft" (→ a full Competency/MandatoryRequirement/Question set,
+Zod-validated before touching the database, with a `AIGenerationRecord` kept
+for provenance) (5). Requires `ANTHROPIC_API_KEY` in `.env` to actually call
+the API — without it, those two actions surface a clear error and
+everything else keeps working offline. Interview Template Review/Approval
+UI (Phase 6) is next.
 
 ## Stack
 
 Next.js (App Router, TypeScript) · Tailwind + shadcn/ui · SQLite via Drizzle
 ORM · Zod + React Hook Form · Vitest + Testing Library (unit/component) ·
-Playwright (E2E, and PDF generation from Phase 10 onward) · Claude (Anthropic
-API) behind an `AIProvider` abstraction, wired up starting Phase 5.
+Playwright (E2E, and PDF generation from Phase 10 onward) · Claude
+(`@anthropic-ai/sdk`) behind an `AIProvider` abstraction (`src/services/ai/`),
+live since Phase 5.
 
 Design tokens (colors, IBM Plex Sans/Mono typography) in
 `src/app/globals.css` are ported directly from the "Calibración QA" artifact
@@ -68,7 +77,9 @@ src/
     interviews/            # Stage config (labels/modules) + template versioning rules (pure)
   features/
     positions/            # Position + Job Description CRUD
-    templates/             # Template/Competency/MandatoryRequirement/Question CRUD + versioning
+    templates/             # Template/Competency/MandatoryRequirement/Question CRUD + versioning + AI actions
+  services/
+    ai/                    # AIProvider interface, ClaudeProvider, prompts, Zod output schemas
   lib/                  # Shared utilities
 e2e/                  # Playwright specs
 ```

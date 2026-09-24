@@ -25,6 +25,10 @@ export function getActiveJobDescription(positionId: string) {
   });
 }
 
+export function getJobDescription(id: string) {
+  return db.query.jobDescriptions.findFirst({ where: eq(jobDescriptions.id, id) });
+}
+
 export function listJobDescriptionVersions(positionId: string) {
   return db.query.jobDescriptions.findMany({
     where: eq(jobDescriptions.positionId, positionId),
