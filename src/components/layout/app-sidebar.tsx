@@ -49,10 +49,10 @@ export function AppSidebar() {
 
       <div className="mt-auto flex flex-col gap-2 border-t border-border px-2.5 pt-3">
         <p className="text-[10.5px] leading-snug text-muted-foreground/80">
-          Local POC build — Phase 5 (AI Generation). Positions and Templates
-          are live, with AI-assisted JD analysis and draft generation;
-          Candidates/Interviews/Reports are scaffolded and filled in over
-          later phases.
+          Local POC build — Phase 5.5 (AI Generation, Claude or Gemini free
+          tier). Positions and Templates are live, with AI-assisted JD
+          analysis and draft generation; Candidates/Interviews/Reports are
+          scaffolded and filled in over later phases.
         </p>
       </div>
     </aside>

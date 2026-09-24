@@ -38,7 +38,7 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
               <CardTitle className="text-[15px]">
-                Phase 5 — AI JD Analysis &amp; Question Generation
+                Phase 5.5 — AI JD Analysis &amp; Question Generation
               </CardTitle>
               <CardDescription className="mt-1">
                 From an empty draft template: &ldquo;Analyze Job
@@ -47,7 +47,9 @@ export default function DashboardPage() {
                 Draft&rdquo; produces a full Competency/MandatoryRequirement/
                 Question set — calibrated jointly to Position, Role Family,
                 Seniority, Stage, and the JD — Zod-validated before it ever
-                touches the database. Requires <code>ANTHROPIC_API_KEY</code>{" "}
+                touches the database. Backed by Claude (<code>ANTHROPIC_API_KEY</code>,
+                recommended) or Gemini&apos;s free tier (<code>GEMINI_API_KEY</code>)
+                behind the same <code>AIProvider</code> interface — set either
                 in <code>.env</code>.
               </CardDescription>
             </div>
