@@ -10,22 +10,22 @@ import {
 
 const NEXT_UP = [
   {
-    phase: "Phase 7",
-    title: "Candidate Management",
-    detail:
-      "Candidate CRUD and roster, replacing the artifact's single-candidate-slot model — the first real use of a Template's lock-on-use guard.",
-  },
-  {
-    phase: "Phase 8",
-    title: "Live Interview Engine",
-    detail:
-      "The artifact's question-card rating UI (0-5/N/A, disclosure panels, live score chips), rebuilt as componentized, database-backed React.",
-  },
-  {
     phase: "Phase 9",
     title: "Scoring & Decision Engine",
     detail:
       "Wire the ScoringEngine into a Summary screen: calculated status/reason, the Mandatory Requirement gate, and the human accept/override/forced-call decision workflow.",
+  },
+  {
+    phase: "Phase 10",
+    title: "PDF Reporting",
+    detail:
+      "Generate a professional PDF from a finalized InterviewSession using Playwright print-to-PDF from a server-rendered HTML template.",
+  },
+  {
+    phase: "Phase 11",
+    title: "Persistence / History / Versioning Hardening",
+    detail:
+      "Interview history list/search and an explicit 'reopen' flow for a finalized session, hardening the template-versioning guarantees before the POC is done.",
   },
 ];
 
@@ -38,23 +38,22 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
               <CardTitle className="text-[15px]">
-                Phase 6 — Interview Template Review &amp; Approval
+                Phase 8 — Live Interview Engine
               </CardTitle>
               <CardDescription className="mt-1">
-                &ldquo;Analyze Job Description&rdquo; extracts a JobAnalysis
-                (with a non-blocking role/seniority mismatch flag),
-                &ldquo;Generate Draft&rdquo; produces a full
-                Competency/MandatoryRequirement/Question set, and each
-                question has its own &ldquo;Regenerate&rdquo; — re-calls AI
-                for just that one question, in place, leaving its siblings
-                and the rest of the template untouched. Everything is
-                Zod-validated before it touches the database. Backed by
-                Claude (<code>ANTHROPIC_API_KEY</code>, recommended) or
-                Gemini&apos;s free tier (<code>GEMINI_API_KEY</code>) behind
-                the same <code>AIProvider</code> interface.
+                The artifact&apos;s question-card rating UI — 0-5/N/A rate
+                bar, collapsible expected-answer/rubric/follow-up panels,
+                autosaving notes — rebuilt as componentized, database-backed
+                React. Every rating recomputes the same{" "}
+                <code>ScoringEngine</code>/<code>CompletenessEngine</code>{" "}
+                from Phase 2 in place, driving live overall/completion/
+                critical chips and a per-competency section nav with status
+                icons (○/●/✓/⚠), exactly like the artifact&apos;s{" "}
+                <code>recalc()</code>-on-every-interaction pattern — now
+                backed by real persistence instead of <code>localStorage</code>.
               </CardDescription>
             </div>
-            <Button size="sm" render={<Link href="/templates">Open Templates</Link>} />
+            <Button size="sm" render={<Link href="/candidates">Open Candidates</Link>} />
           </CardHeader>
         </Card>
 
