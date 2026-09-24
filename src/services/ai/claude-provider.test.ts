@@ -171,3 +171,84 @@ describe("ClaudeProvider.generateTemplateDraft", () => {
     );
   });
 });
+
+describe("ClaudeProvider.regenerateQuestion", () => {
+  const regenerateInput = {
+    ...baseInput,
+    competencyName: "Programming",
+    competencyExpectedDepth: "Explains WHY, not just HOW.",
+    existingQuestion: {
+      text: "How do you handle flaky tests?",
+      difficulty: "hard" as const,
+      importance: "core" as const,
+    },
+    includeCodeExercises: true,
+  };
+
+  it("parses and returns a single replacement question", async () => {
+    createMock.mockResolvedValueOnce(
+      toolUseResponse({
+        text: "Walk through diagnosing a memory leak in a long-running service.",
+        difficulty: "hard",
+        importance: "core",
+        concepts: ["heap profiling"],
+        redFlags: [],
+        followUps: [],
+        rubric: [],
+      })
+    );
+
+    const provider = new ClaudeProvider({ apiKey: "test-key" });
+    const question = await provider.regenerateQuestion(regenerateInput);
+
+    expect(question.text).toBe(
+      "Walk through diagnosing a memory leak in a long-running service."
+    );
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tool_choice: { type: "tool", name: "submit_regenerated_question" },
+      })
+    );
+  });
+
+  it("works with no Job Description grounding (jobDescriptionText: null)", async () => {
+    createMock.mockResolvedValueOnce(
+      toolUseResponse({
+        text: "Explain a time you optimized a slow SQL query.",
+        difficulty: "medium",
+        importance: "core",
+        concepts: [],
+        redFlags: [],
+        followUps: [],
+        rubric: [],
+      })
+    );
+
+    const provider = new ClaudeProvider({ apiKey: "test-key" });
+    const question = await provider.regenerateQuestion({
+      ...regenerateInput,
+      jobDescriptionText: null,
+    });
+
+    expect(question.text).toBe("Explain a time you optimized a slow SQL query.");
+  });
+
+  it("throws AIValidationError when the response fails validation", async () => {
+    createMock.mockResolvedValueOnce(
+      toolUseResponse({
+        text: "",
+        difficulty: "hard",
+        importance: "core",
+        concepts: [],
+        redFlags: [],
+        followUps: [],
+        rubric: [],
+      })
+    );
+
+    const provider = new ClaudeProvider({ apiKey: "test-key" });
+    await expect(provider.regenerateQuestion(regenerateInput)).rejects.toBeInstanceOf(
+      AIValidationError
+    );
+  });
+});

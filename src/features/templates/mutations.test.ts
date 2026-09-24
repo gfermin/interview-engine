@@ -4,10 +4,12 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { db } from "@/db";
 import { competencies, interviewTemplates, jobDescriptions, positions, questions } from "@/db/schema";
-import type { TemplateDraft } from "@/services/ai/schemas";
+import type { TemplateDraft, TemplateDraftQuestion } from "@/services/ai/schemas";
 import {
   applyGeneratedDraft,
+  applyRegeneratedQuestion,
   createCompetency,
+  createQuestion,
   moveCompetency,
   publishTemplate,
   recordAIGeneration,
@@ -231,5 +233,170 @@ describe("recordAIGeneration", () => {
     expect(record.blueprint).toEqual([
       { competencyName: "Programming", coverage: "x", questionTypeMix: "y" },
     ]);
+  });
+});
+
+const sampleRegenerated: TemplateDraftQuestion = {
+  text: "Walk through diagnosing a memory leak in a long-running service.",
+  difficulty: "hard",
+  importance: "core",
+  expected: "Uses heap snapshots and profiling tools rather than guessing.",
+  strong: null,
+  acceptable: null,
+  concepts: ["heap profiling", "GC tuning"],
+  redFlags: [],
+  followUps: [],
+  rubric: ["0 - no strategy", "5 - systematic investigation"],
+  code: "function leak() {}",
+  solution: "// fixed version",
+};
+
+describe("applyRegeneratedQuestion", () => {
+  it("replaces content in place, keeping id/competencyId/sortOrder unchanged", async () => {
+    const { template } = await createTestTemplate("technical");
+    const competency = await createCompetency(template.id, {
+      name: "Programming",
+      weight: 100,
+      critical: false,
+      expectedDepth: null,
+    });
+    const original = await createQuestion(template.id, {
+      competencyId: competency.id,
+      text: "How do you handle flaky tests?",
+      difficulty: "medium",
+      importance: "secondary",
+      expected: null,
+      strong: null,
+      acceptable: null,
+      concepts: [],
+      redFlags: [],
+      followUps: [],
+      rubric: [],
+      code: null,
+      solution: null,
+    });
+
+    const updated = await applyRegeneratedQuestion(original.id, sampleRegenerated, {
+      includeCodeExercises: true,
+    });
+
+    expect(updated.id).toBe(original.id);
+    expect(updated.competencyId).toBe(competency.id);
+    expect(updated.sortOrder).toBe(original.sortOrder);
+    expect(updated.text).toBe(sampleRegenerated.text);
+    expect(updated.difficulty).toBe("hard");
+    expect(updated.concepts).toEqual(["heap profiling", "GC tuning"]);
+    expect(updated.code).toBe("function leak() {}");
+  });
+
+  it("strips code/solution when includeCodeExercises is false", async () => {
+    const { template } = await createTestTemplate("screening");
+    const competency = await createCompetency(template.id, {
+      name: "Communication",
+      weight: 100,
+      critical: false,
+      expectedDepth: null,
+    });
+    const original = await createQuestion(template.id, {
+      competencyId: competency.id,
+      text: "Tell me about a conflict you resolved.",
+      difficulty: "medium",
+      importance: "core",
+      expected: null,
+      strong: null,
+      acceptable: null,
+      concepts: [],
+      redFlags: [],
+      followUps: [],
+      rubric: [],
+      code: null,
+      solution: null,
+    });
+
+    const updated = await applyRegeneratedQuestion(original.id, sampleRegenerated, {
+      includeCodeExercises: false,
+    });
+
+    expect(updated.code).toBeNull();
+    expect(updated.solution).toBeNull();
+  });
+
+  it("doesn't affect a sibling question in the same competency", async () => {
+    const { template } = await createTestTemplate();
+    const competency = await createCompetency(template.id, {
+      name: "Programming",
+      weight: 100,
+      critical: false,
+      expectedDepth: null,
+    });
+    const questionA = await createQuestion(template.id, {
+      competencyId: competency.id,
+      text: "Question A",
+      difficulty: "easy",
+      importance: "core",
+      expected: null,
+      strong: null,
+      acceptable: null,
+      concepts: [],
+      redFlags: [],
+      followUps: [],
+      rubric: [],
+      code: null,
+      solution: null,
+    });
+    const questionB = await createQuestion(template.id, {
+      competencyId: competency.id,
+      text: "Question B",
+      difficulty: "easy",
+      importance: "core",
+      expected: null,
+      strong: null,
+      acceptable: null,
+      concepts: [],
+      redFlags: [],
+      followUps: [],
+      rubric: [],
+      code: null,
+      solution: null,
+    });
+
+    await applyRegeneratedQuestion(questionA.id, sampleRegenerated, {
+      includeCodeExercises: true,
+    });
+
+    const siblingUnchanged = await db.query.questions.findFirst({
+      where: eq(questions.id, questionB.id),
+    });
+    expect(siblingUnchanged?.text).toBe("Question B");
+  });
+
+  it("throws when the template is no longer editable", async () => {
+    const { template } = await createTestTemplate();
+    const competency = await createCompetency(template.id, {
+      name: "Programming",
+      weight: 100,
+      critical: false,
+      expectedDepth: null,
+    });
+    const original = await createQuestion(template.id, {
+      competencyId: competency.id,
+      text: "Original",
+      difficulty: "easy",
+      importance: "core",
+      expected: null,
+      strong: null,
+      acceptable: null,
+      concepts: [],
+      redFlags: [],
+      followUps: [],
+      rubric: [],
+      code: null,
+      solution: null,
+    });
+    await publishTemplate(template.id);
+
+    await expect(
+      applyRegeneratedQuestion(original.id, sampleRegenerated, { includeCodeExercises: true })
+    ).rejects.toThrow(/no longer editable/);
   });
 });

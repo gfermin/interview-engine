@@ -9,7 +9,7 @@ import {
   questions,
 } from "@/db/schema";
 import { checkPublishable, isTemplateEditable } from "@/domain/interviews/template-versioning";
-import type { JobAnalysisResult, TemplateDraft } from "@/services/ai/schemas";
+import type { JobAnalysisResult, TemplateDraft, TemplateDraftQuestion } from "@/services/ai/schemas";
 import type {
   CompetencyFormValues,
   MandatoryRequirementFormValues,
@@ -347,6 +347,44 @@ export async function updateQuestion(id: string, input: QuestionFormValues) {
   return updated;
 }
 
+/**
+ * Replaces a question's content in place (Phase 6) — same `id`,
+ * `competencyId`, `templateId`, and `sortOrder` as before, only the
+ * AI-generated fields change. Deliberately an update, not a delete+insert:
+ * the plan's own stated risk for this feature is "could drift the
+ * question's id/order," which an in-place update sidesteps entirely.
+ */
+export async function applyRegeneratedQuestion(
+  id: string,
+  regenerated: TemplateDraftQuestion,
+  options: { includeCodeExercises: boolean }
+) {
+  const question = await getQuestion(id);
+  if (!question) throw new Error("Question not found.");
+  await requireEditableTemplate(question.templateId);
+
+  const [updated] = await db
+    .update(questions)
+    .set({
+      text: regenerated.text,
+      difficulty: regenerated.difficulty,
+      importance: regenerated.importance,
+      expected: regenerated.expected,
+      strong: regenerated.strong,
+      acceptable: regenerated.acceptable,
+      concepts: regenerated.concepts,
+      redFlags: regenerated.redFlags,
+      followUps: regenerated.followUps,
+      rubric: regenerated.rubric,
+      code: options.includeCodeExercises ? regenerated.code : null,
+      solution: options.includeCodeExercises ? regenerated.solution : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(questions.id, id))
+    .returning();
+  return updated;
+}
+
 export async function deleteQuestion(id: string) {
   const question = await getQuestion(id);
   if (!question) return;
@@ -406,7 +444,7 @@ export async function saveJobAnalysis(jobDescriptionId: string, result: JobAnaly
 }
 
 interface RecordAIGenerationInput {
-  kind: "job_analysis" | "template_draft";
+  kind: "job_analysis" | "template_draft" | "question_regeneration";
   jobDescriptionId?: string | null;
   templateId?: string | null;
   provider: string;

@@ -1,13 +1,35 @@
 import { FunctionCallingConfigMode, GoogleGenAI, type FunctionDeclaration } from "@google/genai";
 import {
+  DRAFT_QUESTION_JSON_SCHEMA,
   JOB_ANALYSIS_FUNCTION_NAME,
   JOB_ANALYSIS_JSON_SCHEMA,
+  REGENERATE_QUESTION_FUNCTION_NAME,
   TEMPLATE_DRAFT_FUNCTION_NAME,
   TEMPLATE_DRAFT_JSON_SCHEMA,
 } from "./json-schemas";
-import { buildJobAnalysisPrompt, buildTemplateDraftPrompt, JOB_ANALYSIS_PROMPT_VERSION, TEMPLATE_DRAFT_PROMPT_VERSION } from "./prompts";
-import { jobAnalysisResultSchema, templateDraftSchema, type JobAnalysisResult, type TemplateDraft } from "./schemas";
-import { AIValidationError, type AIProvider, type AnalyzeJobDescriptionInput, type GenerateTemplateDraftInput } from "./types";
+import {
+  buildJobAnalysisPrompt,
+  buildRegenerateQuestionPrompt,
+  buildTemplateDraftPrompt,
+  JOB_ANALYSIS_PROMPT_VERSION,
+  REGENERATE_QUESTION_PROMPT_VERSION,
+  TEMPLATE_DRAFT_PROMPT_VERSION,
+} from "./prompts";
+import {
+  draftQuestionSchema,
+  jobAnalysisResultSchema,
+  templateDraftSchema,
+  type JobAnalysisResult,
+  type TemplateDraft,
+  type TemplateDraftQuestion,
+} from "./schemas";
+import {
+  AIValidationError,
+  type AIProvider,
+  type AnalyzeJobDescriptionInput,
+  type GenerateTemplateDraftInput,
+  type RegenerateQuestionInput,
+} from "./types";
 
 const JOB_ANALYSIS_DECLARATION: FunctionDeclaration = {
   name: JOB_ANALYSIS_FUNCTION_NAME,
@@ -19,6 +41,12 @@ const TEMPLATE_DRAFT_DECLARATION: FunctionDeclaration = {
   name: TEMPLATE_DRAFT_FUNCTION_NAME,
   description: "Submit the generated draft interview template.",
   parametersJsonSchema: TEMPLATE_DRAFT_JSON_SCHEMA,
+};
+
+const REGENERATE_QUESTION_DECLARATION: FunctionDeclaration = {
+  name: REGENERATE_QUESTION_FUNCTION_NAME,
+  description: "Submit the regenerated replacement question.",
+  parametersJsonSchema: DRAFT_QUESTION_JSON_SCHEMA,
 };
 
 export interface GeminiProviderOptions {
@@ -83,6 +111,19 @@ export class GeminiProvider implements AIProvider {
     return parsed.data;
   }
 
+  async regenerateQuestion(input: RegenerateQuestionInput): Promise<TemplateDraftQuestion> {
+    const { system, user } = buildRegenerateQuestionPrompt(input);
+    const args = await this.callForFunction(system, user, REGENERATE_QUESTION_DECLARATION);
+    const parsed = draftQuestionSchema.safeParse(args);
+    if (!parsed.success) {
+      throw new AIValidationError(
+        `AI question regeneration output failed validation: ${parsed.error.message}`,
+        args
+      );
+    }
+    return parsed.data;
+  }
+
   private async callForFunction(
     system: string,
     user: string,
@@ -111,4 +152,4 @@ export class GeminiProvider implements AIProvider {
   }
 }
 
-export { JOB_ANALYSIS_PROMPT_VERSION, TEMPLATE_DRAFT_PROMPT_VERSION };
+export { JOB_ANALYSIS_PROMPT_VERSION, REGENERATE_QUESTION_PROMPT_VERSION, TEMPLATE_DRAFT_PROMPT_VERSION };

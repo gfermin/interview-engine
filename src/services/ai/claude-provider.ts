@@ -1,13 +1,35 @@
 import Anthropic from "@anthropic-ai/sdk";
 import {
+  DRAFT_QUESTION_JSON_SCHEMA,
   JOB_ANALYSIS_FUNCTION_NAME,
   JOB_ANALYSIS_JSON_SCHEMA,
+  REGENERATE_QUESTION_FUNCTION_NAME,
   TEMPLATE_DRAFT_FUNCTION_NAME,
   TEMPLATE_DRAFT_JSON_SCHEMA,
 } from "./json-schemas";
-import { buildJobAnalysisPrompt, buildTemplateDraftPrompt, JOB_ANALYSIS_PROMPT_VERSION, TEMPLATE_DRAFT_PROMPT_VERSION } from "./prompts";
-import { jobAnalysisResultSchema, templateDraftSchema, type JobAnalysisResult, type TemplateDraft } from "./schemas";
-import { AIValidationError, type AIProvider, type AnalyzeJobDescriptionInput, type GenerateTemplateDraftInput } from "./types";
+import {
+  buildJobAnalysisPrompt,
+  buildRegenerateQuestionPrompt,
+  buildTemplateDraftPrompt,
+  JOB_ANALYSIS_PROMPT_VERSION,
+  REGENERATE_QUESTION_PROMPT_VERSION,
+  TEMPLATE_DRAFT_PROMPT_VERSION,
+} from "./prompts";
+import {
+  draftQuestionSchema,
+  jobAnalysisResultSchema,
+  templateDraftSchema,
+  type JobAnalysisResult,
+  type TemplateDraft,
+  type TemplateDraftQuestion,
+} from "./schemas";
+import {
+  AIValidationError,
+  type AIProvider,
+  type AnalyzeJobDescriptionInput,
+  type GenerateTemplateDraftInput,
+  type RegenerateQuestionInput,
+} from "./types";
 
 const JOB_ANALYSIS_TOOL: Anthropic.Tool = {
   name: JOB_ANALYSIS_FUNCTION_NAME,
@@ -19,6 +41,12 @@ const TEMPLATE_DRAFT_TOOL: Anthropic.Tool = {
   name: TEMPLATE_DRAFT_FUNCTION_NAME,
   description: "Submit the generated draft interview template.",
   input_schema: TEMPLATE_DRAFT_JSON_SCHEMA as unknown as Anthropic.Tool.InputSchema,
+};
+
+const REGENERATE_QUESTION_TOOL: Anthropic.Tool = {
+  name: REGENERATE_QUESTION_FUNCTION_NAME,
+  description: "Submit the regenerated replacement question.",
+  input_schema: DRAFT_QUESTION_JSON_SCHEMA as unknown as Anthropic.Tool.InputSchema,
 };
 
 export interface ClaudeProviderOptions {
@@ -76,6 +104,19 @@ export class ClaudeProvider implements AIProvider {
     return parsed.data;
   }
 
+  async regenerateQuestion(input: RegenerateQuestionInput): Promise<TemplateDraftQuestion> {
+    const { system, user } = buildRegenerateQuestionPrompt(input);
+    const toolInput = await this.callForTool(system, user, REGENERATE_QUESTION_TOOL);
+    const parsed = draftQuestionSchema.safeParse(toolInput);
+    if (!parsed.success) {
+      throw new AIValidationError(
+        `AI question regeneration output failed validation: ${parsed.error.message}`,
+        toolInput
+      );
+    }
+    return parsed.data;
+  }
+
   private async callForTool(
     system: string,
     user: string,
@@ -100,4 +141,4 @@ export class ClaudeProvider implements AIProvider {
   }
 }
 
-export { JOB_ANALYSIS_PROMPT_VERSION, TEMPLATE_DRAFT_PROMPT_VERSION };
+export { JOB_ANALYSIS_PROMPT_VERSION, REGENERATE_QUESTION_PROMPT_VERSION, TEMPLATE_DRAFT_PROMPT_VERSION };

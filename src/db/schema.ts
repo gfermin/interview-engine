@@ -191,7 +191,11 @@ export const questions = sqliteTable("questions", {
 
 export const aiGenerationRecords = sqliteTable("ai_generation_records", {
   id: id(),
-  kind: text("kind", { enum: ["job_analysis", "template_draft"] }).notNull(),
+  // "question_regeneration" added Phase 6 (§39 of the plan's addendum
+  // pattern applies here too — additive, no migration needed: this column
+  // is a plain TEXT with no DB-level CHECK constraint, so widening the enum
+  // is a type-only change).
+  kind: text("kind", { enum: ["job_analysis", "template_draft", "question_regeneration"] }).notNull(),
   jobDescriptionId: text("job_description_id").references(() => jobDescriptions.id, {
     onDelete: "set null",
   }),

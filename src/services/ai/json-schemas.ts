@@ -8,6 +8,7 @@
 
 export const JOB_ANALYSIS_FUNCTION_NAME = "submit_job_analysis";
 export const TEMPLATE_DRAFT_FUNCTION_NAME = "submit_template_draft";
+export const REGENERATE_QUESTION_FUNCTION_NAME = "submit_regenerated_question";
 
 const NULLABLE_STRING = { type: ["string", "null"] } as const;
 
@@ -31,7 +32,10 @@ export const JOB_ANALYSIS_JSON_SCHEMA = {
   ],
 } as const;
 
-const DRAFT_QUESTION_JSON_SCHEMA = {
+// Exported (not just used inline below) so Phase 6's single-question
+// regenerate call — validated against the identical shape a full draft's
+// questions use — can reuse it directly rather than duplicate it.
+export const DRAFT_QUESTION_JSON_SCHEMA = {
   type: "object",
   properties: {
     text: { type: "string" },

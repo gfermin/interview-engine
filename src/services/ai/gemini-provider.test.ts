@@ -173,3 +173,79 @@ describe("GeminiProvider.generateTemplateDraft", () => {
     );
   });
 });
+
+describe("GeminiProvider.regenerateQuestion", () => {
+  const regenerateInput = {
+    ...baseInput,
+    competencyName: "Programming",
+    competencyExpectedDepth: "Explains WHY, not just HOW.",
+    existingQuestion: {
+      text: "How do you handle flaky tests?",
+      difficulty: "hard" as const,
+      importance: "core" as const,
+    },
+    includeCodeExercises: true,
+  };
+
+  it("parses and returns a single replacement question", async () => {
+    generateContentMock.mockResolvedValueOnce(
+      functionCallResponse("submit_regenerated_question", {
+        text: "Walk through diagnosing a memory leak in a long-running service.",
+        difficulty: "hard",
+        importance: "core",
+        concepts: ["heap profiling"],
+        redFlags: [],
+        followUps: [],
+        rubric: [],
+      })
+    );
+
+    const provider = new GeminiProvider({ apiKey: "test-key" });
+    const question = await provider.regenerateQuestion(regenerateInput);
+
+    expect(question.text).toBe(
+      "Walk through diagnosing a memory leak in a long-running service."
+    );
+  });
+
+  it("works with no Job Description grounding (jobDescriptionText: null)", async () => {
+    generateContentMock.mockResolvedValueOnce(
+      functionCallResponse("submit_regenerated_question", {
+        text: "Explain a time you optimized a slow SQL query.",
+        difficulty: "medium",
+        importance: "core",
+        concepts: [],
+        redFlags: [],
+        followUps: [],
+        rubric: [],
+      })
+    );
+
+    const provider = new GeminiProvider({ apiKey: "test-key" });
+    const question = await provider.regenerateQuestion({
+      ...regenerateInput,
+      jobDescriptionText: null,
+    });
+
+    expect(question.text).toBe("Explain a time you optimized a slow SQL query.");
+  });
+
+  it("throws AIValidationError when the response fails validation", async () => {
+    generateContentMock.mockResolvedValueOnce(
+      functionCallResponse("submit_regenerated_question", {
+        text: "",
+        difficulty: "hard",
+        importance: "core",
+        concepts: [],
+        redFlags: [],
+        followUps: [],
+        rubric: [],
+      })
+    );
+
+    const provider = new GeminiProvider({ apiKey: "test-key" });
+    await expect(provider.regenerateQuestion(regenerateInput)).rejects.toBeInstanceOf(
+      AIValidationError
+    );
+  });
+});

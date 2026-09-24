@@ -6,23 +6,28 @@ decisions, data model, and phased implementation plan live in
 [`docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md`](../Prompts/docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md)
 in the sibling `Prompts` project.
 
-**Status:** Phase 5.5 (Gemini free-tier provider) complete. Phases 0-5.5
-done: app shell + SQLite/Drizzle (1), ScoringEngine/CompletenessEngine/
-CriticalRequirementEngine + full schema (2), Position + Job Description
-management with Role Family/Seniority (3), the Template builder —
-Competency/MandatoryRequirement/Question CRUD, reordering, draft/approved/
-locked versioning (ADR-008), and the per-stage (Technical/Screening) config
-map (4), an `AIProvider` abstraction + `ClaudeProvider` behind forced
-tool-use, wired into the builder as "Analyze Job Description" (→
-`JobAnalysis`, with a non-blocking role/seniority mismatch flag) and
+**Status:** Phase 6 (Interview Template Review / Approval) complete.
+Phases 0-6 done: app shell + SQLite/Drizzle (1), ScoringEngine/
+CompletenessEngine/CriticalRequirementEngine + full schema (2), Position +
+Job Description management with Role Family/Seniority (3), the Template
+builder — Competency/MandatoryRequirement/Question CRUD, reordering,
+draft/approved/locked versioning (ADR-008), and the per-stage (Technical/
+Screening) config map (4), an `AIProvider` abstraction + `ClaudeProvider`
+behind forced tool-use, wired into the builder as "Analyze Job Description"
+(→ `JobAnalysis`, with a non-blocking role/seniority mismatch flag) and
 "Generate Draft" (→ a full Competency/MandatoryRequirement/Question set,
 Zod-validated before touching the database, with an `AIGenerationRecord`
-kept for provenance) (5), and a second `AIProvider` implementation,
+kept for provenance) (5), a second `AIProvider` implementation,
 `GeminiProvider`, for free-tier local testing without spending Anthropic
-credits (5.5, plan §38 addendum). Requires `ANTHROPIC_API_KEY` **or**
-`GEMINI_API_KEY` in `.env` to actually call an AI provider — without either,
-those two actions surface a clear error and everything else keeps working
-offline. Interview Template Review/Approval UI (Phase 6) is next.
+credits (5.5, plan §38 addendum), and per-question AI "Regenerate" — re-
+calls AI for one question only, replacing it in place (same id/order) so
+the rest of the template and sibling questions are untouched (6). Most of
+Phase 6's stated scope (edit-in-place, delete, reorder, Approve & Publish,
+the mismatch banner) had already shipped in Phases 4/5; regenerate was the
+genuinely new piece. Requires `ANTHROPIC_API_KEY` **or** `GEMINI_API_KEY`
+in `.env` to actually call an AI provider — without either, AI actions
+surface a clear error and everything else keeps working offline.
+Candidate Management (Phase 7) is next.
 
 ## Stack
 
