@@ -10,12 +10,6 @@ import {
 
 const NEXT_UP = [
   {
-    phase: "Phase 9",
-    title: "Scoring & Decision Engine",
-    detail:
-      "Wire the ScoringEngine into a Summary screen: calculated status/reason, the Mandatory Requirement gate, and the human accept/override/forced-call decision workflow.",
-  },
-  {
     phase: "Phase 10",
     title: "PDF Reporting",
     detail:
@@ -26,6 +20,12 @@ const NEXT_UP = [
     title: "Persistence / History / Versioning Hardening",
     detail:
       "Interview history list/search and an explicit 'reopen' flow for a finalized session, hardening the template-versioning guarantees before the POC is done.",
+  },
+  {
+    phase: "Phase 12",
+    title: "BambooHR Integration POC",
+    detail:
+      "Validate real BambooHR API capabilities and implement a minimal, mocked-by-default integration — deferred until the core loop (Phases 1-11) is proven.",
   },
 ];
 
@@ -38,19 +38,23 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
               <CardTitle className="text-[15px]">
-                Phase 8 — Live Interview Engine
+                Phase 9 — Scoring &amp; Decision Engine
               </CardTitle>
               <CardDescription className="mt-1">
-                The artifact&apos;s question-card rating UI — 0-5/N/A rate
-                bar, collapsible expected-answer/rubric/follow-up panels,
-                autosaving notes — rebuilt as componentized, database-backed
-                React. Every rating recomputes the same{" "}
-                <code>ScoringEngine</code>/<code>CompletenessEngine</code>{" "}
-                from Phase 2 in place, driving live overall/completion/
-                critical chips and a per-competency section nav with status
-                icons (○/●/✓/⚠), exactly like the artifact&apos;s{" "}
-                <code>recalc()</code>-on-every-interaction pattern — now
-                backed by real persistence instead of <code>localStorage</code>.
+                The live rating screen&apos;s &ldquo;View Summary&rdquo;
+                leads to a Summary/Decision screen reproducing the
+                artifact&apos;s decision panel: the full calculated status/
+                reason/breakdown from the unmodified Phase 2{" "}
+                <code>ScoringEngine</code>, a Mandatory Requirement gate with
+                its own tri-state control per requirement (a mechanism the
+                original artifact never built at all), an optional English
+                assessment feeding the same gate, and the
+                accept/override/forced-call decision workflow — a
+                BORDERLINE result only ever offers a forced call, never a
+                silent conversion to FAIL. Recording a decision moves the
+                session to a read-only <code>decided</code> state; changing
+                it overwrites the prior decision with no history kept, a
+                confirmed POC limitation (plan §21/§38).
               </CardDescription>
             </div>
             <Button size="sm" render={<Link href="/candidates">Open Candidates</Link>} />

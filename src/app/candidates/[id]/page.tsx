@@ -131,11 +131,18 @@ export default async function CandidateDetailPage({
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          render={<Link href={`/interviews/${session.id}`}>Open</Link>}
-                        />
+                        <div className="flex justify-end gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            render={<Link href={`/interviews/${session.id}`}>Rate</Link>}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            render={<Link href={`/interviews/${session.id}/summary`}>Summary</Link>}
+                          />
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

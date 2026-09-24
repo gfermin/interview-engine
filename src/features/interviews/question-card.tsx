@@ -33,11 +33,13 @@ export function QuestionCard({
   question,
   currentValue,
   notes,
+  editable = true,
 }: {
   sessionId: string;
   question: QuestionCardQuestion;
   currentValue: QuestionScore;
   notes: string | null;
+  editable?: boolean;
 }) {
   const hasReference =
     question.expected ||
@@ -60,7 +62,13 @@ export function QuestionCard({
             </Badge>
           </div>
         </div>
-        <RateBar sessionId={sessionId} questionId={question.id} currentValue={currentValue} />
+        {editable ? (
+          <RateBar sessionId={sessionId} questionId={question.id} currentValue={currentValue} />
+        ) : (
+          <Badge variant="outline" className="font-mono">
+            {currentValue === null ? "Unrated" : currentValue === "na" ? "N/A" : `Score: ${currentValue}`}
+          </Badge>
+        )}
       </div>
 
       {question.code ? (
@@ -147,10 +155,16 @@ export function QuestionCard({
         </details>
       ) : null}
 
-      <NotesField
-        action={updateNotesAction.bind(null, sessionId, question.id)}
-        defaultValue={notes}
-      />
+      {editable ? (
+        <NotesField
+          action={updateNotesAction.bind(null, sessionId, question.id)}
+          defaultValue={notes}
+        />
+      ) : notes ? (
+        <p className="rounded-lg border border-border bg-muted/40 p-2 text-[12.5px] whitespace-pre-wrap">
+          {notes}
+        </p>
+      ) : null}
     </li>
   );
 }

@@ -2,12 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { calculateSectionStatus } from "@/domain/interviews/section-status";
+import { isSessionEditable } from "@/domain/interviews/session-lifecycle";
 import { computeSessionScoring } from "@/domain/interviews/session-scoring";
 import { STAGE_LABELS, type InterviewStage } from "@/domain/interviews/stage-config";
 import type { QuestionScore } from "@/domain/scoring/types";
 import { listCompetencies } from "@/features/templates/queries";
+import { finishRatingAction } from "@/features/interviews/actions";
 import { buildSessionEvaluationState, getSessionDetail } from "@/features/interviews/queries";
 import { QuestionCard } from "@/features/interviews/question-card";
 import { SectionNav } from "@/features/interviews/section-nav";
@@ -56,6 +59,8 @@ export default async function LiveInterviewPage({
     (c) => c.hasEvidence && !c.meets
   ).length;
 
+  const editable = isSessionEditable(session);
+
   return (
     <>
       <AppTopbar title={`${session.candidateName} — ${STAGE_LABELS[session.stage as InterviewStage]}`} />
@@ -78,17 +83,41 @@ export default async function LiveInterviewPage({
                 </Badge>
               </div>
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              <Badge>Overall: {scoring.overall !== null ? `${Math.round(scoring.overall)}%` : "—"}</Badge>
-              <Badge variant="secondary">Completion: {Math.round(scoring.completion)}%</Badge>
-              {criticalTotal > 0 ? (
-                <Badge variant={criticalConcerns > 0 ? "destructive" : "secondary"}>
-                  Critical: {criticalConcerns} concern{criticalConcerns === 1 ? "" : "s"}
-                </Badge>
-              ) : null}
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex flex-wrap justify-end gap-1.5">
+                <Badge>Overall: {scoring.overall !== null ? `${Math.round(scoring.overall)}%` : "—"}</Badge>
+                <Badge variant="secondary">Completion: {Math.round(scoring.completion)}%</Badge>
+                {criticalTotal > 0 ? (
+                  <Badge variant={criticalConcerns > 0 ? "destructive" : "secondary"}>
+                    Critical: {criticalConcerns} concern{criticalConcerns === 1 ? "" : "s"}
+                  </Badge>
+                ) : null}
+              </div>
+              {editable ? (
+                <form action={finishRatingAction.bind(null, sessionId)}>
+                  <Button type="submit" size="sm" variant="outline">
+                    View Summary
+                  </Button>
+                </form>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  render={<Link href={`/interviews/${sessionId}/summary`}>View Summary</Link>}
+                />
+              )}
             </div>
           </CardHeader>
         </Card>
+
+        {!editable ? (
+          <Card>
+            <CardContent className="flex items-center gap-2 p-4 text-[12.5px] text-muted-foreground">
+              This interview has been finished ({session.status}) — ratings are read-only.
+              Use Reopen (Phase 11) to make further changes.
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card>
           <CardHeader>
@@ -148,6 +177,7 @@ export default async function LiveInterviewPage({
                             question={question}
                             currentValue={currentValue}
                             notes={row?.notes ?? null}
+                            editable={editable}
                           />
                         );
                       })}

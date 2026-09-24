@@ -117,6 +117,16 @@ export const interviewTemplates = sqliteTable("interview_templates", {
   borderlineMin: integer("borderline_min").notNull().default(50),
   criticalMin: integer("critical_min").notNull().default(50),
   minCompletion: integer("min_completion").notNull().default(70),
+  // Gate config for the "English" SupplementaryAssessment (plan §9/§17,
+  // generalizing the artifact's hardcoded English gate) — read by
+  // ScoringEngine.calculate()'s supplementaryGates input (Phase 9). Only
+  // meaningful when the stage config marks supplementaryAssessments active
+  // (src/domain/interviews/stage-config.ts); a stage without that module
+  // simply never surfaces the toggle in the UI.
+  englishRequired: integer("english_required", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  englishMinLevel: integer("english_min_level").notNull().default(3),
   ...timestamps,
 });
 
@@ -292,6 +302,34 @@ export const mandatoryRequirementEvaluations = sqliteTable(
     uniqueIndex("mandatory_requirement_evaluations_session_req_idx").on(
       table.sessionId,
       table.requirementId
+    ),
+  ]
+);
+
+/** Generalizes the artifact's hardcoded English assessment (plan §9) — one
+ * row per session per supplementary module `kind`. Only "english" is wired
+ * up in the POC (Phase 9); the `kind` enum is written to grow, not the
+ * table shape. `level` is the same 1-5 scale the artifact used; `null`
+ * means "not assessed yet," matching `QuestionScore`'s null-≠-zero
+ * semantics rather than treating an unassessed candidate as a failing one. */
+export const SUPPLEMENTARY_ASSESSMENT_KINDS = ["english"] as const;
+
+export const supplementaryAssessments = sqliteTable(
+  "supplementary_assessments",
+  {
+    id: id(),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => interviewSessions.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: SUPPLEMENTARY_ASSESSMENT_KINDS }).notNull(),
+    level: integer("level"),
+    notes: text("notes"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("supplementary_assessments_session_kind_idx").on(
+      table.sessionId,
+      table.kind
     ),
   ]
 );

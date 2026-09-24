@@ -1,8 +1,22 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import type { QuestionScore } from "@/domain/scoring/types";
-import { rateQuestion, updateQuestionNotes } from "./mutations";
+import type { MandatoryRequirementStatus, QuestionScore } from "@/domain/scoring/types";
+import {
+  finishRating,
+  rateQuestion,
+  recordDecision,
+  updateEnglishAssessment,
+  updateMandatoryRequirementStatus,
+  updateQuestionNotes,
+} from "./mutations";
+import { decisionFormSchema } from "./schemas";
+
+export interface FormActionState {
+  error?: string;
+  fieldErrors?: Record<string, string[] | undefined>;
+}
 
 /** Bound with `.rateQuestionAction.bind(null, sessionId, questionId, value)`
  * per rate-bar button (plan §28's "autosave on every change") — a discrete
@@ -27,4 +41,54 @@ export async function updateNotesAction(sessionId: string, questionId: string, f
   const notes = typeof raw === "string" && raw.trim() ? raw.trim() : null;
   await updateQuestionNotes(sessionId, questionId, notes);
   revalidatePath(`/interviews/${sessionId}`);
+}
+
+/** Bound per tri-state button on the Summary screen's MandatoryRequirement
+ * list, same fire-and-forget shape as {@link rateQuestionAction}. */
+export async function updateMandatoryRequirementStatusAction(
+  sessionId: string,
+  requirementId: string,
+  status: MandatoryRequirementStatus
+) {
+  await updateMandatoryRequirementStatus(sessionId, requirementId, status);
+  revalidatePath(`/interviews/${sessionId}/summary`);
+}
+
+/** Bound per level button (1-5) or the clear button, mirroring RateBar. */
+export async function updateEnglishAssessmentAction(sessionId: string, level: number | null) {
+  await updateEnglishAssessment(sessionId, level);
+  revalidatePath(`/interviews/${sessionId}/summary`);
+}
+
+/** "View Summary" from the live rating screen — marks the session
+ * `completed` (a no-op if it already is) and navigates there. A real POST
+ * rather than a plain link so the lifecycle transition happens in a Server
+ * Action, not as a side effect of a GET page load. */
+export async function finishRatingAction(sessionId: string) {
+  await finishRating(sessionId);
+  revalidatePath(`/interviews/${sessionId}`);
+  redirect(`/interviews/${sessionId}/summary`);
+}
+
+export async function recordDecisionAction(
+  sessionId: string,
+  _prevState: FormActionState | undefined,
+  formData: FormData
+): Promise<FormActionState | undefined> {
+  const parsed = decisionFormSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return {
+      error: "Please fix the errors below.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  try {
+    await recordDecision(sessionId, parsed.data);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not record the decision." };
+  }
+  revalidatePath(`/interviews/${sessionId}/summary`);
+  revalidatePath(`/candidates`);
+  return {};
 }
