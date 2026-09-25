@@ -55,6 +55,8 @@ async function createSessionFixture() {
     solution: null,
     jdRequirementTag: null,
     altSolutions: null,
+    requiresTechnicalKnowledge: false,
+    technicalTermHelper: null,
   });
   const [candidate] = await db
     .insert(candidates)

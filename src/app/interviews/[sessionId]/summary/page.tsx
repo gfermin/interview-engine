@@ -114,6 +114,7 @@ export default async function InterviewSummaryPage({
     completion: result.completion,
     reason: result.reason,
     language: session.interviewLanguage as InterviewLanguage,
+    stage,
   });
 
   const dashboardEntries: CompetencyDashboardEntry[] = competencies.map((competency) => {

@@ -48,6 +48,50 @@ describe("buildNarrative", () => {
     expect(text).toContain("not yet scoreable");
   });
 
+  // Plan Phase 22/§43.18: the report must never read as a technical
+  // certification for a First Screening session.
+  it("appends a screening-evidence disclaimer only when stage is 'screening'", () => {
+    const screening = buildNarrative({
+      candidateName: "Jordan Rivera",
+      positionTitle: "Senior Backend Developer",
+      seniority: null,
+      statusLabel: "Advance",
+      overall: 82.4,
+      completion: 100,
+      reason: "Overall score meets the passing threshold.",
+      language: "en",
+      stage: "screening",
+    });
+    expect(screening).toMatch(/First Screening evidence only, not a technical validation/);
+
+    const technical = buildNarrative({
+      candidateName: "Jordan Rivera",
+      positionTitle: "Senior Backend Developer",
+      seniority: null,
+      statusLabel: "Pass",
+      overall: 82.4,
+      completion: 100,
+      reason: "Overall score meets the passing threshold.",
+      language: "en",
+      stage: "technical",
+    });
+    expect(technical).not.toMatch(/First Screening evidence only/);
+  });
+
+  it("omits the disclaimer when stage is not given (backwards-compatible default)", () => {
+    const text = buildNarrative({
+      candidateName: "Jordan Rivera",
+      positionTitle: "Senior Backend Developer",
+      seniority: null,
+      statusLabel: "Pass",
+      overall: 82.4,
+      completion: 100,
+      reason: "Overall score meets the passing threshold.",
+      language: "en",
+    });
+    expect(text).not.toMatch(/First Screening evidence only/);
+  });
+
   it("renders in Spanish when language is 'es'", () => {
     const text = buildNarrative({
       candidateName: "Jordan Rivera",

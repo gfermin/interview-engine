@@ -63,6 +63,8 @@ const sampleDraft: TemplateDraft = {
           solution: "// solution here",
           jdRequirementTag: null,
           altSolutions: null,
+          requiresTechnicalKnowledge: false,
+          technicalTermHelper: null,
         },
         {
           text: "Explain a debugging exercise.",
@@ -79,6 +81,8 @@ const sampleDraft: TemplateDraft = {
           solution: null,
           jdRequirementTag: null,
           altSolutions: null,
+          requiresTechnicalKnowledge: false,
+          technicalTermHelper: null,
         },
       ],
     },
@@ -104,6 +108,8 @@ const sampleDraft: TemplateDraft = {
           solution: null,
           jdRequirementTag: null,
           altSolutions: null,
+          requiresTechnicalKnowledge: false,
+          technicalTermHelper: null,
         },
       ],
     },
@@ -268,6 +274,8 @@ const sampleRegenerated: TemplateDraftQuestion = {
   solution: "// fixed version",
   jdRequirementTag: null,
   altSolutions: null,
+  requiresTechnicalKnowledge: false,
+  technicalTermHelper: null,
 };
 
 describe("applyRegeneratedQuestion", () => {
@@ -295,6 +303,8 @@ describe("applyRegeneratedQuestion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
 
     const updated = await applyRegeneratedQuestion(original.id, sampleRegenerated, {
@@ -334,6 +344,8 @@ describe("applyRegeneratedQuestion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
 
     const updated = await applyRegeneratedQuestion(original.id, sampleRegenerated, {
@@ -368,6 +380,8 @@ describe("applyRegeneratedQuestion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
     const questionB = await createQuestion(template.id, {
       competencyId: competency.id,
@@ -385,6 +399,8 @@ describe("applyRegeneratedQuestion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
 
     await applyRegeneratedQuestion(questionA.id, sampleRegenerated, {
@@ -421,6 +437,8 @@ describe("applyRegeneratedQuestion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
     await publishTemplate(template.id);
 
@@ -458,6 +476,8 @@ describe("createNewTemplateVersion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
     const requirement = await createMandatoryRequirement(template.id, {
       label: "Work authorization",
@@ -551,6 +571,8 @@ describe("createNewTemplateVersion", () => {
       minCompletion: 80,
       englishRequired: true,
       englishMinLevel: 4,
+      includeCompensationQuestion: false,
+      includeWorkAuthorizationCheck: false,
     });
     await publishTemplate(template.id);
 
@@ -654,6 +676,8 @@ describe("editable-template guard shared by delete/update mutations", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
     await publishTemplate(template.id);
 
@@ -674,6 +698,8 @@ describe("editable-template guard shared by delete/update mutations", () => {
         solution: null,
         jdRequirementTag: null,
         altSolutions: null,
+        requiresTechnicalKnowledge: false,
+        technicalTermHelper: null,
       })
     ).rejects.toThrow(/no longer editable/);
   });
@@ -702,6 +728,8 @@ describe("editable-template guard shared by delete/update mutations", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
     await publishTemplate(template.id);
 
@@ -721,6 +749,8 @@ describe("editable-template guard shared by delete/update mutations", () => {
         minCompletion: 70,
         englishRequired: false,
         englishMinLevel: 3,
+        includeCompensationQuestion: false,
+        includeWorkAuthorizationCheck: false,
       })
     ).rejects.toThrow(/no longer editable/);
   });
@@ -756,6 +786,8 @@ describe("createQuestion/updateQuestion competency-ownership guard", () => {
         solution: null,
         jdRequirementTag: null,
         altSolutions: null,
+        requiresTechnicalKnowledge: false,
+        technicalTermHelper: null,
       })
     ).rejects.toThrow(/doesn't belong to this template/);
   });
@@ -791,6 +823,8 @@ describe("createQuestion/updateQuestion competency-ownership guard", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
 
     await expect(
@@ -810,6 +844,8 @@ describe("createQuestion/updateQuestion competency-ownership guard", () => {
         solution: null,
         jdRequirementTag: null,
         altSolutions: null,
+        requiresTechnicalKnowledge: false,
+        technicalTermHelper: null,
       })
     ).rejects.toThrow(/doesn't belong to this template/);
   });
@@ -879,6 +915,8 @@ describe("moveQuestion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
     await createQuestion(template.id, {
       competencyId: competencyA.id,
@@ -896,6 +934,8 @@ describe("moveQuestion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
     const b1 = await createQuestion(template.id, {
       competencyId: competencyB.id,
@@ -913,6 +953,8 @@ describe("moveQuestion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
 
     await moveQuestion(a1.id, "down");

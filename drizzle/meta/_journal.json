@@ -57,6 +57,13 @@
       "when": 1790344799826,
       "tag": "0007_add_interview_language",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1790367011051,
+      "tag": "0008_third_power_man",
+      "breakpoints": true
     }
   ]
 }

@@ -52,6 +52,8 @@ async function createDecidedSession() {
     solution: null,
     jdRequirementTag: null,
     altSolutions: null,
+    requiresTechnicalKnowledge: false,
+    technicalTermHelper: null,
   });
   await publishTemplate(template.id);
   const [candidate] = await db

@@ -125,6 +125,8 @@ export async function createNewTemplateVersion(templateId: string) {
       minCompletion: source.minCompletion,
       englishRequired: source.englishRequired,
       englishMinLevel: source.englishMinLevel,
+      includeCompensationQuestion: source.includeCompensationQuestion,
+      includeWorkAuthorizationCheck: source.includeWorkAuthorizationCheck,
     })
     .returning();
 
@@ -174,6 +176,8 @@ export async function createNewTemplateVersion(templateId: string) {
         solution: q.solution,
         jdRequirementTag: q.jdRequirementTag,
         altSolutions: q.altSolutions,
+        requiresTechnicalKnowledge: q.requiresTechnicalKnowledge,
+        technicalTermHelper: q.technicalTermHelper,
         sortOrder: q.sortOrder,
       }))
     );
@@ -401,6 +405,8 @@ export async function applyRegeneratedQuestion(
       solution: options.includeCodeExercises ? regenerated.solution : null,
       jdRequirementTag: regenerated.jdRequirementTag,
       altSolutions: options.includeCodeExercises ? regenerated.altSolutions : null,
+      requiresTechnicalKnowledge: regenerated.requiresTechnicalKnowledge,
+      technicalTermHelper: regenerated.technicalTermHelper,
       updatedAt: new Date(),
     })
     .where(eq(questions.id, id))
@@ -551,6 +557,8 @@ export async function applyGeneratedDraft(
             solution: options.includeCodeExercises ? draftQuestion.solution : null,
             jdRequirementTag: draftQuestion.jdRequirementTag,
             altSolutions: options.includeCodeExercises ? draftQuestion.altSolutions : null,
+            requiresTechnicalKnowledge: draftQuestion.requiresTechnicalKnowledge,
+            technicalTermHelper: draftQuestion.technicalTermHelper,
             sortOrder: questionIndex,
           })
           .run();

@@ -131,6 +131,7 @@ export async function generateReport(sessionId: string) {
       completion: result.completion,
       reason: result.reason,
       language: interviewLanguage,
+      stage,
     }),
   };
 

@@ -10,6 +10,7 @@
   "backToTemplateLink": "Back to template",
   "notEditableMessage": "This template version is no longer editable. ",
   "noLabel": "No",
+  "yesLabel": "Yes",
   "criticalLabel": "Critical",
   "descriptionLabel": "Description",
   "positionLabel": "Position",
@@ -74,6 +75,9 @@
   "solutionLabel": "Solution",
   "altSolutionsLabel": "Alternate solutions",
   "altSolutionsPlaceholder": "Other valid approaches besides the primary solution...",
+  "requiresTechnicalKnowledgeCheckboxLabel": "Requires technical knowledge to evaluate (rare — usually belongs in Technical Interview instead)",
+  "technicalTermHelperLabel": "Technical term helper (for a non-technical interviewer)",
+  "technicalTermHelperPlaceholder": "e.g. \"Kubernetes is commonly used to deploy and manage containerized applications. Focus on professional usage, duration, and responsibility — not technical correctness.\"",
   "addQuestionTitle": "Add Question",
 
   "passThresholdLabel": "Pass threshold (%)",
@@ -82,6 +86,8 @@
   "minCompletionLabel": "Minimum completion (%)",
   "englishRequiredCheckboxLabel": "English assessment required for PASS",
   "englishMinLevelLabel": "Min. English level (1-5)",
+  "includeCompensationQuestionLabel": "Ask about compensation expectations",
+  "includeWorkAuthorizationCheckLabel": "Include work authorization check",
   "saveScoringButton": "Save Scoring Configuration",
 
   "rawAiOutputLabel": "Raw AI output",

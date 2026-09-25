@@ -12,6 +12,7 @@
 // English regardless of `language` (see report-template.ts's same
 // boundary for `data.reason`).
 import type { InterviewLanguage } from "./interview-language";
+import type { InterviewStage } from "./stage-config";
 import { t } from "@/lib/i18n";
 
 export interface NarrativeInput {
@@ -23,6 +24,11 @@ export interface NarrativeInput {
   completion: number;
   reason: string;
   language: InterviewLanguage;
+  /** Plan Phase 22/§43.18: a First Screening narrative must never read as a
+   * technical certification. Optional (defaults to no disclaimer) so
+   * existing callers/tests that predate this stage-awareness keep working
+   * unchanged. */
+  stage?: InterviewStage;
 }
 
 export function buildNarrative(input: NarrativeInput): string {
@@ -32,10 +38,12 @@ export function buildNarrative(input: NarrativeInput): string {
   const seniorityText = input.seniority
     ? `${t(lang, "interview.narrativeAtRequestedLevelPrefix")}${input.seniority}${t(lang, "interview.narrativeAtRequestedLevelSuffix")}`
     : "";
+  const screeningDisclaimer =
+    input.stage === "screening" ? t(lang, "interview.narrativeScreeningDisclaimer") : "";
 
   return (
     `${input.candidateName}${t(lang, "interview.narrativeEvaluatedFor")}${input.positionTitle}${seniorityText}` +
     `${t(lang, "interview.narrativeReachingScore")}${overallText}${t(lang, "interview.narrativeWithCompletionPrefix")}${Math.round(input.completion)}` +
-    `${t(lang, "interview.narrativeCompletionSuffix")}${input.statusLabel}${t(lang, "interview.narrativeSentenceEnd")}${input.reason}`
+    `${t(lang, "interview.narrativeCompletionSuffix")}${input.statusLabel}${t(lang, "interview.narrativeSentenceEnd")}${input.reason}${screeningDisclaimer}`
   );
 }

@@ -247,7 +247,10 @@ export default async function TemplateDetailPage({
                   minCompletion: template.minCompletion,
                   englishRequired: template.englishRequired,
                   englishMinLevel: template.englishMinLevel,
+                  includeCompensationQuestion: template.includeCompensationQuestion,
+                  includeWorkAuthorizationCheck: template.includeWorkAuthorizationCheck,
                 }}
+                showScreeningLogisticsFields={stage === "screening"}
                 locale={locale}
               />
             ) : (
@@ -265,6 +268,28 @@ export default async function TemplateDetailPage({
                   }
                   suffix=""
                 />
+                {stage === "screening" ? (
+                  <>
+                    <ConfigStat
+                      label={t(locale, "templates.includeCompensationQuestionLabel")}
+                      value={
+                        template.includeCompensationQuestion
+                          ? t(locale, "templates.yesLabel")
+                          : t(locale, "templates.noLabel")
+                      }
+                      suffix=""
+                    />
+                    <ConfigStat
+                      label={t(locale, "templates.includeWorkAuthorizationCheckLabel")}
+                      value={
+                        template.includeWorkAuthorizationCheck
+                          ? t(locale, "templates.yesLabel")
+                          : t(locale, "templates.noLabel")
+                      }
+                      suffix=""
+                    />
+                  </>
+                ) : null}
               </dl>
             )}
           </CardContent>

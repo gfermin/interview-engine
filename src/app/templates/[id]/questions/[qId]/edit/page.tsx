@@ -62,6 +62,8 @@ export default async function EditQuestionPage({
                   solution: question.solution,
                   jdRequirementTag: question.jdRequirementTag,
                   altSolutions: question.altSolutions,
+                  requiresTechnicalKnowledge: question.requiresTechnicalKnowledge,
+                  technicalTermHelper: question.technicalTermHelper,
                 }}
                 submitLabel={t(locale, "templates.saveChangesButton")}
                 locale={locale}

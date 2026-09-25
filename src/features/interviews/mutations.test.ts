@@ -60,6 +60,8 @@ async function createFixture(overrides: { passThreshold?: number; borderlineMin?
     solution: null,
     jdRequirementTag: null,
     altSolutions: null,
+    requiresTechnicalKnowledge: false,
+    technicalTermHelper: null,
   });
   const secondQuestion = await createQuestion(template.id, {
     competencyId: competency.id,
@@ -77,6 +79,8 @@ async function createFixture(overrides: { passThreshold?: number; borderlineMin?
     solution: null,
     jdRequirementTag: null,
     altSolutions: null,
+    requiresTechnicalKnowledge: false,
+    technicalTermHelper: null,
   });
   const requirement = await createMandatoryRequirement(template.id, {
     label: "Work authorization",

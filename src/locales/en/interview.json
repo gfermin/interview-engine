@@ -7,6 +7,7 @@
   "narrativeCompletionSuffix": "% of the interview completed. Calculated result: ",
   "narrativeSentenceEnd": ". ",
   "narrativeNotYetScoreable": "not yet scoreable",
+  "narrativeScreeningDisclaimer": " This reflects First Screening evidence only, not a technical validation.",
 
   "backToCandidate": "Back to candidate",
   "backToRating": "Back to rating",
@@ -21,6 +22,7 @@
   "expectedDepthPrefix": "Expected depth: ",
   "noQuestionsInCompetency": "No questions in this competency.",
 
+  "whatIsThisLabel": "What is this? (for a non-technical interviewer)",
   "codeExercise": "Code exercise",
   "otherValidApproachesPrefix": "Other valid approaches: ",
   "expectedAnswer": "Expected answer",

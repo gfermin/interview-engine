@@ -7,6 +7,7 @@
   "narrativeCompletionSuffix": "% de la entrevista completada. Resultado calculado: ",
   "narrativeSentenceEnd": ". ",
   "narrativeNotYetScoreable": "aún no evaluable",
+  "narrativeScreeningDisclaimer": " Esto refleja únicamente la evidencia de la Primera Entrevista de Selección, no una validación técnica.",
 
   "backToCandidate": "Volver al candidato",
   "backToRating": "Volver a calificar",
@@ -21,6 +22,7 @@
   "expectedDepthPrefix": "Profundidad esperada: ",
   "noQuestionsInCompetency": "No hay preguntas en esta competencia.",
 
+  "whatIsThisLabel": "¿Qué es esto? (para un entrevistador no técnico)",
   "codeExercise": "Ejercicio de código",
   "otherValidApproachesPrefix": "Otros enfoques válidos: ",
   "expectedAnswer": "Respuesta esperada",

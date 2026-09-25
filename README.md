@@ -230,7 +230,51 @@ bilingual end-to-end, including locale-aware date formatting
 against real data. Business/domain values (status, stage, template status)
 remain intentionally untouched per §32/§33.
 
-Phase 12 (BambooHR Integration POC) and Phase 22 (Production Readiness)
+**Phase 22 (First Screening Generation Redesign, plan §43) is complete.**
+A research pass (recruiter/HR screening best practices, cross-checked
+against independent sources) confirmed the hypothesis behind this phase:
+First Screening and Technical Interview shared one AI generation prompt
+(`buildTemplateDraftPrompt`) with a single stage-differentiating sentence —
+nothing stopped, and nothing actively discouraged, deep architecture/
+debugging/system-design questions from reaching an HR/recruiter
+interviewer with no technical background. First Screening now has its own
+generation instructions (`buildScreeningTemplateDraftPrompt`,
+`services/ai/prompts.ts`) with an explicit HR persona, a banned-question-
+type list (no coding/debugging/system-design/architecture/framework-
+internals questions), and an "evidence tier" pattern for validating claimed
+technical experience at a high level (has-used-professionally → duration →
+current role → project → responsibility) instead of judging correctness.
+A curated core question bank (`src/lib/screening-core-questions.ts` —
+introduction, motivation, availability, candidate questions) is merged into
+every screening draft programmatically, not AI-generated, and competency
+weights are renormalized to sum to 100 after the merge. Two new,
+opt-in-per-template toggles (`includeCompensationQuestion`,
+`includeWorkAuthorizationCheck` — off by default, alongside the existing
+English-assessment config) gate a compensation question and a Work
+Authorization `MandatoryRequirement`, respectively — neither is ever
+generated indiscriminately. Two additive question fields
+(`requiresTechnicalKnowledge`, `technicalTermHelper`) let the AI (or a
+human editor) flag when a question needs jargon explained to a non-
+technical interviewer; `QuestionCard` renders that as an open-by-default
+"What is this?" panel on the live rating screen. A new `RUBRIC_LABELS` map
+in `stage-config.ts` (parallel to the existing `STATUS_LABELS` mechanism)
+gives Screening evidence-based 0-5 labels ("No Evidence" … "Meets
+Screening Expectation" … "Excellent Evidence") instead of Technical's
+depth-based labels ("No Understanding" … "Meets Expected Level" …
+"Excellent") — shown as a hover title on each rate-bar button — without
+changing the underlying `ScoreValue`/`SCORE_TO_PERCENT` scale or the
+`ScoringEngine` in any way. The Summary/report narrative now appends a
+one-line disclaimer for screening sessions ("This reflects First Screening
+evidence only, not a technical validation."). Verified live against the
+real Anthropic API end-to-end: generating a First Screening draft for a
+QA-heavy JD produced zero coding/architecture/debugging questions, correct
+evidence-tier rubrics, `technicalTermHelper` text for both AI-generated
+questions that referenced jargon (QA Engineering; API/performance testing
+and Gitflow), and — with both toggles enabled — the Work Authorization
+gate and compensation question appearing exactly once each, alongside the
+unchanged Technical Interview generation path for the same position.
+
+Phase 12 (BambooHR Integration POC) and Phase 23 (Production Readiness)
 remain open.
 
 ## Stack

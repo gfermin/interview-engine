@@ -5,15 +5,60 @@ import type { InterviewLanguage } from "@/domain/interviews/interview-language";
 import { getStageConfig, type InterviewStage } from "@/domain/interviews/stage-config";
 import { isTemplateEditable } from "@/domain/interviews/template-versioning";
 import { getJobDescription, getPosition } from "@/features/positions/queries";
+import { buildCoreScreeningCompetency, buildWorkAuthorizationRequirement } from "@/lib/screening-core-questions";
 import { getAIProvider } from "@/services/ai/provider";
 import {
   JOB_ANALYSIS_PROMPT_VERSION,
   REGENERATE_QUESTION_PROMPT_VERSION,
+  SCREENING_TEMPLATE_DRAFT_PROMPT_VERSION,
   TEMPLATE_DRAFT_PROMPT_VERSION,
 } from "@/services/ai/prompts";
+import type { TemplateDraft } from "@/services/ai/schemas";
 import { AIValidationError } from "@/services/ai/types";
 import { applyGeneratedDraft, applyRegeneratedQuestion, recordAIGeneration, saveJobAnalysis } from "./mutations";
 import { getCompetency, getLatestJobAnalysis, getQuestion, getTemplate, listCompetencies } from "./queries";
+
+/**
+ * First Screening only (plan Phase 22/§43.13) — merges the curated core
+ * "Background, Motivation & Communication" competency in front of the AI's
+ * own role-specific competencies, and renormalizes weights to sum to 100
+ * (the AI has no knowledge of the programmatically-injected competency when
+ * it assigns its own weights). Also appends the Work Authorization
+ * MandatoryRequirement when the template's opt-in toggle is enabled
+ * (§43.11 — never generated indiscriminately). No-op for Technical
+ * Interview drafts.
+ */
+function withScreeningCoreContent(
+  draft: TemplateDraft,
+  options: { includeCompensationQuestion: boolean; includeWorkAuthorizationCheck: boolean }
+): TemplateDraft {
+  const coreCompetency = buildCoreScreeningCompetency({
+    includeCompensationQuestion: options.includeCompensationQuestion,
+  });
+  const competencies = [coreCompetency, ...draft.competencies];
+  const totalWeight = competencies.reduce((sum, c) => sum + c.weight, 0);
+  const rescaled =
+    totalWeight > 0
+      ? competencies.map((c, index) => ({
+          ...c,
+          // Round every competency down, then give any rounding remainder to
+          // the last one — guarantees the sum is exactly 100 rather than
+          // off-by-one from independent rounding, so the template is
+          // publishable immediately without a human first fixing weights
+          // the merge itself introduced.
+          weight:
+            index === competencies.length - 1
+              ? 100 - competencies.slice(0, -1).reduce((sum, c2) => sum + Math.floor((c2.weight / totalWeight) * 100), 0)
+              : Math.floor((c.weight / totalWeight) * 100),
+        }))
+      : competencies;
+
+  const mandatoryRequirements = options.includeWorkAuthorizationCheck
+    ? [...draft.mandatoryRequirements, buildWorkAuthorizationRequirement()]
+    : draft.mandatoryRequirements;
+
+  return { competencies: rescaled, mandatoryRequirements };
+}
 
 export interface AIActionState {
   error?: string;
@@ -152,7 +197,7 @@ export async function generateTemplateDraftAction(
 
   try {
     const provider = getAIProvider();
-    const draft = await provider.generateTemplateDraft({
+    const rawDraft = await provider.generateTemplateDraft({
       positionTitle: position.title,
       roleFamily: position.roleFamily,
       seniority: position.seniority,
@@ -170,13 +215,24 @@ export async function generateTemplateDraftAction(
       interviewLanguage: template.interviewLanguage as InterviewLanguage,
     });
 
+    // First Screening merges in curated core content and opt-in logistics
+    // gates programmatically (plan Phase 22/§43.13) — the AI never generates
+    // them, so they can't drift template-to-template.
+    const draft =
+      stage === "screening"
+        ? withScreeningCoreContent(rawDraft, {
+            includeCompensationQuestion: template.includeCompensationQuestion,
+            includeWorkAuthorizationCheck: template.includeWorkAuthorizationCheck,
+          })
+        : rawDraft;
+
     await applyGeneratedDraft(templateId, draft, { includeCodeExercises });
     await recordAIGeneration({
       kind: "template_draft",
       templateId,
       provider: provider.providerName,
       model: provider.model,
-      promptVersion: TEMPLATE_DRAFT_PROMPT_VERSION,
+      promptVersion: stage === "screening" ? SCREENING_TEMPLATE_DRAFT_PROMPT_VERSION : TEMPLATE_DRAFT_PROMPT_VERSION,
       blueprint: draft.competencies.map((c) => ({
         competencyName: c.name,
         ...c.blueprint,

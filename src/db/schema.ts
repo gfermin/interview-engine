@@ -136,6 +136,17 @@ export const interviewTemplates = sqliteTable("interview_templates", {
     .notNull()
     .default(false),
   englishMinLevel: integer("english_min_level").notNull().default(3),
+  // First Screening HR-focused generation (plan Phase 22/§43.11): compensation
+  // and work-authorization questions must be opt-in per template, never
+  // generated indiscriminately — mirrors englishRequired's own configurability
+  // precedent. Meaningful only for the "screening" stage; a technical-stage
+  // template simply never surfaces the toggle in the UI.
+  includeCompensationQuestion: integer("include_compensation_question", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  includeWorkAuthorizationCheck: integer("include_work_authorization_check", { mode: "boolean" })
+    .notNull()
+    .default(false),
   ...timestamps,
 });
 
@@ -203,6 +214,18 @@ export const questions = sqliteTable("questions", {
   // every existing question predates these columns and simply has `null`).
   jdRequirementTag: text("jd_requirement_tag"),
   altSolutions: text("alt_solutions"),
+  // First Screening HR-focused generation (plan Phase 22/§43.7/§43.12):
+  // `requiresTechnicalKnowledge` flags a question the screening generator
+  // couldn't phrase in an HR-safe way (should be rare — usually a sign the
+  // requirement belongs in Technical Interview instead). `technicalTermHelper`
+  // is a plain-language explainer for unavoidable jargon in the question text
+  // (e.g. "Kubernetes is commonly used to..."), rendered as a collapsible
+  // panel so a non-technical interviewer isn't left to judge correctness.
+  // Both additive/nullable-or-defaulted — no migration risk to existing rows.
+  requiresTechnicalKnowledge: integer("requires_technical_knowledge", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  technicalTermHelper: text("technical_term_helper"),
   sortOrder: integer("sort_order").notNull().default(0),
   ...timestamps,
 });

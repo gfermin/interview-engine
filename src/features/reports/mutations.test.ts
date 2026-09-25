@@ -45,6 +45,8 @@ async function createDecidedSessionFixture() {
     solution: null,
     jdRequirementTag: null,
     altSolutions: null,
+    requiresTechnicalKnowledge: false,
+    technicalTermHelper: null,
   });
   const requirement = await createMandatoryRequirement(template.id, {
     label: "Work authorization",

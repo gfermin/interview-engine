@@ -56,6 +56,11 @@ export const draftQuestionSchema = z.object({
   // matching code/solution's own nullable pattern.
   jdRequirementTag: z.string().trim().max(AI_LIST_ITEM_MAX).nullable().default(null),
   altSolutions: z.string().trim().max(AI_QUESTION_TEXT_MAX).nullable().default(null),
+  // First Screening HR-focused generation (plan Phase 22/§43.7/§43.12) —
+  // additive, shared by both stages' schema: the technical builder simply
+  // never asks the model to set these, so they default false/null there.
+  requiresTechnicalKnowledge: z.boolean().default(false),
+  technicalTermHelper: z.string().trim().max(AI_QUESTION_TEXT_MAX).nullable().default(null),
 });
 
 const draftCompetencySchema = z.object({
