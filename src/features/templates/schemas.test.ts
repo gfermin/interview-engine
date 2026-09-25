@@ -62,6 +62,47 @@ describe("scoringConfigFormSchema", () => {
       expect(result.data.passThreshold).toBe(70);
     }
   });
+
+  it("defaults englishRequired to false and englishMinLevel to 3 when absent (an unchecked checkbox)", () => {
+    const result = scoringConfigFormSchema.safeParse({
+      passThreshold: 70,
+      borderlineMin: 50,
+      criticalMin: 50,
+      minCompletion: 70,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.englishRequired).toBe(false);
+      expect(result.data.englishMinLevel).toBe(3);
+    }
+  });
+
+  it("accepts an explicit English gate configuration", () => {
+    const result = scoringConfigFormSchema.safeParse({
+      passThreshold: "70",
+      borderlineMin: "50",
+      criticalMin: "50",
+      minCompletion: "70",
+      englishRequired: "on",
+      englishMinLevel: "4",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.englishRequired).toBe(true);
+      expect(result.data.englishMinLevel).toBe(4);
+    }
+  });
+
+  it("rejects an out-of-range englishMinLevel", () => {
+    const result = scoringConfigFormSchema.safeParse({
+      passThreshold: 70,
+      borderlineMin: 50,
+      criticalMin: 50,
+      minCompletion: 70,
+      englishMinLevel: 6,
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("competencyFormSchema", () => {

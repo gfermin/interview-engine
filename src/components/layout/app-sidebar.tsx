@@ -49,12 +49,13 @@ export function AppSidebar() {
 
       <div className="mt-auto flex flex-col gap-2 border-t border-border px-2.5 pt-3">
         <p className="text-[10.5px] leading-snug text-muted-foreground/80">
-          Local POC build — Phase 8 (Live Interview Engine). Positions,
-          Templates, Candidates, and now live Interview sessions are all
-          wired up — rate each question 0-5/N/A, autosaving notes, with
-          live-updating overall/completion/critical chips computed by the
-          same ScoringEngine as every other phase; Reports and the Summary/
-          Decision workflow are filled in over later phases.
+          Local POC build — core loop complete (Phases 1-11), now in Phase
+          13 (Hardening/Testing/UX Polish). A full-codebase audit (plan
+          §40) drove this pass: display-only fixes (friendly status labels,
+          a fixed duplicate-text dropdown, a clearer empty state) shipped
+          immediately, while confirmed bugs, error-message cleanup, and
+          test-coverage gaps are tracked as a reviewed backlog for a
+          follow-up pass rather than fixed ad hoc.
         </p>
       </div>
     </aside>

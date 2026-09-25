@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -31,7 +31,7 @@ export default async function PositionsPage() {
             A role, its Role Family, Seniority, and Job Description — the
             inputs interview generation is calibrated against (plan §39).
           </p>
-          <Button render={<Link href="/positions/new">New Position</Link>} />
+          <ButtonLink href="/positions/new">New Position</ButtonLink>
         </div>
 
         <Card>

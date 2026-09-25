@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, type ReactNode } from "react";
+import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import type { FormActionState } from "./actions";
 
@@ -30,6 +31,27 @@ export function PublishButton({
   );
 }
 
+/** Separate from {@link NewVersionButton} because `useFormStatus` only
+ * reports the status of the nearest enclosing `<form>` when called from a
+ * *child* of that form, not from the component that renders the form
+ * itself. */
+function NewVersionSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="outline" disabled={pending}>
+      {pending ? "Creating..." : "Create New Version to Edit"}
+    </Button>
+  );
+}
+
+/**
+ * `createNewTemplateVersion` (§40.4) is a plain multi-row insert with no
+ * idempotency guard and no unique constraint on `(positionId, stage,
+ * version)` — a double-click here could create two `v+1` drafts. Disabling
+ * the button after the first click is the lowest-risk fix (every other
+ * fire-and-forget mutation in the app is naturally idempotent against
+ * double-clicks via `onConflictDoUpdate`; this is the one exception).
+ */
 export function NewVersionButton({
   action,
 }: {
@@ -37,9 +59,7 @@ export function NewVersionButton({
 }) {
   return (
     <form action={action}>
-      <Button type="submit" variant="outline">
-        Create New Version to Edit
-      </Button>
+      <NewVersionSubmitButton />
     </form>
   );
 }

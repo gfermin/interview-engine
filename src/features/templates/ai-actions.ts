@@ -21,12 +21,45 @@ export interface AIActionState {
   rawOutput?: string;
 }
 
+/** Both SDKs (`@anthropic-ai/sdk`, `@google/genai`) throw an error object
+ * with a numeric `status` for HTTP-level failures — duck-typed here rather
+ * than importing either SDK's error class, since this file has no reason to
+ * depend on which provider actually made the call. */
+function getErrorStatus(error: unknown): number | undefined {
+  if (typeof error === "object" && error !== null && "status" in error) {
+    const status = (error as { status?: unknown }).status;
+    return typeof status === "number" ? status : undefined;
+  }
+  return undefined;
+}
+
+function isNetworkError(error: unknown): boolean {
+  return error instanceof Error && /ECONNREFUSED|ENOTFOUND|EAI_AGAIN|fetch failed/i.test(error.message);
+}
+
+/** Maps a raw AI-SDK/network failure to plain language (§40.2) — an
+ * unmapped 401/429/network error previously reached the interviewer as the
+ * SDK's own exception message unchanged. */
 function describeAIError(error: unknown): AIActionState {
   if (error instanceof AIValidationError) {
     return {
       error: error.message,
       rawOutput: JSON.stringify(error.rawOutput, null, 2),
     };
+  }
+
+  const status = getErrorStatus(error);
+  if (status === 401 || status === 403) {
+    return { error: "AI provider rejected the API key — check it in your .env file." };
+  }
+  if (status === 429) {
+    return { error: "Rate limited by the AI provider — try again shortly." };
+  }
+  if (status !== undefined && status >= 500) {
+    return { error: "The AI provider is temporarily unavailable — try again shortly." };
+  }
+  if (isNetworkError(error)) {
+    return { error: "Couldn't reach the AI provider — check your network connection and try again." };
   }
   if (error instanceof Error) return { error: error.message };
   return { error: "AI generation failed for an unknown reason." };

@@ -1,8 +1,23 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { candidates, interviewSessions, interviewTemplates, positions, questionEvaluations } from "@/db/schema";
+import {
+  candidates,
+  interviewDecisions,
+  interviewSessions,
+  interviewTemplates,
+  mandatoryRequirementEvaluations,
+  positions,
+  questionEvaluations,
+  supplementaryAssessments,
+} from "@/db/schema";
 import type { QuestionEvaluationInput, QuestionScore } from "@/domain/scoring/types";
 import { listQuestions } from "@/features/templates/queries";
+
+/** Minimal session row for guards/mutations that don't need the full join
+ * ({@link getSessionDetail} does, for the page header). */
+export function getSession(sessionId: string) {
+  return db.query.interviewSessions.findFirst({ where: eq(interviewSessions.id, sessionId) });
+}
 
 /** Everything the live interview screen's header needs about a session,
  * joined in one query (session -> candidate, session -> template -> position). */
@@ -67,4 +82,67 @@ export async function buildSessionEvaluationState(templateId: string, sessionId:
   }));
 
   return { questions, evaluationByQuestionId, evaluationInputs };
+}
+
+/** Raw per-requirement status rows that exist so far — like question
+ * evaluations, a requirement with no row yet is "unknown," not omitted; see
+ * {@link buildMandatoryRequirementInputs}. */
+export function listMandatoryRequirementEvaluations(sessionId: string) {
+  return db.query.mandatoryRequirementEvaluations.findMany({
+    where: eq(mandatoryRequirementEvaluations.sessionId, sessionId),
+  });
+}
+
+export function getSupplementaryAssessment(sessionId: string, kind: "english") {
+  return db.query.supplementaryAssessments.findFirst({
+    where: and(eq(supplementaryAssessments.sessionId, sessionId), eq(supplementaryAssessments.kind, kind)),
+  });
+}
+
+export function getDecision(sessionId: string) {
+  return db.query.interviewDecisions.findFirst({
+    where: eq(interviewDecisions.sessionId, sessionId),
+  });
+}
+
+export interface SessionListFilters {
+  positionId?: string;
+  candidateId?: string;
+  stage?: "technical" | "screening";
+  status?: "in_progress" | "completed" | "decided";
+}
+
+/** The interview history list (plan §11/Phase 11) — every session across
+ * every candidate, filterable by position/candidate/stage/status. Filters
+ * left `undefined` are simply omitted from the `WHERE` clause rather than
+ * matched against, so an empty filter set returns every session. */
+export function listSessions(filters: SessionListFilters = {}) {
+  const conditions = [
+    filters.positionId ? eq(positions.id, filters.positionId) : undefined,
+    filters.candidateId ? eq(candidates.id, filters.candidateId) : undefined,
+    filters.stage ? eq(interviewTemplates.stage, filters.stage) : undefined,
+    filters.status ? eq(interviewSessions.status, filters.status) : undefined,
+  ].filter((c) => c !== undefined);
+
+  return db
+    .select({
+      id: interviewSessions.id,
+      status: interviewSessions.status,
+      createdAt: interviewSessions.createdAt,
+      reopenCount: interviewSessions.reopenCount,
+      candidateId: candidates.id,
+      candidateName: candidates.name,
+      positionId: positions.id,
+      positionTitle: positions.title,
+      stage: interviewTemplates.stage,
+      templateId: interviewTemplates.id,
+      templateName: interviewTemplates.name,
+      templateVersion: interviewTemplates.version,
+    })
+    .from(interviewSessions)
+    .innerJoin(candidates, eq(interviewSessions.candidateId, candidates.id))
+    .innerJoin(interviewTemplates, eq(interviewSessions.templateId, interviewTemplates.id))
+    .innerJoin(positions, eq(interviewTemplates.positionId, positions.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(interviewSessions.createdAt));
 }

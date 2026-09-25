@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SESSION_STATUS_LABELS } from "@/domain/interviews/session-lifecycle";
 import { STAGE_LABELS, type InterviewStage } from "@/domain/interviews/stage-config";
 import { startSessionAction } from "@/features/candidates/actions";
 import { getCandidate, listSessionsForCandidate } from "@/features/candidates/queries";
@@ -59,11 +60,9 @@ export default async function CandidateDetailPage({
                 </p>
               ) : null}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              render={<Link href={`/candidates/${candidate.id}/edit`}>Edit</Link>}
-            />
+            <ButtonLink variant="outline" size="sm" href={`/candidates/${candidate.id}/edit`}>
+              Edit
+            </ButtonLink>
           </CardHeader>
         </Card>
 
@@ -126,16 +125,23 @@ export default async function CandidateDetailPage({
                         </Link>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={SESSION_STATUS_VARIANT[session.status]} className="capitalize">
-                          {session.status.replace("_", " ")}
+                        <Badge variant={SESSION_STATUS_VARIANT[session.status]}>
+                          {SESSION_STATUS_LABELS[session.status]}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          render={<Link href={`/interviews/${session.id}`}>Open</Link>}
-                        />
+                        <div className="flex justify-end gap-1.5">
+                          <ButtonLink size="sm" variant="outline" href={`/interviews/${session.id}`}>
+                            Rate
+                          </ButtonLink>
+                          <ButtonLink
+                            size="sm"
+                            variant="outline"
+                            href={`/interviews/${session.id}/summary`}
+                          >
+                            Summary
+                          </ButtonLink>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

@@ -81,6 +81,38 @@ describe("templateDraftSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  // Phase 16/§41 Task 16.5: jdRequirementTag/altSolutions are new, optional
+  // question fields (the artifact's "JD: <requirement>" tag and its "other
+  // valid approaches" note) — must default to null when a provider omits
+  // them, and accept a real value when one is given.
+  it("defaults jdRequirementTag/altSolutions to null when omitted", () => {
+    const result = templateDraftSchema.safeParse(validDraft);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.competencies[0].questions[0].jdRequirementTag).toBeNull();
+      expect(result.data.competencies[0].questions[0].altSolutions).toBeNull();
+    }
+  });
+
+  it("accepts an explicit jdRequirementTag/altSolutions value", () => {
+    const result = templateDraftSchema.safeParse({
+      ...validDraft,
+      competencies: [
+        {
+          ...validDraft.competencies[0],
+          questions: [
+            { ...validQuestion, jdRequirementTag: "API Testing", altSolutions: "Also valid with a Set." },
+          ],
+        },
+      ],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.competencies[0].questions[0].jdRequirementTag).toBe("API Testing");
+      expect(result.data.competencies[0].questions[0].altSolutions).toBe("Also valid with a Set.");
+    }
+  });
+
   it("defaults an omitted mandatoryRequirements list to an empty array", () => {
     const { mandatoryRequirements: _mr, ...withoutRequirements } = validDraft;
     const result = templateDraftSchema.safeParse(withoutRequirements);
@@ -109,6 +141,31 @@ describe("templateDraftSchema", () => {
         {
           ...validDraft.competencies[0],
           questions: [{ ...validQuestion, difficulty: "impossible" }],
+        },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  // §40.4: AI-generated content previously had no length caps at all, while
+  // the human-authored form schemas (templates/schemas.ts) did — an AI
+  // response that happened to exceed those caps saved fine on generation
+  // but then failed the first time a human edited it through the form.
+  it("§40.4: rejects a competency name over the 200-char bound the form schema also enforces", () => {
+    const result = templateDraftSchema.safeParse({
+      ...validDraft,
+      competencies: [{ ...validDraft.competencies[0], name: "x".repeat(201) }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("§40.4: rejects a rubric with more than 30 lines, matching the form schema's cap", () => {
+    const result = templateDraftSchema.safeParse({
+      ...validDraft,
+      competencies: [
+        {
+          ...validDraft.competencies[0],
+          questions: [{ ...validQuestion, rubric: Array.from({ length: 31 }, (_, i) => `line ${i}`) }],
         },
       ],
     });

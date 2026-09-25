@@ -3,18 +3,40 @@ import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { db } from "@/db";
-import { candidates, competencyEvaluations, interviewSessions, interviewTemplates, positions, questionEvaluations } from "@/db/schema";
-import { createCompetency, createQuestion } from "@/features/templates/mutations";
-import { rateQuestion, updateQuestionNotes } from "./mutations";
+import {
+  candidates,
+  competencyEvaluations,
+  interviewSessions,
+  interviewTemplates,
+  positions,
+  questionEvaluations,
+  supplementaryAssessments,
+} from "@/db/schema";
+import { createCompetency, createMandatoryRequirement, createQuestion } from "@/features/templates/mutations";
+import {
+  finishRating,
+  rateQuestion,
+  recordDecision,
+  reopenSession,
+  updateEnglishAssessment,
+  updateMandatoryRequirementStatus,
+  updateQuestionNotes,
+} from "./mutations";
 
-async function createFixture() {
+async function createFixture(overrides: { passThreshold?: number; borderlineMin?: number } = {}) {
   const [position] = await db
     .insert(positions)
     .values({ title: `Test Position ${randomUUID()}` })
     .returning();
   const [template] = await db
     .insert(interviewTemplates)
-    .values({ positionId: position.id, stage: "technical", name: "Test Template" })
+    .values({
+      positionId: position.id,
+      stage: "technical",
+      name: "Test Template",
+      passThreshold: overrides.passThreshold ?? 70,
+      borderlineMin: overrides.borderlineMin ?? 50,
+    })
     .returning();
   const competency = await createCompetency(template.id, {
     name: "Programming",
@@ -36,6 +58,8 @@ async function createFixture() {
     rubric: [],
     code: null,
     solution: null,
+    jdRequirementTag: null,
+    altSolutions: null,
   });
   const secondQuestion = await createQuestion(template.id, {
     competencyId: competency.id,
@@ -51,6 +75,12 @@ async function createFixture() {
     rubric: [],
     code: null,
     solution: null,
+    jdRequirementTag: null,
+    altSolutions: null,
+  });
+  const requirement = await createMandatoryRequirement(template.id, {
+    label: "Work authorization",
+    description: null,
   });
   const [candidate] = await db
     .insert(candidates)
@@ -61,7 +91,16 @@ async function createFixture() {
     .values({ candidateId: candidate.id, templateId: template.id })
     .returning();
 
-  return { template, competency, question, secondQuestion, session };
+  return { template, competency, question, secondQuestion, requirement, session };
+}
+
+/** Rates both of the fixture's questions high enough, and marks the
+ * mandatory requirement met, to reach a calculated PASS — the common setup
+ * several decision tests build on. */
+async function bringSessionToPass(fixture: Awaited<ReturnType<typeof createFixture>>) {
+  await rateQuestion(fixture.session.id, fixture.question.id, 5);
+  await rateQuestion(fixture.session.id, fixture.secondQuestion.id, 5);
+  await updateMandatoryRequirementStatus(fixture.session.id, fixture.requirement.id, "met");
 }
 
 describe("rateQuestion", () => {
@@ -173,5 +212,286 @@ describe("updateQuestionNotes", () => {
     expect(evaluation?.notes).toBe("Came back to this later.");
     expect(evaluation?.score).toBeNull();
     expect(evaluation?.isNa).toBe(false);
+  });
+});
+
+describe("updateMandatoryRequirementStatus", () => {
+  it("persists a status and can be changed back to unknown", async () => {
+    const { requirement, session } = await createFixture();
+
+    await updateMandatoryRequirementStatus(session.id, requirement.id, "not_met");
+    let row = await db.query.mandatoryRequirementEvaluations.findFirst({
+      where: (t, { eq: eqOp }) => eqOp(t.sessionId, session.id),
+    });
+    expect(row?.status).toBe("not_met");
+
+    await updateMandatoryRequirementStatus(session.id, requirement.id, "unknown");
+    row = await db.query.mandatoryRequirementEvaluations.findFirst({
+      where: (t, { eq: eqOp }) => eqOp(t.sessionId, session.id),
+    });
+    expect(row?.status).toBe("unknown");
+  });
+
+  it("still works once the session is completed — Summary's own inputs aren't locked by finishRating (regression)", async () => {
+    const { requirement, session } = await createFixture();
+    await finishRating(session.id);
+
+    await updateMandatoryRequirementStatus(session.id, requirement.id, "met");
+
+    const row = await db.query.mandatoryRequirementEvaluations.findFirst({
+      where: (t, { eq: eqOp }) => eqOp(t.sessionId, session.id),
+    });
+    expect(row?.status).toBe("met");
+  });
+
+  it("refuses once the session is decided", async () => {
+    const fixture = await createFixture();
+    await bringSessionToPass(fixture);
+    await recordDecision(fixture.session.id, { mode: "accept" });
+
+    await expect(
+      updateMandatoryRequirementStatus(fixture.session.id, fixture.requirement.id, "not_met")
+    ).rejects.toThrow(/already been decided/);
+  });
+});
+
+describe("updateEnglishAssessment", () => {
+  it("persists a level and can be cleared back to null", async () => {
+    const { session } = await createFixture();
+
+    await updateEnglishAssessment(session.id, 4);
+    let row = await db.query.supplementaryAssessments.findFirst({
+      where: and(eq(supplementaryAssessments.sessionId, session.id), eq(supplementaryAssessments.kind, "english")),
+    });
+    expect(row?.level).toBe(4);
+
+    await updateEnglishAssessment(session.id, null);
+    row = await db.query.supplementaryAssessments.findFirst({
+      where: and(eq(supplementaryAssessments.sessionId, session.id), eq(supplementaryAssessments.kind, "english")),
+    });
+    expect(row?.level).toBeNull();
+  });
+
+  it("still works once the session is completed (regression)", async () => {
+    const { session } = await createFixture();
+    await finishRating(session.id);
+
+    await updateEnglishAssessment(session.id, 5);
+
+    const row = await db.query.supplementaryAssessments.findFirst({
+      where: and(eq(supplementaryAssessments.sessionId, session.id), eq(supplementaryAssessments.kind, "english")),
+    });
+    expect(row?.level).toBe(5);
+  });
+
+  it("refuses once the session is decided", async () => {
+    const fixture = await createFixture();
+    await bringSessionToPass(fixture);
+    await recordDecision(fixture.session.id, { mode: "accept" });
+
+    await expect(updateEnglishAssessment(fixture.session.id, 3)).rejects.toThrow(/already been decided/);
+  });
+});
+
+describe("finishRating", () => {
+  it("moves an in_progress session to completed", async () => {
+    const { session } = await createFixture();
+    await finishRating(session.id);
+    const updated = await db.query.interviewSessions.findFirst({ where: eq(interviewSessions.id, session.id) });
+    expect(updated?.status).toBe("completed");
+  });
+
+  it("is a no-op once the session is already decided", async () => {
+    const fixture = await createFixture();
+    await bringSessionToPass(fixture);
+    await recordDecision(fixture.session.id, { mode: "accept" });
+
+    await finishRating(fixture.session.id);
+
+    const updated = await db.query.interviewSessions.findFirst({
+      where: eq(interviewSessions.id, fixture.session.id),
+    });
+    expect(updated?.status).toBe("decided");
+  });
+});
+
+describe("recordDecision", () => {
+  it("accepts a calculated PASS and marks the session decided", async () => {
+    const fixture = await createFixture();
+    await bringSessionToPass(fixture);
+
+    const { result, finalDecision } = await recordDecision(fixture.session.id, { mode: "accept" });
+    expect(result.status).toBe("PASS");
+    expect(finalDecision).toBe("PASS");
+
+    const decision = await db.query.interviewDecisions.findFirst({
+      where: (t, { eq: eqOp }) => eqOp(t.sessionId, fixture.session.id),
+    });
+    expect(decision?.mode).toBe("accept");
+    expect(decision?.finalDecision).toBe("PASS");
+    expect(decision?.calculatedStatus).toBe("PASS");
+
+    const session = await db.query.interviewSessions.findFirst({
+      where: eq(interviewSessions.id, fixture.session.id),
+    });
+    expect(session?.status).toBe("decided");
+  });
+
+  it("overriding a calculated PASS flips it to FAIL and requires a reason", async () => {
+    const fixture = await createFixture();
+    await bringSessionToPass(fixture);
+
+    await expect(recordDecision(fixture.session.id, { mode: "override" })).rejects.toThrow(/reason is required/i);
+
+    const { finalDecision } = await recordDecision(fixture.session.id, {
+      mode: "override",
+      reason: "Candidate's answers didn't hold up under follow-up questioning.",
+    });
+    expect(finalDecision).toBe("FAIL");
+  });
+
+  it("a BORDERLINE result only accepts a forced_call with an explicit choice and a reason", async () => {
+    const fixture = await createFixture({ passThreshold: 90, borderlineMin: 10 });
+    await rateQuestion(fixture.session.id, fixture.question.id, 3); // 60%, between 10 and 90
+    await rateQuestion(fixture.session.id, fixture.secondQuestion.id, 3);
+    await updateMandatoryRequirementStatus(fixture.session.id, fixture.requirement.id, "met");
+
+    await expect(recordDecision(fixture.session.id, { mode: "accept" })).rejects.toThrow(
+      /needs a forced Pass\/Fail call/
+    );
+
+    const { result, finalDecision } = await recordDecision(fixture.session.id, {
+      mode: "forced_call",
+      forcedChoice: "PASS",
+      reason: "Strong debugging instincts despite an inconsistent score.",
+    });
+    expect(result.status).toBe("BORDERLINE");
+    expect(finalDecision).toBe("PASS");
+  });
+
+  it("a failed mandatory requirement drives FAIL regardless of competency scores", async () => {
+    const fixture = await createFixture();
+    await rateQuestion(fixture.session.id, fixture.question.id, 5);
+    await rateQuestion(fixture.session.id, fixture.secondQuestion.id, 5);
+    await updateMandatoryRequirementStatus(fixture.session.id, fixture.requirement.id, "not_met");
+
+    const { result } = await recordDecision(fixture.session.id, { mode: "accept" });
+    expect(result.status).toBe("FAIL");
+    expect(result.reason).toMatch(/Mandatory requirement/);
+  });
+
+  it("refuses to record a decision before the interview reaches a judged status", async () => {
+    const fixture = await createFixture();
+    // Nothing rated yet -> NOT_EVALUATED.
+    await expect(recordDecision(fixture.session.id, { mode: "accept" })).rejects.toThrow(
+      /hasn't reached a status that can be decided/
+    );
+  });
+
+  it("changing a decision overwrites the prior one (no history kept, plan §21/§38)", async () => {
+    const fixture = await createFixture();
+    await bringSessionToPass(fixture);
+
+    await recordDecision(fixture.session.id, { mode: "accept" });
+    await recordDecision(fixture.session.id, {
+      mode: "override",
+      reason: "Reconsidered after a reference check.",
+    });
+
+    const decisions = await db.query.interviewDecisions.findMany({
+      where: (t, { eq: eqOp }) => eqOp(t.sessionId, fixture.session.id),
+    });
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0].mode).toBe("override");
+    expect(decisions[0].finalDecision).toBe("FAIL");
+  });
+});
+
+describe("session editability guard", () => {
+  it("refuses to rate a question once the session is decided", async () => {
+    const fixture = await createFixture();
+    await bringSessionToPass(fixture);
+    await recordDecision(fixture.session.id, { mode: "accept" });
+
+    await expect(rateQuestion(fixture.session.id, fixture.question.id, 2)).rejects.toThrow(/already been finished/);
+  });
+
+  it("refuses to update notes once the session is completed", async () => {
+    const fixture = await createFixture();
+    await finishRating(fixture.session.id);
+
+    await expect(
+      updateQuestionNotes(fixture.session.id, fixture.question.id, "too late")
+    ).rejects.toThrow(/already been finished/);
+  });
+});
+
+describe("reopenSession", () => {
+  it("refuses to reopen a session that's still in_progress", async () => {
+    const { session } = await createFixture();
+    await expect(reopenSession(session.id)).rejects.toThrow(/Only a finished interview can be reopened/);
+  });
+
+  it("reopens a completed session back to in_progress and stamps reopenedAt/reopenCount", async () => {
+    const { session } = await createFixture();
+    await finishRating(session.id);
+
+    await reopenSession(session.id);
+
+    const updated = await db.query.interviewSessions.findFirst({ where: eq(interviewSessions.id, session.id) });
+    expect(updated?.status).toBe("in_progress");
+    expect(updated?.reopenedAt).not.toBeNull();
+    expect(updated?.reopenCount).toBe(1);
+  });
+
+  it("reopens a decided session and re-enables rating", async () => {
+    const fixture = await createFixture();
+    await bringSessionToPass(fixture);
+    await recordDecision(fixture.session.id, { mode: "accept" });
+
+    await reopenSession(fixture.session.id);
+
+    const updated = await db.query.interviewSessions.findFirst({
+      where: eq(interviewSessions.id, fixture.session.id),
+    });
+    expect(updated?.status).toBe("in_progress");
+
+    // Ratings, which were locked while decided, work again post-reopen.
+    await rateQuestion(fixture.session.id, fixture.question.id, 2);
+    const evaluation = await db.query.questionEvaluations.findFirst({
+      where: and(
+        eq(questionEvaluations.sessionId, fixture.session.id),
+        eq(questionEvaluations.questionId, fixture.question.id)
+      ),
+    });
+    expect(evaluation?.score).toBe(2);
+  });
+
+  it("increments reopenCount across multiple reopens", async () => {
+    const { session } = await createFixture();
+    await finishRating(session.id);
+    await reopenSession(session.id);
+    await finishRating(session.id);
+    await reopenSession(session.id);
+
+    const updated = await db.query.interviewSessions.findFirst({ where: eq(interviewSessions.id, session.id) });
+    expect(updated?.reopenCount).toBe(2);
+  });
+
+  it("leaves the prior decision visible (no history log) until a new one is recorded", async () => {
+    const fixture = await createFixture();
+    await bringSessionToPass(fixture);
+    await recordDecision(fixture.session.id, { mode: "accept" });
+
+    await reopenSession(fixture.session.id);
+
+    const decision = await db.query.interviewDecisions.findFirst({
+      where: (t, { eq: eqOp }) => eqOp(t.sessionId, fixture.session.id),
+    });
+    expect(decision?.finalDecision).toBe("PASS");
+  });
+
+  it("throws when the session doesn't exist", async () => {
+    await expect(reopenSession(randomUUID())).rejects.toThrow(/not found/);
   });
 });

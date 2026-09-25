@@ -117,6 +117,16 @@ export const interviewTemplates = sqliteTable("interview_templates", {
   borderlineMin: integer("borderline_min").notNull().default(50),
   criticalMin: integer("critical_min").notNull().default(50),
   minCompletion: integer("min_completion").notNull().default(70),
+  // Gate config for the "English" SupplementaryAssessment (plan §9/§17,
+  // generalizing the artifact's hardcoded English gate) — read by
+  // ScoringEngine.calculate()'s supplementaryGates input (Phase 9). Only
+  // meaningful when the stage config marks supplementaryAssessments active
+  // (src/domain/interviews/stage-config.ts); a stage without that module
+  // simply never surfaces the toggle in the UI.
+  englishRequired: integer("english_required", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  englishMinLevel: integer("english_min_level").notNull().default(3),
   ...timestamps,
 });
 
@@ -176,6 +186,14 @@ export const questions = sqliteTable("questions", {
   rubric: text("rubric", { mode: "json" }).$type<string[]>().notNull().default([]),
   code: text("code"),
   solution: text("solution"),
+  // Phase 16/§41 (§4.2/§16.1 of the Calibración QA parity audit): the
+  // artifact's "JD: <requirement>" chip on every question card, tying a
+  // question back to a specific mandatory/preferred requirement, and its
+  // "other valid approaches" note for code questions — both additive and
+  // nullable, matching Task 2.4's precedent (no data migration risk, since
+  // every existing question predates these columns and simply has `null`).
+  jdRequirementTag: text("jd_requirement_tag"),
+  altSolutions: text("alt_solutions"),
   sortOrder: integer("sort_order").notNull().default(0),
   ...timestamps,
 });
@@ -296,6 +314,34 @@ export const mandatoryRequirementEvaluations = sqliteTable(
   ]
 );
 
+/** Generalizes the artifact's hardcoded English assessment (plan §9) — one
+ * row per session per supplementary module `kind`. Only "english" is wired
+ * up in the POC (Phase 9); the `kind` enum is written to grow, not the
+ * table shape. `level` is the same 1-5 scale the artifact used; `null`
+ * means "not assessed yet," matching `QuestionScore`'s null-≠-zero
+ * semantics rather than treating an unassessed candidate as a failing one. */
+export const SUPPLEMENTARY_ASSESSMENT_KINDS = ["english"] as const;
+
+export const supplementaryAssessments = sqliteTable(
+  "supplementary_assessments",
+  {
+    id: id(),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => interviewSessions.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: SUPPLEMENTARY_ASSESSMENT_KINDS }).notNull(),
+    level: integer("level"),
+    notes: text("notes"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("supplementary_assessments_session_kind_idx").on(
+      table.sessionId,
+      table.kind
+    ),
+  ]
+);
+
 /** Cached rollup of ScoringEngine's per-competency output for a session —
  * recomputed on every rating change (Phase 8), stored so history/reports
  * don't need to re-run the engine against raw evaluations every time. */
@@ -339,5 +385,27 @@ export const interviewDecisions = sqliteTable("interview_decisions", {
   mode: text("mode", { enum: ["accept", "override", "forced_call"] }),
   finalDecision: text("final_decision", { enum: ["PASS", "FAIL"] }),
   reason: text("reason"),
+  ...timestamps,
+});
+
+// ---------------------------------------------------------------------------
+// Interview Report (Phase 10) — an immutable PDF snapshot of a finalized
+// session. Generated only from a `decided` session (plan §24); intentionally
+// NOT unique on sessionId — Phase 11's "reopen -> re-finalize" flow produces
+// a second, later report for the same session rather than overwriting the
+// first, so history stays honest about what changed and when.
+// ---------------------------------------------------------------------------
+
+export const interviewReports = sqliteTable("interview_reports", {
+  id: id(),
+  sessionId: text("session_id")
+    .notNull()
+    .references(() => interviewSessions.id, { onDelete: "cascade" }),
+  // Relative to the project root (e.g. ".data/reports/<id>.pdf"), not an
+  // absolute path — the PDF bytes themselves live on disk, gitignored
+  // alongside the SQLite file, not as a DB blob (plan §26: local-only
+  // storage, nothing that needs a real object store for a single-user POC).
+  filePath: text("file_path").notNull(),
+  fileSize: integer("file_size").notNull(),
   ...timestamps,
 });

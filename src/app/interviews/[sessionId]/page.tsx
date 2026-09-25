@@ -1,15 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AppTopbar } from "@/components/layout/app-topbar";
 import { Badge } from "@/components/ui/badge";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { calculateSectionStatus } from "@/domain/interviews/section-status";
-import { computeSessionScoring } from "@/domain/interviews/session-scoring";
-import { STAGE_LABELS, type InterviewStage } from "@/domain/interviews/stage-config";
+import { canReopenSession, isSessionEditable, SESSION_STATUS_LABELS } from "@/domain/interviews/session-lifecycle";
+import { getStageConfig, STAGE_LABELS, type InterviewStage } from "@/domain/interviews/stage-config";
 import type { QuestionScore } from "@/domain/scoring/types";
 import { listCompetencies } from "@/features/templates/queries";
-import { buildSessionEvaluationState, getSessionDetail } from "@/features/interviews/queries";
+import { finishRatingAction, reopenSessionAction } from "@/features/interviews/actions";
+import { buildSessionEvaluationState, getSessionDetail, getSupplementaryAssessment } from "@/features/interviews/queries";
+import { InterviewScoreboard } from "@/features/interviews/interview-scoreboard";
 import { QuestionCard } from "@/features/interviews/question-card";
+import { ReopenSessionButton } from "@/features/interviews/reopen-session-button";
+import { computeFullScoringResult } from "@/features/interviews/scoring";
 import { SectionNav } from "@/features/interviews/section-nav";
 
 export const dynamic = "force-dynamic";
@@ -23,12 +27,26 @@ export default async function LiveInterviewPage({
   const session = await getSessionDetail(sessionId);
   if (!session) notFound();
 
-  const [competencies, { questions, evaluationByQuestionId, evaluationInputs }] = await Promise.all([
+  const stage = session.stage as InterviewStage;
+  const stageConfig = getStageConfig(stage);
+
+  const [competencies, { questions, evaluationByQuestionId }, result, englishAssessment] = await Promise.all([
     listCompetencies(session.templateId),
     buildSessionEvaluationState(session.templateId, sessionId),
+    // Same canonical calculation the Summary screen uses (plan §34): with no
+    // mandatory-requirement evaluations recorded yet, a template that has
+    // any correctly resolves to PROVISIONAL rather than a premature PASS —
+    // see calculate()'s "not all mandatory requirements evaluated" branch.
+    computeFullScoringResult(sessionId, session.templateId),
+    stageConfig.modules.supplementaryAssessments
+      ? getSupplementaryAssessment(sessionId, "english")
+      : Promise.resolve(undefined),
   ]);
 
-  const scoring = computeSessionScoring(competencies, evaluationInputs, session.criticalMin);
+  const competencyStatById = new Map(result.competencyStats.map((stat) => [stat.competencyId, stat]));
+  const criticalByCompetencyId = new Map(
+    result.criticalCompetencyStatus.map((status) => [status.competencyId, status])
+  );
 
   const questionsByCompetency = new Map<string, typeof questions>();
   for (const question of questions) {
@@ -37,12 +55,8 @@ export default async function LiveInterviewPage({
     questionsByCompetency.set(question.competencyId, list);
   }
 
-  const criticalByCompetencyId = new Map(
-    scoring.criticalCompetencyStatus.map((status) => [status.competencyId, status])
-  );
-
   const sections = competencies.map((competency) => {
-    const stat = scoring.competencyStats.get(competency.id)!;
+    const stat = competencyStatById.get(competency.id)!;
     const total = questionsByCompetency.get(competency.id)?.length ?? 0;
     return {
       id: competency.id,
@@ -51,14 +65,28 @@ export default async function LiveInterviewPage({
     };
   });
 
-  const criticalTotal = scoring.criticalCompetencyStatus.length;
-  const criticalConcerns = scoring.criticalCompetencyStatus.filter(
+  const criticalTotal = result.criticalCompetencyStatus.length;
+  const criticalConcerns = result.criticalCompetencyStatus.filter(
     (c) => c.hasEvidence && !c.meets
   ).length;
 
+  const editable = isSessionEditable(session);
+
   return (
     <>
-      <AppTopbar title={`${session.candidateName} — ${STAGE_LABELS[session.stage as InterviewStage]}`} />
+      <InterviewScoreboard
+        candidateName={session.candidateName}
+        subtitle={`${session.positionTitle} · ${STAGE_LABELS[stage]} · v${session.templateVersion}`}
+        overall={result.overall}
+        completion={result.completion}
+        criticalMet={criticalTotal - criticalConcerns}
+        criticalTotal={criticalTotal}
+        status={result.status}
+        statusLabel={stageConfig.statusLabels[result.status]}
+        borderlineMin={session.borderlineMin}
+        passThreshold={session.passThreshold}
+        englishLevel={stageConfig.modules.supplementaryAssessments ? (englishAssessment?.level ?? null) : undefined}
+      />
       <main className="mx-auto flex w-full max-w-[840px] flex-1 flex-col gap-5 px-6 py-7">
         <Card>
           <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
@@ -72,23 +100,41 @@ export default async function LiveInterviewPage({
                   Back to candidate
                 </Link>
                 <Badge variant="secondary">{session.positionTitle}</Badge>
-                <Badge variant="secondary">{STAGE_LABELS[session.stage as InterviewStage]}</Badge>
+                <Badge variant="secondary">{STAGE_LABELS[stage]}</Badge>
                 <Badge variant="outline" className="font-mono">
                   v{session.templateVersion}
                 </Badge>
               </div>
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              <Badge>Overall: {scoring.overall !== null ? `${Math.round(scoring.overall)}%` : "—"}</Badge>
-              <Badge variant="secondary">Completion: {Math.round(scoring.completion)}%</Badge>
-              {criticalTotal > 0 ? (
-                <Badge variant={criticalConcerns > 0 ? "destructive" : "secondary"}>
-                  Critical: {criticalConcerns} concern{criticalConcerns === 1 ? "" : "s"}
-                </Badge>
-              ) : null}
+            <div className="flex flex-col items-end gap-2">
+              {editable ? (
+                <form action={finishRatingAction.bind(null, sessionId)}>
+                  <Button type="submit" size="sm" variant="outline">
+                    View Summary
+                  </Button>
+                </form>
+              ) : (
+                <ButtonLink size="sm" variant="outline" href={`/interviews/${sessionId}/summary`}>
+                  View Summary
+                </ButtonLink>
+              )}
             </div>
           </CardHeader>
         </Card>
+
+        {!editable ? (
+          <Card>
+            <CardContent className="flex items-center justify-between gap-2 p-4">
+              <p className="text-[12.5px] text-muted-foreground">
+                This interview has been finished ({SESSION_STATUS_LABELS[session.status]}) —
+                ratings are read-only. Reopen it to make further changes.
+              </p>
+              {canReopenSession(session) ? (
+                <ReopenSessionButton action={reopenSessionAction.bind(null, sessionId)} />
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card>
           <CardHeader>
@@ -120,9 +166,9 @@ export default async function LiveInterviewPage({
                     ) : null}
                   </CardTitle>
                   <span className="text-[11px] text-muted-foreground">
-                    {scoring.competencyStats.get(competency.id)?.percent !== null &&
-                    scoring.competencyStats.get(competency.id)?.percent !== undefined
-                      ? `${Math.round(scoring.competencyStats.get(competency.id)!.percent!)}%`
+                    {competencyStatById.get(competency.id)?.percent !== null &&
+                    competencyStatById.get(competency.id)?.percent !== undefined
+                      ? `${Math.round(competencyStatById.get(competency.id)!.percent!)}%`
                       : "No evidence yet"}
                   </span>
                 </CardHeader>
@@ -148,6 +194,7 @@ export default async function LiveInterviewPage({
                             question={question}
                             currentValue={currentValue}
                             notes={row?.notes ?? null}
+                            editable={editable}
                           />
                         );
                       })}

@@ -24,10 +24,15 @@ export const positionFormSchema = z.object({
 export type PositionFormValues = z.infer<typeof positionFormSchema>;
 
 export const jobDescriptionFormSchema = z.object({
+  // Capped (§40.4) — this text is sent to an AI provider on "Analyze Job
+  // Description" (ai-actions.ts), so an unbounded paste isn't just a
+  // storage concern, it's an unbounded prompt/cost concern too. 20,000
+  // characters comfortably covers even a long, verbose real JD.
   rawText: z
     .string()
     .trim()
-    .min(20, "Paste the full Job Description text (at least 20 characters)."),
+    .min(20, "Paste the full Job Description text (at least 20 characters).")
+    .max(20000, "Job Description text must be 20,000 characters or fewer."),
 });
 
 export type JobDescriptionFormValues = z.infer<typeof jobDescriptionFormSchema>;

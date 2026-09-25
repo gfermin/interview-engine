@@ -25,6 +25,7 @@ import {
 } from "./schemas";
 import {
   AIValidationError,
+  summarizeValidationIssues,
   type AIProvider,
   type AnalyzeJobDescriptionInput,
   type GenerateTemplateDraftInput,
@@ -84,7 +85,7 @@ export class ClaudeProvider implements AIProvider {
     const parsed = jobAnalysisResultSchema.safeParse(toolInput);
     if (!parsed.success) {
       throw new AIValidationError(
-        `AI job analysis output failed validation: ${parsed.error.message}`,
+        `AI job analysis output failed validation: ${summarizeValidationIssues(parsed.error)}`,
         toolInput
       );
     }
@@ -97,7 +98,7 @@ export class ClaudeProvider implements AIProvider {
     const parsed = templateDraftSchema.safeParse(toolInput);
     if (!parsed.success) {
       throw new AIValidationError(
-        `AI template draft output failed validation: ${parsed.error.message}`,
+        `AI template draft output failed validation: ${summarizeValidationIssues(parsed.error)}`,
         toolInput
       );
     }
@@ -110,7 +111,7 @@ export class ClaudeProvider implements AIProvider {
     const parsed = draftQuestionSchema.safeParse(toolInput);
     if (!parsed.success) {
       throw new AIValidationError(
-        `AI question regeneration output failed validation: ${parsed.error.message}`,
+        `AI question regeneration output failed validation: ${summarizeValidationIssues(parsed.error)}`,
         toolInput
       );
     }
@@ -135,7 +136,7 @@ export class ClaudeProvider implements AIProvider {
       (block): block is Anthropic.ToolUseBlock => block.type === "tool_use"
     );
     if (!toolUse) {
-      throw new Error(`AI response did not include a "${tool.name}" tool call.`);
+      throw new Error("The AI returned an unexpected response — try again.");
     }
     return toolUse.input;
   }

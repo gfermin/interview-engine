@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { saveJobDescriptionAction } from "@/features/positions/actions";
 import { JobDescriptionEditor } from "@/features/positions/job-description-editor";
@@ -52,16 +51,16 @@ export default async function PositionDetailPage({
               </div>
             </div>
             <div className="flex gap-2">
-              <Button
+              <ButtonLink
                 variant="outline"
                 size="sm"
-                render={<Link href={`/templates/new?positionId=${position.id}`}>New Template</Link>}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                render={<Link href={`/positions/${position.id}/edit`}>Edit</Link>}
-              />
+                href={`/templates/new?positionId=${position.id}`}
+              >
+                New Template
+              </ButtonLink>
+              <ButtonLink variant="outline" size="sm" href={`/positions/${position.id}/edit`}>
+                Edit
+              </ButtonLink>
             </div>
           </CardHeader>
         </Card>

@@ -54,6 +54,15 @@ export const DRAFT_QUESTION_JSON_SCHEMA = {
     },
     code: NULLABLE_STRING,
     solution: NULLABLE_STRING,
+    jdRequirementTag: {
+      ...NULLABLE_STRING,
+      description:
+        "The specific mandatory/preferred JD requirement this question exercises, e.g. 'API Testing' — null if none applies cleanly.",
+    },
+    altSolutions: {
+      ...NULLABLE_STRING,
+      description: "For code questions only: other valid approaches besides the primary solution.",
+    },
   },
   required: ["text", "difficulty", "importance", "concepts", "redFlags", "followUps", "rubric"],
 } as const;

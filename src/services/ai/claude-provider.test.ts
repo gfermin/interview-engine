@@ -91,7 +91,7 @@ describe("ClaudeProvider.analyzeJobDescription", () => {
     createMock.mockResolvedValueOnce({ content: [{ type: "text", text: "sorry, I can't." }] });
 
     const provider = new ClaudeProvider({ apiKey: "test-key" });
-    await expect(provider.analyzeJobDescription(baseInput)).rejects.toThrow(/did not include/);
+    await expect(provider.analyzeJobDescription(baseInput)).rejects.toThrow(/unexpected response/);
   });
 });
 

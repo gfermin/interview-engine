@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import type { InterviewStage } from "@/domain/interviews/stage-config";
 import type { JobAnalysisResult, TemplateDraft, TemplateDraftQuestion } from "./schemas";
 
@@ -50,7 +51,10 @@ export interface RegenerateQuestionInput {
  * competency, without touching the rest of the template — plan's stated
  * risk is that this must not drift the question's id/order, which is why
  * the persistence layer replaces the row in place rather than
- * delete-and-recreate). Narrative summary generation remains Phase 9.
+ * delete-and-recreate). Phase 9 ended up building the narrative summary as
+ * a deterministic, template-string function (`domain/interviews/
+ * narrative.ts`) rather than an AI call, so it isn't part of this
+ * interface.
  */
 export interface AIProvider {
   /** Recorded on every {@link AIGenerationRecord} this provider produces
@@ -70,4 +74,21 @@ export class AIValidationError extends Error {
     super(message);
     this.name = "AIValidationError";
   }
+}
+
+/**
+ * A short, human-readable summary of a failed Zod parse (§40.2) — used
+ * instead of interpolating `error.message` directly, which in Zod 4 is a
+ * multi-line JSON dump of every issue. The full raw AI output is already
+ * shown separately to the reviewer for correction (plan §28, ai-actions.ts's
+ * `rawOutput`); this string is only meant to say *what* went wrong at a
+ * glance, not duplicate that dump.
+ */
+export function summarizeValidationIssues(error: z.ZodError, limit = 3): string {
+  const parts = error.issues.slice(0, limit).map((issue) => {
+    const path = issue.path.length > 0 ? issue.path.join(".") : "(value)";
+    return `${path}: ${issue.message}`;
+  });
+  const remaining = error.issues.length - parts.length;
+  return remaining > 0 ? `${parts.join("; ")} (+${remaining} more)` : parts.join("; ");
 }

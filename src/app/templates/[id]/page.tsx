@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { getStageConfig, type InterviewStage } from "@/domain/interviews/stage-config";
 import { isTemplateEditable } from "@/domain/interviews/template-versioning";
+import { difficultyBadgeClass } from "@/lib/question-style";
 import { getJobDescription, getPosition } from "@/features/positions/queries";
 import {
   createNewVersionAction,
@@ -36,6 +37,7 @@ import {
 } from "@/features/templates/ai-actions";
 import {
   getLatestJobAnalysis,
+  getLatestTemplateDraftBlueprint,
   getTemplate,
   listCompetencies,
   listMandatoryRequirements,
@@ -62,17 +64,19 @@ export default async function TemplateDetailPage({
   if (!template) notFound();
 
   const stage = template.stage as InterviewStage;
-  const [position, competencies, mandatoryRequirements, questions, jobDescription] =
+  const [position, competencies, mandatoryRequirements, questions, jobDescription, blueprints] =
     await Promise.all([
       getPosition(template.positionId),
       listCompetencies(id),
       listMandatoryRequirements(id),
       listQuestions(id),
       template.jobDescriptionId ? getJobDescription(template.jobDescriptionId) : null,
+      getLatestTemplateDraftBlueprint(id),
     ]);
   const jobAnalysis = template.jobDescriptionId
     ? await getLatestJobAnalysis(template.jobDescriptionId)
     : null;
+  const blueprintByCompetencyName = new Map((blueprints ?? []).map((b) => [b.competencyName, b]));
 
   const editable = isTemplateEditable(template);
   const stageConfig = getStageConfig(stage);
@@ -214,6 +218,8 @@ export default async function TemplateDetailPage({
                   borderlineMin: template.borderlineMin,
                   criticalMin: template.criticalMin,
                   minCompletion: template.minCompletion,
+                  englishRequired: template.englishRequired,
+                  englishMinLevel: template.englishMinLevel,
                 }}
               />
             ) : (
@@ -222,6 +228,11 @@ export default async function TemplateDetailPage({
                 <ConfigStat label="Borderline min" value={template.borderlineMin} />
                 <ConfigStat label="Critical min" value={template.criticalMin} />
                 <ConfigStat label="Min completion" value={template.minCompletion} />
+                <ConfigStat
+                  label="English required"
+                  value={template.englishRequired ? `Yes (≥${template.englishMinLevel})` : "No"}
+                  suffix=""
+                />
               </dl>
             )}
           </CardContent>
@@ -235,13 +246,9 @@ export default async function TemplateDetailPage({
                 Weights: {weightSum}%
               </Badge>
               {editable ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  render={<Link href={`/templates/${id}/competencies/new`} />}
-                >
+                <ButtonLink size="sm" variant="outline" href={`/templates/${id}/competencies/new`}>
                   <Plus /> Add Competency
-                </Button>
+                </ButtonLink>
               ) : null}
             </div>
           </CardHeader>
@@ -295,16 +302,14 @@ export default async function TemplateDetailPage({
                               icon={<ChevronDown />}
                               label="Move down"
                             />
-                            <Button
+                            <ButtonLink
                               variant="ghost"
                               size="icon-sm"
-                              render={
-                                <Link href={`/templates/${id}/competencies/${c.id}/edit`} />
-                              }
+                              href={`/templates/${id}/competencies/${c.id}/edit`}
                               aria-label="Edit"
                             >
                               <Pencil />
-                            </Button>
+                            </ButtonLink>
                             <RowActionButton
                               action={deleteCompetencyAction.bind(null, id, c.id)}
                               icon={<Trash2 />}
@@ -327,13 +332,9 @@ export default async function TemplateDetailPage({
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-[13.5px]">Mandatory Requirements</CardTitle>
             {editable ? (
-              <Button
-                size="sm"
-                variant="outline"
-                render={<Link href={`/templates/${id}/requirements/new`} />}
-              >
+              <ButtonLink size="sm" variant="outline" href={`/templates/${id}/requirements/new`}>
                 <Plus /> Add Requirement
-              </Button>
+              </ButtonLink>
             ) : null}
           </CardHeader>
           <CardContent className="p-0">
@@ -371,14 +372,14 @@ export default async function TemplateDetailPage({
                               icon={<ChevronDown />}
                               label="Move down"
                             />
-                            <Button
+                            <ButtonLink
                               variant="ghost"
                               size="icon-sm"
-                              render={<Link href={`/templates/${id}/requirements/${r.id}/edit`} />}
+                              href={`/templates/${id}/requirements/${r.id}/edit`}
                               aria-label="Edit"
                             >
                               <Pencil />
-                            </Button>
+                            </ButtonLink>
                             <RowActionButton
                               action={deleteMandatoryRequirementAction.bind(null, id, r.id)}
                               icon={<Trash2 />}
@@ -404,28 +405,46 @@ export default async function TemplateDetailPage({
           <CardContent className="flex flex-col gap-5">
             {competencies.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Add a competency before adding questions.
+                Add a{" "}
+                <Link href={`/templates/${id}/competencies/new`} className="underline">
+                  competency
+                </Link>{" "}
+                before adding questions.
               </p>
             ) : (
               competencies.map((c, index) => {
                 const competencyQuestions = questionsByCompetency.get(c.id) ?? [];
+                const blueprint = blueprintByCompetencyName.get(c.name);
                 return (
                   <div key={c.id} className="flex flex-col gap-2">
                     {index > 0 ? <Separator /> : null}
                     <div className="flex items-center justify-between">
                       <h3 className="text-[12.5px] font-semibold">{c.name}</h3>
                       {editable ? (
-                        <Button
+                        <ButtonLink
                           size="xs"
                           variant="outline"
-                          render={
-                            <Link href={`/templates/${id}/questions/new?competencyId=${c.id}`} />
-                          }
+                          href={`/templates/${id}/questions/new?competencyId=${c.id}`}
                         >
                           <Plus /> Add Question
-                        </Button>
+                        </ButtonLink>
                       ) : null}
                     </div>
+                    {blueprint ? (
+                      <details className="text-[11px] text-muted-foreground">
+                        <summary className="cursor-pointer">Generation blueprint</summary>
+                        <div className="mt-1 flex flex-col gap-0.5 rounded-lg border border-border bg-muted/40 p-2">
+                          <p>
+                            <span className="font-medium">Coverage: </span>
+                            {blueprint.coverage}
+                          </p>
+                          <p>
+                            <span className="font-medium">Question mix: </span>
+                            {blueprint.questionTypeMix}
+                          </p>
+                        </div>
+                      </details>
+                    ) : null}
                     {competencyQuestions.length === 0 ? (
                       <p className="text-xs text-muted-foreground">No questions yet.</p>
                     ) : (
@@ -437,13 +456,21 @@ export default async function TemplateDetailPage({
                           >
                             <div className="flex flex-col gap-1">
                               <p className="text-[12.5px] leading-snug">{q.text}</p>
-                              <div className="flex gap-1.5">
-                                <Badge variant="outline" className="capitalize">
+                              <div className="flex flex-wrap gap-1.5">
+                                <Badge
+                                  variant="outline"
+                                  className={`capitalize ${difficultyBadgeClass(q.difficulty)}`}
+                                >
                                   {q.difficulty}
                                 </Badge>
                                 <Badge variant="outline" className="capitalize">
                                   {q.importance}
                                 </Badge>
+                                {q.jdRequirementTag ? (
+                                  <Badge variant="secondary" className="font-normal normal-case">
+                                    JD: {q.jdRequirementTag}
+                                  </Badge>
+                                ) : null}
                               </div>
                             </div>
                             {editable ? (
@@ -461,14 +488,14 @@ export default async function TemplateDetailPage({
                                 <RegenerateQuestionButton
                                   action={regenerateQuestionAction.bind(null, id, q.id)}
                                 />
-                                <Button
+                                <ButtonLink
                                   variant="ghost"
                                   size="icon-sm"
-                                  render={<Link href={`/templates/${id}/questions/${q.id}/edit`} />}
+                                  href={`/templates/${id}/questions/${q.id}/edit`}
                                   aria-label="Edit"
                                 >
                                   <Pencil />
-                                </Button>
+                                </ButtonLink>
                                 <RowActionButton
                                   action={deleteQuestionAction.bind(null, id, q.id)}
                                   icon={<Trash2 />}
@@ -500,11 +527,22 @@ function mismatches(selected: string | null, detected: string | null): boolean {
   return selected.trim().toLowerCase() !== detected.trim().toLowerCase();
 }
 
-function ConfigStat({ label, value }: { label: string; value: number }) {
+function ConfigStat({
+  label,
+  value,
+  suffix = "%",
+}: {
+  label: string;
+  value: number | string;
+  suffix?: string;
+}) {
   return (
     <div>
       <dt className="text-[11px] text-muted-foreground">{label}</dt>
-      <dd className="font-mono text-sm">{value}%</dd>
+      <dd className="font-mono text-sm">
+        {value}
+        {suffix}
+      </dd>
     </div>
   );
 }
