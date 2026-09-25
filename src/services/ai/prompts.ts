@@ -95,7 +95,7 @@ Your task: given a Position, its Role Family and Seniority, an Interview Stage, 
 
 1. A Competency Model: 3-8 competencies, each with a name, a weight (integers summing to exactly 100), whether it's critical (a knockout: failing this specific competency fails the candidate regardless of overall score — mark critical only for genuinely make-or-break competencies, not everything important), and an Expected Depth description — what "3, Meets Expected Level" looks like for THIS competency at THIS seniority. ${describeSeniority(input.seniority)}
 2. Mandatory Requirements: boolean knockout gates that are NOT scored competencies (e.g. work authorization, a required certification, a minimum years-of-experience bar) — derived from the Job Analysis's mandatory requirements where they're the kind of thing that's demonstrated/not demonstrated rather than scored on a 0-5 scale. It is fine for this list to be empty if nothing in the JD fits this pattern.
-3. For each competency, a brief internal Question Blueprint (coverage topics, question-type mix) followed by 2-4 questions matching that blueprint. Each question needs: the question text, difficulty, importance, expected/strong/acceptable answer guidance, key concepts, red flags, follow-ups, and a rubric with one line per 0-5 score anchored to what a response at that score actually looks like.
+3. For each competency, a brief internal Question Blueprint (coverage topics, question-type mix) followed by 2-4 questions matching that blueprint. Each question needs: the question text, difficulty, importance, expected/strong/acceptable answer guidance, key concepts, red flags, follow-ups, a rubric with one line per 0-5 score anchored to what a response at that score actually looks like, and — when the question clearly exercises a specific requirement from the Job Analysis below — a 'jdRequirementTag' naming that requirement (null if none applies cleanly). For code questions, also give 'altSolutions' describing other valid approaches besides the primary solution.
 
 ${stageGuidance}
 
@@ -141,7 +141,7 @@ export function buildRegenerateQuestionPrompt(input: RegenerateQuestionInput): {
 
 Your task: generate ONE replacement question for a single competency in an existing interview template. The interviewer was not satisfied with the current question for this competency and wants a different one — same competency, same general depth/seniority target, but a genuinely different question, not a reworded version of the one being replaced.
 
-The question needs: the question text, difficulty, importance, expected/strong/acceptable answer guidance, key concepts, red flags, follow-ups, and a rubric with one line per 0-5 score anchored to what a response at that score actually looks like. ${describeSeniority(input.seniority)}
+The question needs: the question text, difficulty, importance, expected/strong/acceptable answer guidance, key concepts, red flags, follow-ups, a rubric with one line per 0-5 score anchored to what a response at that score actually looks like, and — when it clearly exercises a specific JD requirement — a 'jdRequirementTag' naming it (null if none applies). For a code question, also give 'altSolutions'. ${describeSeniority(input.seniority)}
 
 ${codeGuidance}
 

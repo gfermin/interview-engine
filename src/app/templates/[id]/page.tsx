@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { getStageConfig, type InterviewStage } from "@/domain/interviews/stage-config";
 import { isTemplateEditable } from "@/domain/interviews/template-versioning";
+import { difficultyBadgeClass } from "@/lib/question-style";
 import { getJobDescription, getPosition } from "@/features/positions/queries";
 import {
   createNewVersionAction,
@@ -36,6 +37,7 @@ import {
 } from "@/features/templates/ai-actions";
 import {
   getLatestJobAnalysis,
+  getLatestTemplateDraftBlueprint,
   getTemplate,
   listCompetencies,
   listMandatoryRequirements,
@@ -62,17 +64,19 @@ export default async function TemplateDetailPage({
   if (!template) notFound();
 
   const stage = template.stage as InterviewStage;
-  const [position, competencies, mandatoryRequirements, questions, jobDescription] =
+  const [position, competencies, mandatoryRequirements, questions, jobDescription, blueprints] =
     await Promise.all([
       getPosition(template.positionId),
       listCompetencies(id),
       listMandatoryRequirements(id),
       listQuestions(id),
       template.jobDescriptionId ? getJobDescription(template.jobDescriptionId) : null,
+      getLatestTemplateDraftBlueprint(id),
     ]);
   const jobAnalysis = template.jobDescriptionId
     ? await getLatestJobAnalysis(template.jobDescriptionId)
     : null;
+  const blueprintByCompetencyName = new Map((blueprints ?? []).map((b) => [b.competencyName, b]));
 
   const editable = isTemplateEditable(template);
   const stageConfig = getStageConfig(stage);
@@ -410,6 +414,7 @@ export default async function TemplateDetailPage({
             ) : (
               competencies.map((c, index) => {
                 const competencyQuestions = questionsByCompetency.get(c.id) ?? [];
+                const blueprint = blueprintByCompetencyName.get(c.name);
                 return (
                   <div key={c.id} className="flex flex-col gap-2">
                     {index > 0 ? <Separator /> : null}
@@ -425,6 +430,21 @@ export default async function TemplateDetailPage({
                         </ButtonLink>
                       ) : null}
                     </div>
+                    {blueprint ? (
+                      <details className="text-[11px] text-muted-foreground">
+                        <summary className="cursor-pointer">Generation blueprint</summary>
+                        <div className="mt-1 flex flex-col gap-0.5 rounded-lg border border-border bg-muted/40 p-2">
+                          <p>
+                            <span className="font-medium">Coverage: </span>
+                            {blueprint.coverage}
+                          </p>
+                          <p>
+                            <span className="font-medium">Question mix: </span>
+                            {blueprint.questionTypeMix}
+                          </p>
+                        </div>
+                      </details>
+                    ) : null}
                     {competencyQuestions.length === 0 ? (
                       <p className="text-xs text-muted-foreground">No questions yet.</p>
                     ) : (
@@ -436,13 +456,21 @@ export default async function TemplateDetailPage({
                           >
                             <div className="flex flex-col gap-1">
                               <p className="text-[12.5px] leading-snug">{q.text}</p>
-                              <div className="flex gap-1.5">
-                                <Badge variant="outline" className="capitalize">
+                              <div className="flex flex-wrap gap-1.5">
+                                <Badge
+                                  variant="outline"
+                                  className={`capitalize ${difficultyBadgeClass(q.difficulty)}`}
+                                >
                                   {q.difficulty}
                                 </Badge>
                                 <Badge variant="outline" className="capitalize">
                                   {q.importance}
                                 </Badge>
+                                {q.jdRequirementTag ? (
+                                  <Badge variant="secondary" className="font-normal normal-case">
+                                    JD: {q.jdRequirementTag}
+                                  </Badge>
+                                ) : null}
                               </div>
                             </div>
                             {editable ? (

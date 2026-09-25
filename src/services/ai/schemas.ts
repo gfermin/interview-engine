@@ -51,6 +51,11 @@ export const draftQuestionSchema = z.object({
   rubric: z.array(z.string().trim().min(1).max(AI_LIST_ITEM_MAX)).max(AI_LIST_MAX).default([]),
   code: z.string().trim().max(AI_CODE_MAX).nullable().default(null),
   solution: z.string().trim().max(AI_CODE_MAX).nullable().default(null),
+  // Phase 16/§41: the artifact's "JD: <requirement>" traceability tag and
+  // its "other valid approaches" note for code questions — both optional,
+  // matching code/solution's own nullable pattern.
+  jdRequirementTag: z.string().trim().max(AI_LIST_ITEM_MAX).nullable().default(null),
+  altSolutions: z.string().trim().max(AI_QUESTION_TEXT_MAX).nullable().default(null),
 });
 
 const draftCompetencySchema = z.object({

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,6 +34,8 @@ interface QuestionFormProps {
     rubric?: string[];
     code?: string | null;
     solution?: string | null;
+    jdRequirementTag?: string | null;
+    altSolutions?: string | null;
   };
   submitLabel: string;
 }
@@ -120,6 +123,18 @@ export function QuestionForm({
           required
         />
         {fieldError("text")}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="jdRequirementTag">
+          JD requirement <span className="text-muted-foreground">(optional)</span>
+        </Label>
+        <Input
+          id="jdRequirementTag"
+          name="jdRequirementTag"
+          placeholder="e.g. API Testing"
+          defaultValue={defaultValues?.jdRequirementTag ?? ""}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -226,9 +241,24 @@ export function QuestionForm({
               defaultValue={defaultValues?.solution ?? ""}
             />
           </div>
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <Label htmlFor="altSolutions">
+              Alternate solutions <span className="text-muted-foreground">(optional)</span>
+            </Label>
+            <Textarea
+              id="altSolutions"
+              name="altSolutions"
+              rows={2}
+              placeholder="Other valid approaches besides the primary solution..."
+              defaultValue={defaultValues?.altSolutions ?? ""}
+            />
+          </div>
         </div>
       ) : (
-        <input type="hidden" name="code" value="" />
+        <>
+          <input type="hidden" name="code" value="" />
+          <input type="hidden" name="altSolutions" value="" />
+        </>
       )}
       {!showCodeFields ? <input type="hidden" name="solution" value="" /> : null}
 

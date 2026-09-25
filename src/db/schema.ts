@@ -186,6 +186,14 @@ export const questions = sqliteTable("questions", {
   rubric: text("rubric", { mode: "json" }).$type<string[]>().notNull().default([]),
   code: text("code"),
   solution: text("solution"),
+  // Phase 16/§41 (§4.2/§16.1 of the Calibración QA parity audit): the
+  // artifact's "JD: <requirement>" chip on every question card, tying a
+  // question back to a specific mandatory/preferred requirement, and its
+  // "other valid approaches" note for code questions — both additive and
+  // nullable, matching Task 2.4's precedent (no data migration risk, since
+  // every existing question predates these columns and simply has `null`).
+  jdRequirementTag: text("jd_requirement_tag"),
+  altSolutions: text("alt_solutions"),
   sortOrder: integer("sort_order").notNull().default(0),
   ...timestamps,
 });
