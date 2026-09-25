@@ -4,13 +4,16 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { INTERVIEW_LANGUAGE_LABELS, type InterviewLanguage } from "@/domain/interviews/interview-language";
 import { STAGE_LABELS, type InterviewStage } from "@/domain/interviews/stage-config";
+import { t, type Locale } from "@/lib/i18n";
 import type { FormActionState } from "./actions";
 
 interface TemplateOption {
   id: string;
   name: string;
   stage: string;
+  interviewLanguage: string;
   version: number;
   positionTitle: string;
 }
@@ -21,9 +24,10 @@ interface StartSessionFormProps {
     formData: FormData
   ) => Promise<FormActionState | undefined>;
   templates: TemplateOption[];
+  locale?: Locale;
 }
 
-export function StartSessionForm({ action, templates }: StartSessionFormProps) {
+export function StartSessionForm({ action, templates, locale = "en" }: StartSessionFormProps) {
   const [state, formAction, pending] = useActionState<
     FormActionState | undefined,
     FormData
@@ -47,16 +51,17 @@ export function StartSessionForm({ action, templates }: StartSessionFormProps) {
       ) : null}
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="templateId">Published template</Label>
+        <Label htmlFor="templateId">{t(locale, "candidates.publishedTemplateLabel")}</Label>
         <Select id="templateId" name="templateId" defaultValue="">
           <option value="" disabled>
-            Select a Template...
+            {t(locale, "candidates.selectTemplatePlaceholder")}
           </option>
           {[...templatesByPosition.entries()].map(([positionTitle, group]) => (
             <optgroup key={positionTitle} label={positionTitle}>
               {group.map((template) => (
                 <option key={template.id} value={template.id}>
-                  {template.name} ({STAGE_LABELS[template.stage as InterviewStage]}, v
+                  {template.name} ({STAGE_LABELS[template.stage as InterviewStage]},{" "}
+                  {INTERVIEW_LANGUAGE_LABELS[template.interviewLanguage as InterviewLanguage]}, v
                   {template.version})
                 </option>
               ))}
@@ -69,7 +74,7 @@ export function StartSessionForm({ action, templates }: StartSessionFormProps) {
       </div>
 
       <Button type="submit" disabled={pending} className="self-start">
-        {pending ? "Starting..." : "Start Interview Session"}
+        {pending ? t(locale, "candidates.starting") : t(locale, "candidates.startSessionButton")}
       </Button>
     </form>
   );

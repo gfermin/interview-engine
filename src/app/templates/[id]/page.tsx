@@ -1,7 +1,9 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { AppTopbar } from "@/components/layout/app-topbar";
+import { PageContainer } from "@/components/layout/page-container";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { INTERVIEW_LANGUAGE_LABELS, type InterviewLanguage } from "@/domain/interviews/interview-language";
 import { getStageConfig, type InterviewStage } from "@/domain/interviews/stage-config";
 import { isTemplateEditable } from "@/domain/interviews/template-versioning";
 import { difficultyBadgeClass } from "@/lib/question-style";
@@ -45,6 +48,8 @@ import {
 } from "@/features/templates/queries";
 import { ScoringConfigForm } from "@/features/templates/scoring-config-form";
 import { NewVersionButton, PublishButton, RowActionButton } from "@/features/templates/template-actions";
+import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
+import { t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +64,9 @@ export default async function TemplateDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const cookieStore = await cookies();
+  const locale = resolveLocale(cookieStore.get(APP_LOCALE_COOKIE)?.value);
+
   const { id } = await params;
   const template = await getTemplate(id);
   if (!template) notFound();
@@ -93,8 +101,8 @@ export default async function TemplateDetailPage({
 
   return (
     <>
-      <AppTopbar title={template.name} />
-      <main className="mx-auto flex w-full max-w-[900px] flex-1 flex-col gap-5 px-6 py-7">
+      <AppTopbar title={template.name} locale={locale} />
+      <PageContainer width="wide">
         <Card>
           <CardHeader className="flex flex-row items-start justify-between">
             <div>
@@ -109,6 +117,9 @@ export default async function TemplateDetailPage({
                   </Link>
                 ) : null}
                 <Badge variant="secondary">{stageConfig.label}</Badge>
+                <Badge variant="outline">
+                  {INTERVIEW_LANGUAGE_LABELS[template.interviewLanguage as InterviewLanguage]}
+                </Badge>
                 <Badge variant="outline" className="font-mono">
                   v{template.version}
                 </Badge>
@@ -119,16 +130,16 @@ export default async function TemplateDetailPage({
               {!editable ? (
                 <p className="mt-2 max-w-md text-[11px] text-muted-foreground">
                   {template.status === "approved"
-                    ? "Published — no longer editable. Create a new version to make changes."
-                    : "Locked — a candidate session references this exact version. Create a new version to make changes."}
+                    ? t(locale, "templates.editableNotePublished")
+                    : t(locale, "templates.editableNoteLocked")}
                 </p>
               ) : null}
             </div>
             <div>
               {editable ? (
-                <PublishButton action={publishTemplateAction.bind(null, template.id)} />
+                <PublishButton action={publishTemplateAction.bind(null, template.id)} locale={locale} />
               ) : (
-                <NewVersionButton action={createNewVersionAction.bind(null, template.id)} />
+                <NewVersionButton action={createNewVersionAction.bind(null, template.id)} locale={locale} />
               )}
             </div>
           </CardHeader>
@@ -136,23 +147,24 @@ export default async function TemplateDetailPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-[13.5px]">Job Description &amp; AI Analysis</CardTitle>
+            <CardTitle className="text-[13.5px]">{t(locale, "templates.jobDescriptionHeading")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {!jobDescription ? (
               <p className="text-sm text-muted-foreground">
-                This template isn&apos;t linked to a Job Description version.
-                Add one on the{" "}
+                {t(locale, "templates.notLinkedPrefix")}
                 <Link href={`/positions/${template.positionId}`} className="underline">
-                  Position
+                  {t(locale, "templates.positionLabel")}
                 </Link>
-                , then create a new template.
+                {t(locale, "templates.notLinkedSuffix")}
               </p>
             ) : (
               <>
                 <details>
                   <summary className="cursor-pointer text-[12.5px] text-muted-foreground">
-                    Job Description text (v{jobDescription.version})
+                    {t(locale, "templates.jdTextVersionPrefix")}
+                    {jobDescription.version}
+                    {t(locale, "templates.jdTextVersionSuffix")}
                   </summary>
                   <p className="mt-2 max-h-48 overflow-auto rounded-lg border border-border bg-muted/40 p-3 text-[12.5px] whitespace-pre-wrap">
                     {jobDescription.rawText}
@@ -162,8 +174,13 @@ export default async function TemplateDetailPage({
                 {editable ? (
                   <AIActionButton
                     action={analyzeJobDescriptionAction.bind(null, template.id)}
-                    label={jobAnalysis ? "Re-analyze Job Description" : "Analyze Job Description"}
-                    pendingLabel="Analyzing..."
+                    label={
+                      jobAnalysis
+                        ? t(locale, "templates.reAnalyzeButton")
+                        : t(locale, "templates.analyzeButton")
+                    }
+                    pendingLabel={t(locale, "templates.analyzingButton")}
+                    locale={locale}
                   />
                 ) : null}
 
@@ -171,29 +188,39 @@ export default async function TemplateDetailPage({
                   <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
                     <div className="flex flex-wrap gap-1.5">
                       <Badge variant={roleFamilyMismatch ? "destructive" : "secondary"}>
-                        Detected role: {jobAnalysis.detectedRoleFamily ?? "—"}
+                        {t(locale, "templates.detectedRolePrefix")}
+                        {jobAnalysis.detectedRoleFamily ?? "—"}
                       </Badge>
                       <Badge variant={seniorityMismatch ? "destructive" : "secondary"}>
-                        Detected seniority: {jobAnalysis.detectedSeniority ?? "—"}
+                        {t(locale, "templates.detectedSeniorityPrefix")}
+                        {jobAnalysis.detectedSeniority ?? "—"}
                       </Badge>
                     </div>
                     {roleFamilyMismatch || seniorityMismatch ? (
                       <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-[12px] text-amber-700 dark:text-amber-400">
                         <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                         <p>
-                          The Job Description reads differently than the
-                          Position&apos;s selected Role Family/Seniority
-                          (&ldquo;{position?.roleFamily ?? "—"}&rdquo; /{" "}
-                          &ldquo;{position?.seniority ?? "—"}&rdquo;). Your
-                          selection is not changed automatically — review
-                          before generating.
+                          {t(locale, "templates.mismatchWarningPrefix")}
+                          {position?.roleFamily ?? "—"}
+                          {t(locale, "templates.mismatchWarningMiddle")}
+                          {position?.seniority ?? "—"}
+                          {t(locale, "templates.mismatchWarningSuffix")}
                         </p>
                       </div>
                     ) : null}
                     <dl className="grid grid-cols-1 gap-2 text-[12.5px] sm:grid-cols-3">
-                      <RequirementList label="Mandatory" items={jobAnalysis.mandatoryRequirements} />
-                      <RequirementList label="Preferred" items={jobAnalysis.preferredRequirements} />
-                      <RequirementList label="Optional" items={jobAnalysis.optionalRequirements} />
+                      <RequirementList
+                        label={t(locale, "templates.jdMandatoryLabel")}
+                        items={jobAnalysis.mandatoryRequirements}
+                      />
+                      <RequirementList
+                        label={t(locale, "templates.jdPreferredLabel")}
+                        items={jobAnalysis.preferredRequirements}
+                      />
+                      <RequirementList
+                        label={t(locale, "templates.jdOptionalLabel")}
+                        items={jobAnalysis.optionalRequirements}
+                      />
                     </dl>
                     {jobAnalysis.notes ? (
                       <p className="text-[12px] text-muted-foreground">{jobAnalysis.notes}</p>
@@ -207,7 +234,7 @@ export default async function TemplateDetailPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-[13.5px]">Scoring Configuration</CardTitle>
+            <CardTitle className="text-[13.5px]">{t(locale, "templates.scoringConfigurationHeading")}</CardTitle>
           </CardHeader>
           <CardContent>
             {editable ? (
@@ -221,16 +248,21 @@ export default async function TemplateDetailPage({
                   englishRequired: template.englishRequired,
                   englishMinLevel: template.englishMinLevel,
                 }}
+                locale={locale}
               />
             ) : (
               <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                <ConfigStat label="Pass threshold" value={template.passThreshold} />
-                <ConfigStat label="Borderline min" value={template.borderlineMin} />
-                <ConfigStat label="Critical min" value={template.criticalMin} />
-                <ConfigStat label="Min completion" value={template.minCompletion} />
+                <ConfigStat label={t(locale, "templates.passThresholdStatLabel")} value={template.passThreshold} />
+                <ConfigStat label={t(locale, "templates.borderlineMinStatLabel")} value={template.borderlineMin} />
+                <ConfigStat label={t(locale, "templates.criticalMinStatLabel")} value={template.criticalMin} />
+                <ConfigStat label={t(locale, "templates.minCompletionStatLabel")} value={template.minCompletion} />
                 <ConfigStat
-                  label="English required"
-                  value={template.englishRequired ? `Yes (≥${template.englishMinLevel})` : "No"}
+                  label={t(locale, "templates.englishRequiredStatLabel")}
+                  value={
+                    template.englishRequired
+                      ? `${t(locale, "templates.englishRequiredYesPrefix")}${template.englishMinLevel}${t(locale, "templates.englishRequiredYesSuffix")}`
+                      : t(locale, "templates.noLabel")
+                  }
                   suffix=""
                 />
               </dl>
@@ -240,14 +272,15 @@ export default async function TemplateDetailPage({
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-[13.5px]">Competencies</CardTitle>
+            <CardTitle className="text-[13.5px]">{t(locale, "templates.competenciesHeading")}</CardTitle>
             <div className="flex items-center gap-2">
               <Badge variant={weightSum === 100 ? "secondary" : "outline"}>
-                Weights: {weightSum}%
+                {t(locale, "templates.weightsPrefix")}
+                {weightSum}%
               </Badge>
               {editable ? (
                 <ButtonLink size="sm" variant="outline" href={`/templates/${id}/competencies/new`}>
-                  <Plus /> Add Competency
+                  <Plus /> {t(locale, "templates.addCompetencyLabel")}
                 </ButtonLink>
               ) : null}
             </div>
@@ -256,14 +289,14 @@ export default async function TemplateDetailPage({
             {competencies.length === 0 ? (
               <div className="flex flex-col gap-3 px-6 pb-4">
                 <p className="text-sm text-muted-foreground">
-                  No competencies yet — add them manually above, or generate a
-                  draft from the Job Analysis.
+                  {t(locale, "templates.noCompetenciesMessage")}
                 </p>
                 {editable && jobAnalysis ? (
                   <AIActionButton
                     action={generateTemplateDraftAction.bind(null, template.id)}
-                    label="Generate Draft (Competencies, Requirements & Questions)"
-                    pendingLabel="Generating draft... this can take a minute"
+                    label={t(locale, "templates.generateDraftButton")}
+                    pendingLabel={t(locale, "templates.generatingDraftButton")}
+                    locale={locale}
                   />
                 ) : null}
               </div>
@@ -271,11 +304,11 @@ export default async function TemplateDetailPage({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Weight</TableHead>
-                    <TableHead>Critical</TableHead>
-                    <TableHead>Expected depth</TableHead>
-                    {editable ? <TableHead className="text-right">Actions</TableHead> : null}
+                    <TableHead>{t(locale, "templates.tableName")}</TableHead>
+                    <TableHead>{t(locale, "templates.tableWeight")}</TableHead>
+                    <TableHead>{t(locale, "templates.criticalLabel")}</TableHead>
+                    <TableHead>{t(locale, "templates.tableExpectedDepth")}</TableHead>
+                    {editable ? <TableHead className="text-right">{t(locale, "templates.tableActions")}</TableHead> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -284,7 +317,11 @@ export default async function TemplateDetailPage({
                       <TableCell className="font-medium">{c.name}</TableCell>
                       <TableCell>{c.weight}%</TableCell>
                       <TableCell>
-                        {c.critical ? <Badge variant="destructive">Critical</Badge> : "—"}
+                        {c.critical ? (
+                          <Badge variant="destructive">{t(locale, "templates.criticalLabel")}</Badge>
+                        ) : (
+                          "—"
+                        )}
                       </TableCell>
                       <TableCell className="max-w-[220px] truncate text-muted-foreground">
                         {c.expectedDepth ?? "—"}
@@ -295,27 +332,27 @@ export default async function TemplateDetailPage({
                             <RowActionButton
                               action={moveCompetencyAction.bind(null, id, c.id, "up")}
                               icon={<ChevronUp />}
-                              label="Move up"
+                              label={t(locale, "templates.moveUpLabel")}
                             />
                             <RowActionButton
                               action={moveCompetencyAction.bind(null, id, c.id, "down")}
                               icon={<ChevronDown />}
-                              label="Move down"
+                              label={t(locale, "templates.moveDownLabel")}
                             />
                             <ButtonLink
                               variant="ghost"
                               size="icon-sm"
                               href={`/templates/${id}/competencies/${c.id}/edit`}
-                              aria-label="Edit"
+                              aria-label={t(locale, "templates.editLabel")}
                             >
                               <Pencil />
                             </ButtonLink>
                             <RowActionButton
                               action={deleteCompetencyAction.bind(null, id, c.id)}
                               icon={<Trash2 />}
-                              label="Delete"
+                              label={t(locale, "templates.deleteLabel")}
                               variant="destructive"
-                              confirmMessage={`Delete competency "${c.name}"? This also deletes its questions.`}
+                              confirmMessage={`${t(locale, "templates.deleteCompetencyConfirmPrefix")}${c.name}${t(locale, "templates.deleteCompetencyConfirmSuffix")}`}
                             />
                           </div>
                         </TableCell>
@@ -330,26 +367,25 @@ export default async function TemplateDetailPage({
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-[13.5px]">Mandatory Requirements</CardTitle>
+            <CardTitle className="text-[13.5px]">{t(locale, "templates.mandatoryRequirementsHeading")}</CardTitle>
             {editable ? (
               <ButtonLink size="sm" variant="outline" href={`/templates/${id}/requirements/new`}>
-                <Plus /> Add Requirement
+                <Plus /> {t(locale, "templates.addRequirementButton")}
               </ButtonLink>
             ) : null}
           </CardHeader>
           <CardContent className="p-0">
             {mandatoryRequirements.length === 0 ? (
               <p className="px-6 pb-4 text-sm text-muted-foreground">
-                No mandatory requirements yet — boolean knockout gates independent
-                of competency scoring (plan §4.3/§19).
+                {t(locale, "templates.noRequirementsMessage")}
               </p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Requirement</TableHead>
-                    <TableHead>Description</TableHead>
-                    {editable ? <TableHead className="text-right">Actions</TableHead> : null}
+                    <TableHead>{t(locale, "templates.tableRequirement")}</TableHead>
+                    <TableHead>{t(locale, "templates.descriptionLabel")}</TableHead>
+                    {editable ? <TableHead className="text-right">{t(locale, "templates.tableActions")}</TableHead> : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -365,27 +401,27 @@ export default async function TemplateDetailPage({
                             <RowActionButton
                               action={moveMandatoryRequirementAction.bind(null, id, r.id, "up")}
                               icon={<ChevronUp />}
-                              label="Move up"
+                              label={t(locale, "templates.moveUpLabel")}
                             />
                             <RowActionButton
                               action={moveMandatoryRequirementAction.bind(null, id, r.id, "down")}
                               icon={<ChevronDown />}
-                              label="Move down"
+                              label={t(locale, "templates.moveDownLabel")}
                             />
                             <ButtonLink
                               variant="ghost"
                               size="icon-sm"
                               href={`/templates/${id}/requirements/${r.id}/edit`}
-                              aria-label="Edit"
+                              aria-label={t(locale, "templates.editLabel")}
                             >
                               <Pencil />
                             </ButtonLink>
                             <RowActionButton
                               action={deleteMandatoryRequirementAction.bind(null, id, r.id)}
                               icon={<Trash2 />}
-                              label="Delete"
+                              label={t(locale, "templates.deleteLabel")}
                               variant="destructive"
-                              confirmMessage={`Delete requirement "${r.label}"?`}
+                              confirmMessage={`${t(locale, "templates.deleteRequirementConfirmPrefix")}${r.label}${t(locale, "templates.deleteRequirementConfirmSuffix")}`}
                             />
                           </div>
                         </TableCell>
@@ -400,16 +436,16 @@ export default async function TemplateDetailPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-[13.5px]">Questions</CardTitle>
+            <CardTitle className="text-[13.5px]">{t(locale, "templates.questionsHeading")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
             {competencies.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Add a{" "}
+                {t(locale, "templates.addCompetencyBeforeQuestionsPrefix")}
                 <Link href={`/templates/${id}/competencies/new`} className="underline">
-                  competency
-                </Link>{" "}
-                before adding questions.
+                  {t(locale, "templates.competencyLinkText")}
+                </Link>
+                {t(locale, "templates.addCompetencyBeforeQuestionsSuffix")}
               </p>
             ) : (
               competencies.map((c, index) => {
@@ -426,27 +462,27 @@ export default async function TemplateDetailPage({
                           variant="outline"
                           href={`/templates/${id}/questions/new?competencyId=${c.id}`}
                         >
-                          <Plus /> Add Question
+                          <Plus /> {t(locale, "templates.addQuestionTitle")}
                         </ButtonLink>
                       ) : null}
                     </div>
                     {blueprint ? (
                       <details className="text-[11px] text-muted-foreground">
-                        <summary className="cursor-pointer">Generation blueprint</summary>
+                        <summary className="cursor-pointer">{t(locale, "templates.generationBlueprintSummary")}</summary>
                         <div className="mt-1 flex flex-col gap-0.5 rounded-lg border border-border bg-muted/40 p-2">
                           <p>
-                            <span className="font-medium">Coverage: </span>
+                            <span className="font-medium">{t(locale, "templates.coverageLabel")}</span>
                             {blueprint.coverage}
                           </p>
                           <p>
-                            <span className="font-medium">Question mix: </span>
+                            <span className="font-medium">{t(locale, "templates.questionMixLabel")}</span>
                             {blueprint.questionTypeMix}
                           </p>
                         </div>
                       </details>
                     ) : null}
                     {competencyQuestions.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No questions yet.</p>
+                      <p className="text-xs text-muted-foreground">{t(locale, "templates.noQuestionsMessage")}</p>
                     ) : (
                       <ul className="flex flex-col gap-1.5">
                         {competencyQuestions.map((q) => (
@@ -468,7 +504,8 @@ export default async function TemplateDetailPage({
                                 </Badge>
                                 {q.jdRequirementTag ? (
                                   <Badge variant="secondary" className="font-normal normal-case">
-                                    JD: {q.jdRequirementTag}
+                                    {t(locale, "templates.jdTagPrefix")}
+                                    {q.jdRequirementTag}
                                   </Badge>
                                 ) : null}
                               </div>
@@ -478,30 +515,31 @@ export default async function TemplateDetailPage({
                                 <RowActionButton
                                   action={moveQuestionAction.bind(null, id, q.id, "up")}
                                   icon={<ChevronUp />}
-                                  label="Move up"
+                                  label={t(locale, "templates.moveUpLabel")}
                                 />
                                 <RowActionButton
                                   action={moveQuestionAction.bind(null, id, q.id, "down")}
                                   icon={<ChevronDown />}
-                                  label="Move down"
+                                  label={t(locale, "templates.moveDownLabel")}
                                 />
                                 <RegenerateQuestionButton
                                   action={regenerateQuestionAction.bind(null, id, q.id)}
+                                  locale={locale}
                                 />
                                 <ButtonLink
                                   variant="ghost"
                                   size="icon-sm"
                                   href={`/templates/${id}/questions/${q.id}/edit`}
-                                  aria-label="Edit"
+                                  aria-label={t(locale, "templates.editLabel")}
                                 >
                                   <Pencil />
                                 </ButtonLink>
                                 <RowActionButton
                                   action={deleteQuestionAction.bind(null, id, q.id)}
                                   icon={<Trash2 />}
-                                  label="Delete"
+                                  label={t(locale, "templates.deleteLabel")}
                                   variant="destructive"
-                                  confirmMessage="Delete this question?"
+                                  confirmMessage={t(locale, "templates.deleteQuestionConfirm")}
                                 />
                               </div>
                             ) : null}
@@ -515,7 +553,7 @@ export default async function TemplateDetailPage({
             )}
           </CardContent>
         </Card>
-      </main>
+      </PageContainer>
     </>
   );
 }

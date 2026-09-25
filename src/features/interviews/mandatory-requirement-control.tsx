@@ -1,5 +1,6 @@
 import { Button, type buttonVariants } from "@/components/ui/button";
 import type { MandatoryRequirementStatus } from "@/domain/scoring/types";
+import { t, type Locale } from "@/lib/i18n";
 import { updateMandatoryRequirementStatusAction } from "./actions";
 
 type ButtonVariant = NonNullable<Parameters<typeof buttonVariants>[0]>["variant"];
@@ -14,10 +15,10 @@ const VARIANT_WHEN_SELECTED: Record<MandatoryRequirementStatus, ButtonVariant> =
   unknown: "secondary",
 };
 
-const OPTIONS: { status: MandatoryRequirementStatus; label: string }[] = [
-  { status: "met", label: "Met" },
-  { status: "not_met", label: "Not Met" },
-  { status: "unknown", label: "Unknown" },
+const OPTIONS: { status: MandatoryRequirementStatus; labelKey: string }[] = [
+  { status: "met", labelKey: "interview.mandatoryStatusMet" },
+  { status: "not_met", labelKey: "interview.mandatoryStatusNotMet" },
+  { status: "unknown", labelKey: "interview.mandatoryStatusUnknown" },
 ];
 
 /**
@@ -30,14 +31,16 @@ export function MandatoryRequirementControl({
   sessionId,
   requirementId,
   currentStatus,
+  locale = "en",
 }: {
   sessionId: string;
   requirementId: string;
   currentStatus: MandatoryRequirementStatus;
+  locale?: Locale;
 }) {
   return (
     <div className="flex gap-1">
-      {OPTIONS.map(({ status, label }) => (
+      {OPTIONS.map(({ status, labelKey }) => (
         <form
           key={status}
           action={updateMandatoryRequirementStatusAction.bind(null, sessionId, requirementId, status)}
@@ -47,7 +50,7 @@ export function MandatoryRequirementControl({
             size="sm"
             variant={currentStatus === status ? VARIANT_WHEN_SELECTED[status] : "outline"}
           >
-            {label}
+            {t(locale, labelKey)}
           </Button>
         </form>
       ))}

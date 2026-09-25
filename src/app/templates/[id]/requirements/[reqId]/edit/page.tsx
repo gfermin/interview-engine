@@ -1,11 +1,15 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppTopbar } from "@/components/layout/app-topbar";
+import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isTemplateEditable } from "@/domain/interviews/template-versioning";
 import { updateMandatoryRequirementAction } from "@/features/templates/actions";
 import { MandatoryRequirementForm } from "@/features/templates/mandatory-requirement-form";
 import { getMandatoryRequirement, getTemplate } from "@/features/templates/queries";
+import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
+import { t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +18,9 @@ export default async function EditMandatoryRequirementPage({
 }: {
   params: Promise<{ id: string; reqId: string }>;
 }) {
+  const cookieStore = await cookies();
+  const locale = resolveLocale(cookieStore.get(APP_LOCALE_COOKIE)?.value);
+
   const { id, reqId } = await params;
   const [template, requirement] = await Promise.all([
     getTemplate(id),
@@ -23,11 +30,11 @@ export default async function EditMandatoryRequirementPage({
 
   return (
     <>
-      <AppTopbar title="Edit Mandatory Requirement" />
-      <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col gap-5 px-6 py-7">
+      <AppTopbar title={t(locale, "templates.editRequirementTitle")} locale={locale} />
+      <PageContainer width="standard">
         <Card>
           <CardHeader>
-            <CardTitle className="text-[15px]">Edit Mandatory Requirement</CardTitle>
+            <CardTitle className="text-[15px]">{t(locale, "templates.editRequirementTitle")}</CardTitle>
           </CardHeader>
           <CardContent>
             {isTemplateEditable(template) ? (
@@ -37,19 +44,20 @@ export default async function EditMandatoryRequirementPage({
                   label: requirement.label,
                   description: requirement.description,
                 }}
-                submitLabel="Save Changes"
+                submitLabel={t(locale, "templates.saveChangesButton")}
+                locale={locale}
               />
             ) : (
               <p className="text-sm text-muted-foreground">
-                This template version is no longer editable.{" "}
+                {t(locale, "templates.notEditableMessage")}
                 <Link href={`/templates/${id}`} className="underline">
-                  Back to template
+                  {t(locale, "templates.backToTemplateLink")}
                 </Link>
               </p>
             )}
           </CardContent>
         </Card>
-      </main>
+      </PageContainer>
     </>
   );
 }

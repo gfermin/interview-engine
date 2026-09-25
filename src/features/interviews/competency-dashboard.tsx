@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { t, type Locale } from "@/lib/i18n";
 
 export interface CompetencyDashboardEntry {
   competencyId: string;
@@ -18,17 +19,23 @@ export interface CompetencyDashboardEntry {
 // Task 14.4/§41): a 3-column colored card grid, driven entirely by data the
 // Phase 2 scoring engines already compute — no new domain calculation here,
 // only presentation over `CompetencyStat`/`CriticalCompetencyStatus`.
-export function CompetencyDashboard({ entries }: { entries: CompetencyDashboardEntry[] }) {
+export function CompetencyDashboard({
+  entries,
+  locale = "en",
+}: {
+  entries: CompetencyDashboardEntry[];
+  locale?: Locale;
+}) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {entries.map((entry) => (
-        <CompetencyCard key={entry.competencyId} entry={entry} />
+        <CompetencyCard key={entry.competencyId} entry={entry} locale={locale} />
       ))}
     </div>
   );
 }
 
-function CompetencyCard({ entry }: { entry: CompetencyDashboardEntry }) {
+function CompetencyCard({ entry, locale }: { entry: CompetencyDashboardEntry; locale: Locale }) {
   const failing = entry.critical && entry.criticalHasEvidence && !entry.criticalMeets;
   const pctLabel = entry.percent === null ? "—" : `${Math.round(entry.percent)}%`;
   const colorClass =
@@ -62,7 +69,7 @@ function CompetencyCard({ entry }: { entry: CompetencyDashboardEntry }) {
         <h4 className="text-[12.5px] font-semibold">{entry.name}</h4>
         {entry.critical ? (
           <Badge variant="outline" className="shrink-0 text-[10px] uppercase">
-            Critical
+            {t(locale, "interview.criticalBadge")}
           </Badge>
         ) : null}
       </div>
@@ -71,15 +78,21 @@ function CompetencyCard({ entry }: { entry: CompetencyDashboardEntry }) {
         <div className={`h-full ${fillClass}`} style={{ width: `${entry.percent ?? 0}%` }} />
       </div>
       <div className="flex flex-wrap gap-2 text-[10.5px] text-muted-foreground">
-        <span>Weight {entry.weight}%</span>
         <span>
-          Evaluated {entry.evaluated}
+          {t(locale, "interview.weightPrefix")}
+          {entry.weight}%
+        </span>
+        <span>
+          {t(locale, "interview.evaluatedPrefix")}
+          {entry.evaluated}
           {entry.na > 0 ? ` · N/A ${entry.na}` : ""}
         </span>
       </div>
       {failing ? (
         <p className="flex items-center gap-1 text-[11px] font-semibold text-fail">
-          {"⚠"} Below the required critical minimum ({entry.criticalMin}%)
+          {"⚠"} {t(locale, "interview.belowCriticalMinPrefix")}
+          {entry.criticalMin}
+          {t(locale, "interview.belowCriticalMinSuffix")}
         </p>
       ) : null}
     </div>

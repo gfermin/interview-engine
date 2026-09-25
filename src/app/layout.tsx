@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
 import { resolveTheme, THEME_COOKIE } from "@/features/settings/theme";
 import "./globals.css";
 
@@ -25,14 +26,15 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const cookieStore = await cookies();
   const theme = resolveTheme(cookieStore.get(THEME_COOKIE)?.value);
+  const locale = resolveLocale(cookieStore.get(APP_LOCALE_COOKIE)?.value);
 
   return (
     <html
-      lang="en"
+      lang={locale}
       className={`${plexSans.variable} ${plexMono.variable} h-full antialiased ${theme === "dark" ? "dark" : ""}`}
     >
       <body className="flex min-h-full">
-        <AppSidebar />
+        <AppSidebar locale={locale} />
         <div className="flex min-w-0 flex-1 flex-col">{children}</div>
       </body>
     </html>

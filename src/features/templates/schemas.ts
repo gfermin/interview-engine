@@ -60,6 +60,11 @@ export const templateFormSchema = z.object({
   // by src/features/templates/schemas.test.ts.
   stage: z.enum(["technical", "screening"], { error: "Select a valid interview stage." }),
   name: z.string().trim().min(1, "Name is required").max(200),
+  // The interview's content language (plan Phase 21/§42) — required, not
+  // defaulted, so template creation never silently picks a language for the
+  // reviewer; matches INTERVIEW_LANGUAGES, asserted equal in schemas.test.ts
+  // for the same reason as `stage` above.
+  interviewLanguage: z.enum(["en", "es"], { error: "Select an interview language." }),
 });
 
 export type TemplateFormValues = z.infer<typeof templateFormSchema>;

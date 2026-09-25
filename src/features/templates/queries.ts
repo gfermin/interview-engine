@@ -44,6 +44,7 @@ export function listPublishedTemplates() {
       id: interviewTemplates.id,
       name: interviewTemplates.name,
       stage: interviewTemplates.stage,
+      interviewLanguage: interviewTemplates.interviewLanguage,
       version: interviewTemplates.version,
       status: interviewTemplates.status,
       positionId: positions.id,

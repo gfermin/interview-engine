@@ -6,7 +6,9 @@
 // generating a PDF has zero network dependency (plan §27), matching every
 // other offline-capable part of the platform.
 import type { DecisionMode, FinalDecision } from "@/domain/interviews/decision";
+import type { InterviewLanguage } from "@/domain/interviews/interview-language";
 import type { MandatoryRequirementStatus } from "@/domain/scoring/types";
+import { t } from "@/lib/i18n";
 
 export interface ReportCompetency {
   name: string;
@@ -26,6 +28,12 @@ export interface ReportMandatoryRequirement {
 
 export interface ReportData {
   generatedAt: Date;
+  /** The rendering language for this report (plan Phase 21/§28) — follows
+   * the finalized session's template `interviewLanguage`, never the
+   * application language at the moment "Generate Report" is clicked, so a
+   * report about a Spanish-language interview always reads in Spanish
+   * regardless of who generates it or what their own UI is set to. */
+  language: InterviewLanguage;
   candidateName: string;
   candidateEmail: string | null;
   positionTitle: string;
@@ -67,18 +75,16 @@ function pct(value: number | null): string {
   return value !== null ? `${Math.round(value)}%` : "—";
 }
 
-const MANDATORY_STATUS_LABEL: Record<MandatoryRequirementStatus, string> = {
-  met: "Met",
-  not_met: "Not Met",
-  unknown: "Unknown",
-};
+function mandatoryStatusLabel(language: InterviewLanguage, status: MandatoryRequirementStatus): string {
+  return t(language, `reports.mandatoryStatus${status === "met" ? "Met" : status === "not_met" ? "NotMet" : "Unknown"}`);
+}
 
-function competencyRow(c: ReportCompetency): string {
+function competencyRow(language: InterviewLanguage, c: ReportCompetency): string {
   const flag =
     c.critical && c.hasEvidence && c.meetsCriticalMin === false
-      ? `<span class="tag tag-fail">Below critical minimum</span>`
+      ? `<span class="tag tag-fail">${t(language, "reports.belowCriticalMinimum")}</span>`
       : c.critical
-        ? `<span class="tag tag-critical">Critical</span>`
+        ? `<span class="tag tag-critical">${t(language, "reports.criticalTag")}</span>`
         : "";
   return `
     <tr>
@@ -89,16 +95,17 @@ function competencyRow(c: ReportCompetency): string {
     </tr>`;
 }
 
-function mandatoryRow(r: ReportMandatoryRequirement): string {
+function mandatoryRow(language: InterviewLanguage, r: ReportMandatoryRequirement): string {
   const cls = r.status === "met" ? "tag-pass" : r.status === "not_met" ? "tag-fail" : "tag-neutral";
   return `
     <tr>
       <td>${escapeHtml(r.label)}${r.description ? `<div class="muted">${escapeHtml(r.description)}</div>` : ""}</td>
-      <td><span class="tag ${cls}">${MANDATORY_STATUS_LABEL[r.status]}</span></td>
+      <td><span class="tag ${cls}">${mandatoryStatusLabel(language, r.status)}</span></td>
     </tr>`;
 }
 
 export function buildReportHtml(data: ReportData): string {
+  const lang = data.language;
   const statusColor = STATUS_COLORS[data.statusLabel] ?? DEFAULT_STATUS_COLOR;
 
   const strengths = data.competencies.filter((c) => c.percent !== null && c.percent >= 80);
@@ -161,71 +168,73 @@ export function buildReportHtml(data: ReportData): string {
         ${escapeHtml(data.positionTitle)}${data.seniority ? ` — ${escapeHtml(data.seniority)}` : ""}${data.roleFamily ? ` (${escapeHtml(data.roleFamily)})` : ""}<br />
         ${escapeHtml(data.stageLabel)} · ${escapeHtml(data.templateName)} v${data.templateVersion}<br />
         ${data.candidateEmail ? `${escapeHtml(data.candidateEmail)}<br />` : ""}
-        Generated ${data.generatedAt.toLocaleString()}
+        ${t(lang, "reports.generated")} ${data.generatedAt.toLocaleString()}
       </div>
     </div>
     <span class="status-badge">${escapeHtml(data.statusLabel)}</span>
   </div>
 
   <div class="stat-grid">
-    <div class="stat"><dt>Overall</dt><dd>${pct(data.overall)}</dd></div>
-    <div class="stat"><dt>Completion</dt><dd>${Math.round(data.completion)}%</dd></div>
-    <div class="stat"><dt>Final Decision</dt><dd>${data.decision.finalDecision}</dd></div>
+    <div class="stat"><dt>${t(lang, "reports.statOverall")}</dt><dd>${pct(data.overall)}</dd></div>
+    <div class="stat"><dt>${t(lang, "reports.statCompletion")}</dt><dd>${Math.round(data.completion)}%</dd></div>
+    <div class="stat"><dt>${t(lang, "reports.statFinalDecision")}</dt><dd>${data.decision.finalDecision}</dd></div>
   </div>
   <p class="reason">${escapeHtml(data.reason)}</p>
 
-  <h2>Decision</h2>
+  <h2>${t(lang, "reports.decisionHeading")}</h2>
   <div class="decision-box">
     <strong>${data.decision.finalDecision}</strong> (${data.decision.mode.replace("_", " ")})
     ${data.decision.reason ? `<div class="muted" style="margin-top:4px;">${escapeHtml(data.decision.reason)}</div>` : ""}
   </div>
 
-  <h2>Competency Breakdown</h2>
+  <h2>${t(lang, "reports.competencyBreakdownHeading")}</h2>
   <table>
-    <thead><tr><th>Competency</th><th>Weight</th><th>Score</th><th>Expected Depth</th></tr></thead>
-    <tbody>${data.competencies.map(competencyRow).join("")}</tbody>
+    <thead><tr><th>${t(lang, "reports.tableCompetency")}</th><th>${t(lang, "reports.tableWeight")}</th><th>${t(lang, "reports.tableScore")}</th><th>${t(lang, "reports.tableExpectedDepth")}</th></tr></thead>
+    <tbody>${data.competencies.map((c) => competencyRow(lang, c)).join("")}</tbody>
   </table>
 
-  <h2>Mandatory Requirements</h2>
+  <h2>${t(lang, "reports.mandatoryRequirementsHeading")}</h2>
   ${
     data.mandatoryRequirements.length === 0
-      ? `<p class="muted">No mandatory requirements defined for this template.</p>`
-      : `<table><tbody>${data.mandatoryRequirements.map(mandatoryRow).join("")}</tbody></table>`
+      ? `<p class="muted">${t(lang, "reports.noMandatoryRequirements")}</p>`
+      : `<table><tbody>${data.mandatoryRequirements.map((r) => mandatoryRow(lang, r)).join("")}</tbody></table>`
   }
 
   ${
     data.englishAssessment
-      ? `<h2>English Assessment</h2>
-  <p>Level: <strong>${data.englishAssessment.level ?? "Not assessed"}</strong>${
-          data.englishAssessment.required ? ` (required: ≥${data.englishAssessment.minLevel})` : " (optional)"
+      ? `<h2>${t(lang, "reports.englishAssessmentHeading")}</h2>
+  <p>${t(lang, "reports.levelLabel")} <strong>${data.englishAssessment.level ?? t(lang, "reports.notAssessed")}</strong>${
+          data.englishAssessment.required
+            ? `${t(lang, "reports.requiredMinPrefix")}${data.englishAssessment.minLevel})`
+            : t(lang, "reports.optionalSuffix")
         }</p>`
       : ""
   }
 
-  <h2>Strengths &amp; Concerns</h2>
+  <h2>${t(lang, "reports.strengthsAndConcernsHeading")}</h2>
   <div class="columns">
     <div>
-      <strong>Strengths</strong>
+      <strong>${t(lang, "reports.strengthsLabel")}</strong>
       ${
         strengths.length === 0
-          ? `<p class="muted">None reached the 80% bar yet.</p>`
+          ? `<p class="muted">${t(lang, "reports.noStrengthsYet")}</p>`
           : `<ul class="plain">${strengths.map((c) => `<li>${escapeHtml(c.name)} (${pct(c.percent)})</li>`).join("")}</ul>`
       }
     </div>
     <div>
-      <strong>Concerns</strong>
+      <strong>${t(lang, "reports.concernsLabel")}</strong>
       ${
         concerns.length === 0
-          ? `<p class="muted">None identified.</p>`
+          ? `<p class="muted">${t(lang, "reports.noConcerns")}</p>`
           : `<ul class="plain">${concerns.map((c) => `<li>${escapeHtml(c.name)} (${pct(c.percent)})</li>`).join("")}</ul>`
       }
     </div>
   </div>
 
-  <h2>Narrative Summary</h2>
+  <h2>${t(lang, "reports.narrativeSummaryHeading")}</h2>
   <p class="narrative">${escapeHtml(data.narrative)}</p>
 
-  <div class="footer">Generated by Interview Platform — a local, deterministic scoring engine. AI never decides PASS/FAIL (ADR-006).</div>
+  <div class="footer">${t(lang, "reports.footer")}</div>
 </div>
 </body>
 </html>`;

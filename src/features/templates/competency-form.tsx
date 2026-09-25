@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { t, type Locale } from "@/lib/i18n";
 import type { FormActionState } from "./actions";
 
 interface CompetencyFormProps {
@@ -19,9 +20,10 @@ interface CompetencyFormProps {
     expectedDepth?: string | null;
   };
   submitLabel: string;
+  locale?: Locale;
 }
 
-export function CompetencyForm({ action, defaultValues, submitLabel }: CompetencyFormProps) {
+export function CompetencyForm({ action, defaultValues, submitLabel, locale = "en" }: CompetencyFormProps) {
   const [state, formAction, pending] = useActionState<
     FormActionState | undefined,
     FormData
@@ -34,11 +36,11 @@ export function CompetencyForm({ action, defaultValues, submitLabel }: Competenc
       ) : null}
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="name">Competency name</Label>
+        <Label htmlFor="name">{t(locale, "templates.competencyNameLabel")}</Label>
         <Input
           id="name"
           name="name"
-          placeholder="e.g. Test Automation Architecture"
+          placeholder={t(locale, "templates.competencyNamePlaceholder")}
           defaultValue={defaultValues?.name}
           required
         />
@@ -49,7 +51,7 @@ export function CompetencyForm({ action, defaultValues, submitLabel }: Competenc
 
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="weight">Weight (%)</Label>
+          <Label htmlFor="weight">{t(locale, "templates.weightLabel")}</Label>
           <Input
             id="weight"
             name="weight"
@@ -73,30 +75,30 @@ export function CompetencyForm({ action, defaultValues, submitLabel }: Competenc
             className="size-4 rounded border-input"
           />
           <Label htmlFor="critical" className="font-normal">
-            Critical (knockout if below the critical minimum)
+            {t(locale, "templates.criticalCheckboxLabel")}
           </Label>
         </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="expectedDepth">
-          Expected depth <span className="text-muted-foreground">(optional)</span>
+          {t(locale, "templates.expectedDepthLabel")}{" "}
+          <span className="text-muted-foreground">{t(locale, "templates.optionalTag")}</span>
         </Label>
         <Textarea
           id="expectedDepth"
           name="expectedDepth"
           rows={3}
-          placeholder='Seniority-relative anchor for "3 — Meets Expected Level" on this competency, e.g. "Explains WHY, not just HOW; architecture-level trade-offs expected."'
+          placeholder={t(locale, "templates.expectedDepthPlaceholder")}
           defaultValue={defaultValues?.expectedDepth ?? ""}
         />
         <p className="text-xs text-muted-foreground">
-          Read by the report/rubric display only — never changes how scores are
-          calculated (plan §39.7).
+          {t(locale, "templates.expectedDepthHelp")}
         </p>
       </div>
 
       <Button type="submit" disabled={pending} className="self-start">
-        {pending ? "Saving..." : submitLabel}
+        {pending ? t(locale, "templates.savingButton") : submitLabel}
       </Button>
     </form>
   );

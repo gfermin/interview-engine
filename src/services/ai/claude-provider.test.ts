@@ -22,6 +22,7 @@ const baseInput = {
   seniority: "Senior",
   stage: "technical" as const,
   jobDescriptionText: "We are looking for a Senior Backend Developer...",
+  interviewLanguage: "en" as const,
 };
 
 describe("ClaudeProvider model fallback", () => {

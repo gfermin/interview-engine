@@ -1,6 +1,18 @@
 // A plain template-string narrative (plan §17: "a generalization of the
 // artifact's buildNarrative(), currently template-string-based") — not an
 // AI call. Pure function: plain data in, one paragraph of text out.
+//
+// Localized (plan Phase 21/§28) by composing fixed sentence fragments from
+// the `interview` namespace rather than embedding an interpolation engine —
+// `lib/i18n.ts`'s `t()` only does flat key lookup, so the sentence is built
+// the same way dashboard.ts's link-embedding empty-states are: literal
+// prefix/suffix keys around each interpolated value. `reason` itself (the
+// ScoringEngine's own explanation string) is deliberately NOT translated
+// here — it's core domain output, not narrative-layer copy, and stays
+// English regardless of `language` (see report-template.ts's same
+// boundary for `data.reason`).
+import type { InterviewLanguage } from "./interview-language";
+import { t } from "@/lib/i18n";
 
 export interface NarrativeInput {
   candidateName: string;
@@ -10,15 +22,20 @@ export interface NarrativeInput {
   overall: number | null;
   completion: number;
   reason: string;
+  language: InterviewLanguage;
 }
 
 export function buildNarrative(input: NarrativeInput): string {
-  const overallText = input.overall !== null ? `${Math.round(input.overall)}%` : "not yet scoreable";
-  const seniorityText = input.seniority ? ` at the requested ${input.seniority} level` : "";
+  const lang = input.language;
+  const overallText =
+    input.overall !== null ? `${Math.round(input.overall)}%` : t(lang, "interview.narrativeNotYetScoreable");
+  const seniorityText = input.seniority
+    ? `${t(lang, "interview.narrativeAtRequestedLevelPrefix")}${input.seniority}${t(lang, "interview.narrativeAtRequestedLevelSuffix")}`
+    : "";
 
   return (
-    `${input.candidateName} was evaluated for ${input.positionTitle}${seniorityText}, ` +
-    `reaching an overall score of ${overallText} with ${Math.round(input.completion)}% of ` +
-    `the interview completed. Calculated result: ${input.statusLabel}. ${input.reason}`
+    `${input.candidateName}${t(lang, "interview.narrativeEvaluatedFor")}${input.positionTitle}${seniorityText}` +
+    `${t(lang, "interview.narrativeReachingScore")}${overallText}${t(lang, "interview.narrativeWithCompletionPrefix")}${Math.round(input.completion)}` +
+    `${t(lang, "interview.narrativeCompletionSuffix")}${input.statusLabel}${t(lang, "interview.narrativeSentenceEnd")}${input.reason}`
   );
 }

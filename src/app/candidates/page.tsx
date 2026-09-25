@@ -1,5 +1,7 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { AppTopbar } from "@/components/layout/app-topbar";
+import { PageContainer } from "@/components/layout/page-container";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -11,6 +13,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { listCandidates } from "@/features/candidates/queries";
+import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
+import { t } from "@/lib/i18n";
 
 // See src/app/positions/page.tsx for why this is forced dynamic — otherwise
 // Next.js prerenders the list at build time and newly added candidates
@@ -18,36 +22,38 @@ import { listCandidates } from "@/features/candidates/queries";
 export const dynamic = "force-dynamic";
 
 export default async function CandidatesPage() {
+  const cookieStore = await cookies();
+  const locale = resolveLocale(cookieStore.get(APP_LOCALE_COOKIE)?.value);
+
   const candidates = await listCandidates();
 
   return (
     <>
-      <AppTopbar title="Candidates" />
-      <main className="mx-auto flex w-full max-w-[980px] flex-1 flex-col gap-5 px-6 py-7">
+      <AppTopbar title={t(locale, "candidates.pageTitle")} locale={locale} />
+      <PageContainer width="wide">
         <div className="flex items-center justify-between">
           <p className="text-[12.5px] text-muted-foreground">
-            A candidate can have many Interview Sessions — different stages,
-            or a re-interview (plan §23).
+            {t(locale, "candidates.pageDescription")}
           </p>
-          <ButtonLink href="/candidates/new">New Candidate</ButtonLink>
+          <ButtonLink href="/candidates/new">{t(locale, "candidates.newCandidateButton")}</ButtonLink>
         </div>
 
         <Card>
           <CardContent className="p-0">
             {candidates.length === 0 ? (
               <p className="p-6 text-sm text-muted-foreground">
-                No candidates yet.{" "}
+                {t(locale, "candidates.emptyPrefix")}
                 <Link href="/candidates/new" className="underline">
-                  Add the first one
+                  {t(locale, "candidates.emptyLinkText")}
                 </Link>
-                .
+                {t(locale, "candidates.emptySuffix")}
               </p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
+                    <TableHead>{t(locale, "candidates.tableName")}</TableHead>
+                    <TableHead>{t(locale, "candidates.tableEmail")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -71,7 +77,7 @@ export default async function CandidatesPage() {
             )}
           </CardContent>
         </Card>
-      </main>
+      </PageContainer>
     </>
   );
 }

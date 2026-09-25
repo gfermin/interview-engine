@@ -52,7 +52,7 @@ describe("startSessionAction", () => {
       .insert(positions)
       .values({ title: `Test Position ${randomUUID()}` })
       .returning();
-    return createTemplate({ positionId: position.id, stage: "technical", name: "T" });
+    return createTemplate({ positionId: position.id, stage: "technical", name: "T", interviewLanguage: "en" });
   }
 
   it("returns a field error on missing templateId, without calling the mutation", async () => {
@@ -76,7 +76,7 @@ describe("startSessionAction", () => {
       .insert(positions)
       .values({ title: `Test Position ${randomUUID()}` })
       .returning();
-    const template = await createTemplate({ positionId: position.id, stage: "technical", name: "T" });
+    const template = await createTemplate({ positionId: position.id, stage: "technical", name: "T", interviewLanguage: "en" });
     await createCompetency(template.id, { name: "x", weight: 100, critical: false, expectedDepth: null });
     await publishTemplate(template.id);
 
@@ -90,7 +90,7 @@ describe("startSessionAction", () => {
       .insert(positions)
       .values({ title: `Test Position ${randomUUID()}` })
       .returning();
-    const template = await createTemplate({ positionId: position.id, stage: "technical", name: "T" });
+    const template = await createTemplate({ positionId: position.id, stage: "technical", name: "T", interviewLanguage: "en" });
     const { createCompetency } = await import("@/features/templates/mutations");
     await createCompetency(template.id, { name: "x", weight: 100, critical: false, expectedDepth: null });
     await publishTemplate(template.id);

@@ -107,6 +107,15 @@ export const interviewTemplates = sqliteTable("interview_templates", {
   ),
   stage: text("stage", { enum: INTERVIEW_STAGES }).notNull(),
   name: text("name").notNull(),
+  // The interview's own content language (plan Phase 21/§42) — independent
+  // of the application UI language (features/settings/locale.ts). Drives
+  // the AI generation prompt's requested language and the report's
+  // rendering language; changing the application language never touches
+  // this. Defaults to "en": every existing template's question content was
+  // confirmed English before this column existed (dev DB audit, plan §42).
+  interviewLanguage: text("interview_language", { enum: ["en", "es"] })
+    .notNull()
+    .default("en"),
   version: integer("version").notNull().default(1),
   // draft: editable. approved: published, not yet used. locked: a Session
   // references this exact version — further edits must create a new version.
@@ -407,5 +416,13 @@ export const interviewReports = sqliteTable("interview_reports", {
   // storage, nothing that needs a real object store for a single-user POC).
   filePath: text("file_path").notNull(),
   fileSize: integer("file_size").notNull(),
+  // Presentation-only naming metadata (plan Phase 18/§42, §7 identity-vs-name)
+  // — computed once at generation time via domain/reports/naming.ts and
+  // stored so the Reports list/download filename stay stable even if the
+  // candidate is later renamed. Nullable: the handful of reports generated
+  // before this column existed simply fall back to a live-computed value at
+  // read time (features/reports/queries.ts) rather than needing a backfill.
+  displayName: text("display_name"),
+  fileName: text("file_name"),
   ...timestamps,
 });

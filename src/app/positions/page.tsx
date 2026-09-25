@@ -1,5 +1,7 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { AppTopbar } from "@/components/layout/app-topbar";
+import { PageContainer } from "@/components/layout/page-container";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +14,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { listPositions } from "@/features/positions/queries";
+import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
+import { t } from "@/lib/i18n";
 
 // Without this, Next.js has no signal that this Server Component reads live
 // data (the DB call isn't one of Next's own "dynamic APIs") and will
@@ -20,38 +24,40 @@ import { listPositions } from "@/features/positions/queries";
 export const dynamic = "force-dynamic";
 
 export default async function PositionsPage() {
+  const cookieStore = await cookies();
+  const locale = resolveLocale(cookieStore.get(APP_LOCALE_COOKIE)?.value);
+
   const positions = await listPositions();
 
   return (
     <>
-      <AppTopbar title="Positions" />
-      <main className="mx-auto flex w-full max-w-[980px] flex-1 flex-col gap-5 px-6 py-7">
+      <AppTopbar title={t(locale, "positions.pageTitle")} locale={locale} />
+      <PageContainer width="wide">
         <div className="flex items-center justify-between">
           <p className="text-[12.5px] text-muted-foreground">
-            A role, its Role Family, Seniority, and Job Description — the
-            inputs interview generation is calibrated against (plan §39).
+            {t(locale, "positions.pageDescription")}
           </p>
-          <ButtonLink href="/positions/new">New Position</ButtonLink>
+          <ButtonLink href="/positions/new">{t(locale, "positions.newPositionButton")}</ButtonLink>
         </div>
 
         <Card>
           <CardContent className="p-0">
             {positions.length === 0 ? (
               <p className="p-6 text-sm text-muted-foreground">
-                No positions yet.{" "}
+                {t(locale, "positions.emptyPrefix")}
                 <Link href="/positions/new" className="underline">
-                  Create the first one
+                  {t(locale, "positions.emptyLinkText")}
                 </Link>
-                .
+                {t(locale, "positions.emptySuffix")}
               </p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Role family</TableHead>
-                    <TableHead>Seniority</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>{t(locale, "positions.tableTitle")}</TableHead>
+                    <TableHead>{t(locale, "positions.tableRoleFamily")}</TableHead>
+                    <TableHead>{t(locale, "positions.tableSeniority")}</TableHead>
+                    <TableHead>{t(locale, "positions.tableStatus")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -83,7 +89,7 @@ export default async function PositionsPage() {
             )}
           </CardContent>
         </Card>
-      </main>
+      </PageContainer>
     </>
   );
 }

@@ -4,7 +4,9 @@ import { dirname } from "node:path";
 import { db } from "@/db";
 import { interviewReports } from "@/db/schema";
 import { canGenerateReport } from "@/domain/interviews/session-lifecycle";
+import type { InterviewLanguage } from "@/domain/interviews/interview-language";
 import { buildNarrative } from "@/domain/interviews/narrative";
+import { buildInterviewReportDisplayName, buildInterviewReportFilename } from "@/domain/reports/naming";
 import { getStageConfig, type InterviewStage } from "@/domain/interviews/stage-config";
 import { getCandidate } from "@/features/candidates/queries";
 import {
@@ -73,8 +75,11 @@ export async function generateReport(sessionId: string) {
   const criticalByCompetencyId = new Map(result.criticalCompetencyStatus.map((c) => [c.competencyId, c]));
   const statusLabel = stageConfig.statusLabels[result.status];
 
+  const interviewLanguage = sessionDetail.interviewLanguage as InterviewLanguage;
+
   const reportData: ReportData = {
     generatedAt: new Date(),
+    language: interviewLanguage,
     candidateName: sessionDetail.candidateName,
     candidateEmail: candidate?.email ?? null,
     positionTitle: sessionDetail.positionTitle,
@@ -125,6 +130,7 @@ export async function generateReport(sessionId: string) {
       overall: result.overall,
       completion: result.completion,
       reason: result.reason,
+      language: interviewLanguage,
     }),
   };
 
@@ -136,9 +142,24 @@ export async function generateReport(sessionId: string) {
   await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, pdf);
 
+  const namingInput = {
+    candidateName: sessionDetail.candidateName,
+    positionTitle: sessionDetail.positionTitle,
+    stageLabel: stageConfig.label,
+    generatedAt: reportData.generatedAt,
+    reportId,
+  };
+
   const [report] = await db
     .insert(interviewReports)
-    .values({ id: reportId, sessionId, filePath, fileSize: pdf.byteLength })
+    .values({
+      id: reportId,
+      sessionId,
+      filePath,
+      fileSize: pdf.byteLength,
+      displayName: buildInterviewReportDisplayName(namingInput),
+      fileName: buildInterviewReportFilename(namingInput),
+    })
     .returning();
 
   return report;

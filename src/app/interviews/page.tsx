@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppTopbar } from "@/components/layout/app-topbar";
+import { PageContainer } from "@/components/layout/page-container";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -52,7 +53,7 @@ export default async function InterviewsHistoryPage({
   return (
     <>
       <AppTopbar title="Interview History" />
-      <main className="mx-auto flex w-full max-w-[980px] flex-1 flex-col gap-5 px-6 py-7">
+      <PageContainer width="wide">
         <p className="text-[12.5px] text-muted-foreground">
           Every Interview Session across every candidate (plan §11/Phase 11). Reopen a
           finished session from its Rate or Summary screen to make further changes.
@@ -206,7 +207,7 @@ export default async function InterviewsHistoryPage({
             )}
           </CardContent>
         </Card>
-      </main>
+      </PageContainer>
     </>
   );
 }

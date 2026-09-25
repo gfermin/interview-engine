@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { t, type Locale } from "@/lib/i18n";
 import type { FormActionState } from "./actions";
 
 interface MandatoryRequirementFormProps {
@@ -17,12 +18,14 @@ interface MandatoryRequirementFormProps {
     description?: string | null;
   };
   submitLabel: string;
+  locale?: Locale;
 }
 
 export function MandatoryRequirementForm({
   action,
   defaultValues,
   submitLabel,
+  locale = "en",
 }: MandatoryRequirementFormProps) {
   const [state, formAction, pending] = useActionState<
     FormActionState | undefined,
@@ -36,11 +39,11 @@ export function MandatoryRequirementForm({
       ) : null}
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="label">Requirement</Label>
+        <Label htmlFor="label">{t(locale, "templates.requirementLabel")}</Label>
         <Input
           id="label"
           name="label"
-          placeholder="e.g. Work authorization in the hiring country"
+          placeholder={t(locale, "templates.requirementPlaceholder")}
           defaultValue={defaultValues?.label}
           required
         />
@@ -51,25 +54,24 @@ export function MandatoryRequirementForm({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="description">
-          Description <span className="text-muted-foreground">(optional)</span>
+          {t(locale, "templates.descriptionLabel")}{" "}
+          <span className="text-muted-foreground">{t(locale, "templates.optionalTag")}</span>
         </Label>
         <Textarea
           id="description"
           name="description"
           rows={3}
-          placeholder="What counts as demonstrated/not demonstrated for this requirement."
+          placeholder={t(locale, "templates.descriptionPlaceholder")}
           defaultValue={defaultValues?.description ?? ""}
         />
       </div>
 
       <p className="text-xs text-muted-foreground">
-        A boolean knockout gate, not a scored competency (plan §4.3/§19) — if
-        marked &ldquo;not met&rdquo; during an interview it fails the candidate
-        independent of overall score.
+        {t(locale, "templates.knockoutGateNote")}
       </p>
 
       <Button type="submit" disabled={pending} className="self-start">
-        {pending ? "Saving..." : submitLabel}
+        {pending ? t(locale, "templates.savingButton") : submitLabel}
       </Button>
     </form>
   );

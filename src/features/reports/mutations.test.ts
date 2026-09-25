@@ -121,6 +121,23 @@ describe("generateReport", () => {
     await expect(generateReport(randomUUID())).rejects.toThrow(/not found/);
   });
 
+  // Plan Phase 18/§42: report naming must be candidate-identifiable, not
+  // just a UUID, both in the stored displayName and the download fileName.
+  it("persists a candidate-identifiable displayName and filesystem-safe fileName", async () => {
+    const { session } = await createDecidedSessionFixture();
+    const candidate = await db.query.candidates.findFirst({
+      where: (t, { eq: eqOp }) => eqOp(t.id, session.candidateId),
+    });
+
+    const report = await generateReport(session.id);
+
+    expect(report.displayName).toContain(candidate!.name);
+    expect(report.displayName).toContain("Test Position");
+    expect(report.displayName).toContain("Technical Interview");
+    expect(report.fileName).toMatch(/\.pdf$/);
+    expect(report.fileName).not.toMatch(/[/\\]/);
+  }, 20000);
+
   // Plan §11/Phase 11's testing requirement: finalize, reopen, re-rate,
   // re-finalize, confirm two distinct InterviewReport records exist.
   it("a full finalize -> reopen -> re-rate -> re-finalize cycle produces a second, distinct report", async () => {
