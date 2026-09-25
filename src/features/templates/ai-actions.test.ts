@@ -36,7 +36,7 @@ async function createTemplateWithJobDescription() {
     .values({ title: `Test Position ${randomUUID()}` })
     .returning();
   const jobDescription = await saveJobDescription(position.id, "We are looking for a Senior Backend Developer...");
-  return createTemplate({ positionId: position.id, jobDescriptionId: jobDescription.id, stage: "technical", name: "T" });
+  return createTemplate({ positionId: position.id, jobDescriptionId: jobDescription.id, stage: "technical", name: "T", interviewLanguage: "en" });
 }
 
 describe("analyzeJobDescriptionAction error mapping (§40.2)", () => {

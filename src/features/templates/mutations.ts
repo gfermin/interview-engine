@@ -45,6 +45,7 @@ export async function createTemplate(
       jobDescriptionId: input.jobDescriptionId ?? null,
       stage: input.stage,
       name: input.name,
+      interviewLanguage: input.interviewLanguage,
     })
     .returning();
   return template;
@@ -115,6 +116,7 @@ export async function createNewTemplateVersion(templateId: string) {
       jobDescriptionId: source.jobDescriptionId,
       stage: source.stage,
       name: source.name,
+      interviewLanguage: source.interviewLanguage,
       version: source.version + 1,
       status: "draft",
       passThreshold: source.passThreshold,

@@ -126,12 +126,112 @@ filters, `DecisionForm`, and the Server Actions this pass's fixes touched.
 A coverage tool (`@vitest/coverage-v8`, `npm run test:coverage`) is
 configured for the first time.
 
-Phase 12 (BambooHR Integration POC) and Phase 17 (Production Readiness)
-remain open. Phases 14-16 (Calibración QA visual/interaction parity,
-Dashboard operational rebuild, question/data parity closeout) were added
-after a second full re-read of the "Calibración QA" artifact source
-focused on UI/interaction fidelity rather than domain logic — see the
-implementation plan's §41 — and are next up.
+Phases 14-16 (Calibración QA visual/interaction parity — persistent
+scoreboard/performance bar, restored question-card styling, colored
+competency dashboard; Dashboard operational rebuild; JD-tag/alt-solutions
+question fields) are complete — see the implementation plan's §41.
+
+**Phase 18 (Reports Hub & Report Naming)** is complete. A root-cause audit
+(plan §42) found `/reports` had no route at all — the sidebar's link hit
+the framework 404 — even though reports themselves were persisting
+correctly. `/reports` now lists every finalized report across every
+candidate (`listAllReports`, joined against the same `InterviewDecision`
+Summary already reads, never recalculated independently), searchable by
+candidate/position and filterable by stage, sorted newest-first, with a
+true empty state distinct from a "no filter matches" state. Reports are
+now candidate-identifiable everywhere: a centralized
+`domain/reports/naming.ts` builds both a human-readable `displayName`
+(`Candidate — Position — Stage`) and a filesystem-safe `fileName` (with a
+report-id suffix so same-day/duplicate-name candidates stay distinguishable),
+persisted on `InterviewReport` at generation time; the download route's
+`Content-Disposition` and the Summary screen's report list both use it,
+falling back to a live-computed value for the handful of reports generated
+before these columns existed (no backfill migration needed).
+
+**Phase 19 (Layout Width System)** is complete. The audit (plan §42) traced
+the app's narrow feel to ~23 pages each independently hardcoding their own
+`<main className="mx-auto max-w-[Npx]">` wrapper (640-980px) — not a shell
+or sidebar bug, since `AppSidebar` + the `flex-1` main region already
+claimed full remaining viewport width correctly. A shared
+`components/layout/page-container.tsx` now owns width for every page via a
+`standard` (720px, simple forms) / `wide` (1200px, lists/detail/dashboard/
+template builder) / `full` (1440px, Live Interview + Summary) variant,
+replacing every one of those literals. Verified at 1920px, 1280px, and
+tablet (768px) widths — no horizontal overflow at any size, and the
+existing `InterviewScoreboard`'s `flex-wrap` chip row degrades cleanly on
+its own without needing a new breakpoint.
+
+**Phase 20 (Internationalization Foundation)** is complete. Rather than
+next-intl/react-i18next (which assume `[locale]` URL routing or a client
+Context provider — a mismatch for an app that's 100% Server Components +
+Server Actions with no client router), the app language switch mirrors
+`features/settings/theme.ts`'s own cookie-based pattern exactly:
+`features/settings/locale.ts` (`APP_LOCALE_COOKIE`, `resolveLocale`) +
+`setLocaleAction`, defaulting to English (the app's actual current
+language, confirmed by audit before this phase started). A minimal
+`lib/i18n.ts` looks up `"namespace.key"` strings against namespaced JSON
+resources under `src/locales/{en,es}/` (`common`, `navigation`, `dashboard`,
+`settings`, `reports`, `interview` — the last two added in Phase 21), with
+an English fallback for any missing Spanish key and
+a dictionary-completeness test guarding both locales stay in sync. The
+Settings page now has a Language section alongside Appearance; the sidebar
+nav, `AppTopbar`'s "POC" badge, and the full Dashboard are localized as the
+proof-of-mechanism surfaces. Verified in-browser: switching languages
+updates the whole shell immediately (no page reload, same `revalidatePath`
+pattern as the theme toggle), the choice survives a fresh navigation
+(cookie persistence), and `<html lang>` tracks the active locale. Domain/
+business values (interview status, stage, template status) and
+query-generated prose (Attention Required item text) are deliberately left
+English for now — per plan §32/§33 those need their own stage-aware label
+maps, not ad-hoc UI-dictionary keys, and are Phase 21's job alongside the
+bulk hardcoded-string migration across the remaining pages.
+
+**Phase 21 (Interview Language & Content Localization) is complete.**
+Tasks 21.1-21.3 and 21.5 shipped as described below, and Task 21.4's bulk
+hardcoded-string migration now covers the whole app: Live Interview and
+Summary (the plan's own §18 "most information-dense screens" priority) plus
+every component they use (`QuestionCard`, `DecisionForm`,
+`MandatoryRequirementControl`, `CompetencyDashboard`, `InterviewScoreboard`,
+`ReopenSessionButton`, `GenerateReportButton`), and the full Templates
+builder (`template-form`, `competency-form`, `mandatory-requirement-form`,
+`question-form`, `scoring-config-form`, `ai-components`, `template-actions`,
+and all nine `app/templates/**` pages), Candidates (`candidate-form`,
+`start-session-form`, all four `app/candidates/**` pages), and Positions
+(`position-form`, `job-description-editor`, all four `app/positions/**`
+pages) — three new namespaces (`templates`, `candidates`, `positions`,
+187 combined keys) alongside the five from Phase 20. Verified end-to-end in
+the browser against real data across every major surface: switching the app
+to Spanish translates every UI label, heading, button, and form field
+throughout — including the role/seniority-mismatch warning on the template
+detail page — while question text, JD text, AI-analysis notes, and domain
+values (`PASS`, stage/status/difficulty/importance labels, template status)
+correctly stay in their original language. A `decided` session's Live
+Interview and Summary screens confirm the App-language/Interview-language
+independence works exactly as designed, not just unit-tested: the narrative
+paragraph and question content follow that session's own English-language
+template regardless of the app being set to Spanish. What shipped:
+`interviewTemplates.interviewLanguage` (`en`/`es`, required at creation,
+carried forward unchanged by `createNewTemplateVersion` — the same
+fixed-at-creation treatment `stage` already gets, since neither has an
+in-place edit mutation) is now visible on the template creation form, the
+template detail page, and the "Start Interview Session" template picker.
+`services/ai/prompts.ts`'s three generation prompts (job analysis, template
+draft, question regeneration) each now carry an explicit language
+instruction sourced from the template's `interviewLanguage` — confirmed via
+`prompts.test.ts` — rather than leaving the model to guess from the JD
+text. The PDF report template and its narrative paragraph (`buildNarrative`)
+now render in the session's template `interviewLanguage`, independent of
+whoever clicks "Generate Report" or what their own app language is set to
+(plan §28's simplest-predictable-rule); the ScoringEngine's own `reason`
+string is deliberately left untranslated — domain output, not narrative
+copy. The `/reports` page picked up a full `reports` namespace and is now
+bilingual end-to-end, including locale-aware date formatting
+(`toLocaleDateString(locale)`) — verified in-browser in both languages
+against real data. Business/domain values (status, stage, template status)
+remain intentionally untouched per §32/§33.
+
+Phase 12 (BambooHR Integration POC) and Phase 22 (Production Readiness)
+remain open.
 
 ## Stack
 
@@ -193,16 +293,18 @@ src/
   domain/
     scoring/              # ScoringEngine/CompletenessEngine/CriticalRequirementEngine (pure)
     interviews/            # Stage config, template versioning, session lifecycle, session-scoring composition, section-status, decision state machine, narrative (all pure)
+    reports/               # Report display-name/filename builder (pure)
   features/
     positions/            # Position + Job Description CRUD
     templates/             # Template/Competency/MandatoryRequirement/Question CRUD + versioning + AI actions
     candidates/            # Candidate CRUD + start-Interview-Session flow
     interviews/            # Live rating + Summary/Decision screens: rate/notes/mandatory-requirement/English/decision mutations + actions, question card, rate bar, section nav, decision form
-    reports/               # generateReport mutation, report queries, "Generate Report" action + button
+    reports/               # generateReport mutation, listAllReports/per-session report queries, "Generate Report" action + button
   services/
     ai/                    # AIProvider interface, provider.ts selector, ClaudeProvider + GeminiProvider, prompts, Zod output schemas
     pdf/                   # HTML report template (pure) + Playwright render-to-PDF
-  lib/                  # Shared utilities
+  lib/                  # Shared utilities, i18n.ts (translation lookup)
+  locales/              # en/ + es/ namespaced JSON translation resources
 e2e/                  # Playwright specs
 ```
 

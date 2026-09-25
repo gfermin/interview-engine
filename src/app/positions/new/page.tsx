@@ -1,22 +1,33 @@
+import { cookies } from "next/headers";
 import { AppTopbar } from "@/components/layout/app-topbar";
+import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createPositionAction } from "@/features/positions/actions";
 import { PositionForm } from "@/features/positions/position-form";
+import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
+import { t } from "@/lib/i18n";
 
-export default function NewPositionPage() {
+export default async function NewPositionPage() {
+  const cookieStore = await cookies();
+  const locale = resolveLocale(cookieStore.get(APP_LOCALE_COOKIE)?.value);
+
   return (
     <>
-      <AppTopbar title="New Position" />
-      <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col gap-5 px-6 py-7">
+      <AppTopbar title={t(locale, "positions.newPositionPageTitle")} locale={locale} />
+      <PageContainer width="standard">
         <Card>
           <CardHeader>
-            <CardTitle className="text-[15px]">Create Position</CardTitle>
+            <CardTitle className="text-[15px]">{t(locale, "positions.createPositionHeading")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <PositionForm action={createPositionAction} submitLabel="Create Position" />
+            <PositionForm
+              action={createPositionAction}
+              submitLabel={t(locale, "positions.createPositionSubmitLabel")}
+              locale={locale}
+            />
           </CardContent>
         </Card>
-      </main>
+      </PageContainer>
     </>
   );
 }

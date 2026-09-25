@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { INTERVIEW_LANGUAGES } from "@/domain/interviews/interview-language";
 import { INTERVIEW_STAGES } from "@/domain/interviews/stage-config";
 import {
   competencyFormSchema,
@@ -33,9 +34,41 @@ describe("templateFormSchema", () => {
         positionId: "p1",
         stage,
         name: "Backend — Interview",
+        interviewLanguage: "en",
       });
       expect(result.success).toBe(true);
     }
+  });
+
+  it("requires an explicit interviewLanguage — never silently defaulted", () => {
+    const result = templateFormSchema.safeParse({
+      positionId: "p1",
+      stage: "technical",
+      name: "Backend — Interview",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts every interview language the domain layer defines", () => {
+    for (const interviewLanguage of INTERVIEW_LANGUAGES) {
+      const result = templateFormSchema.safeParse({
+        positionId: "p1",
+        stage: "technical",
+        name: "Backend — Interview",
+        interviewLanguage,
+      });
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it("rejects an invalid interviewLanguage", () => {
+    const result = templateFormSchema.safeParse({
+      positionId: "p1",
+      stage: "technical",
+      name: "Backend — Interview",
+      interviewLanguage: "fr",
+    });
+    expect(result.success).toBe(false);
   });
 });
 

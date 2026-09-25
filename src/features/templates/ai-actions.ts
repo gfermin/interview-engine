@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { InterviewLanguage } from "@/domain/interviews/interview-language";
 import { getStageConfig, type InterviewStage } from "@/domain/interviews/stage-config";
 import { isTemplateEditable } from "@/domain/interviews/template-versioning";
 import { getJobDescription, getPosition } from "@/features/positions/queries";
@@ -96,6 +97,7 @@ export async function analyzeJobDescriptionAction(
       seniority: position.seniority,
       stage: template.stage as InterviewStage,
       jobDescriptionText: jobDescription.rawText,
+      interviewLanguage: template.interviewLanguage as InterviewLanguage,
     });
 
     await saveJobAnalysis(jobDescription.id, result);
@@ -165,6 +167,7 @@ export async function generateTemplateDraftAction(
         notes: jobAnalysis.notes ?? "",
       },
       includeCodeExercises,
+      interviewLanguage: template.interviewLanguage as InterviewLanguage,
     });
 
     await applyGeneratedDraft(templateId, draft, { includeCodeExercises });
@@ -237,6 +240,7 @@ export async function regenerateQuestionAction(
         importance: question.importance,
       },
       includeCodeExercises,
+      interviewLanguage: template.interviewLanguage as InterviewLanguage,
     });
 
     await applyRegeneratedQuestion(questionId, regenerated, { includeCodeExercises });

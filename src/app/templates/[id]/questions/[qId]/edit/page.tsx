@@ -1,12 +1,16 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppTopbar } from "@/components/layout/app-topbar";
+import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getStageConfig, type InterviewStage } from "@/domain/interviews/stage-config";
 import { isTemplateEditable } from "@/domain/interviews/template-versioning";
 import { updateQuestionAction } from "@/features/templates/actions";
 import { getQuestion, getTemplate, listCompetencies } from "@/features/templates/queries";
 import { QuestionForm } from "@/features/templates/question-form";
+import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
+import { t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +19,9 @@ export default async function EditQuestionPage({
 }: {
   params: Promise<{ id: string; qId: string }>;
 }) {
+  const cookieStore = await cookies();
+  const locale = resolveLocale(cookieStore.get(APP_LOCALE_COOKIE)?.value);
+
   const { id, qId } = await params;
   const [template, question, competencies] = await Promise.all([
     getTemplate(id),
@@ -27,11 +34,11 @@ export default async function EditQuestionPage({
 
   return (
     <>
-      <AppTopbar title="Edit Question" />
-      <main className="mx-auto flex w-full max-w-[820px] flex-1 flex-col gap-5 px-6 py-7">
+      <AppTopbar title={t(locale, "templates.editQuestionTitle")} locale={locale} />
+      <PageContainer width="wide">
         <Card>
           <CardHeader>
-            <CardTitle className="text-[15px]">Edit Question</CardTitle>
+            <CardTitle className="text-[15px]">{t(locale, "templates.editQuestionTitle")}</CardTitle>
           </CardHeader>
           <CardContent>
             {isTemplateEditable(template) ? (
@@ -56,19 +63,20 @@ export default async function EditQuestionPage({
                   jdRequirementTag: question.jdRequirementTag,
                   altSolutions: question.altSolutions,
                 }}
-                submitLabel="Save Changes"
+                submitLabel={t(locale, "templates.saveChangesButton")}
+                locale={locale}
               />
             ) : (
               <p className="text-sm text-muted-foreground">
-                This template version is no longer editable.{" "}
+                {t(locale, "templates.notEditableMessage")}
                 <Link href={`/templates/${id}`} className="underline">
-                  Back to template
+                  {t(locale, "templates.backToTemplateLink")}
                 </Link>
               </p>
             )}
           </CardContent>
         </Card>
-      </main>
+      </PageContainer>
     </>
   );
 }

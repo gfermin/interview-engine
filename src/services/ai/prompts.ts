@@ -3,6 +3,7 @@
 // editing a prompt template, not by a migration"). Bump the `*_PROMPT_VERSION`
 // constants whenever the wording changes meaningfully enough that an
 // AIGenerationRecord's provenance should distinguish old drafts from new.
+import type { InterviewLanguage } from "@/domain/interviews/interview-language";
 import type { AnalyzeJobDescriptionInput, GenerateTemplateDraftInput, RegenerateQuestionInput } from "./types";
 
 export const JOB_ANALYSIS_PROMPT_VERSION = "job-analysis-v1";
@@ -37,6 +38,20 @@ const SENIORITY_EXPECTATIONS: Record<string, string> = {
     "Evaluated on cross-team/org strategy and leadership; technical depth matters less than judgment and influence.",
 };
 
+const LANGUAGE_NAMES: Record<InterviewLanguage, string> = { en: "English", es: "Spanish" };
+
+/**
+ * Plan Phase 21/§24: the AI generation request must explicitly state the
+ * interview content language rather than let the model guess it from the
+ * Job Description text — a JD can be written in one language for an
+ * interview explicitly configured to run in another. Field NAMES are part
+ * of the fixed JSON schema and stay in English regardless; only the
+ * generated VALUES follow this language.
+ */
+function languageInstruction(language: InterviewLanguage): string {
+  return `Write every generated VALUE — question text, expected/strong/acceptable answers, key concepts, red flags, follow-ups, rubric lines, notes, and any other candidate- or interviewer-facing prose — entirely in ${LANGUAGE_NAMES[language]}, regardless of what language the Job Description below happens to be written in. The JSON field NAMES themselves are fixed and stay in English.`;
+}
+
 function describeSeniority(seniority: string | null): string {
   if (!seniority) return "No specific seniority was provided — calibrate for a generalist, mid-level bar.";
   const key = Object.keys(SENIORITY_EXPECTATIONS).find((k) =>
@@ -61,7 +76,9 @@ Your task: analyze a Job Description and extract its structure. Identify:
 - Requirements, split into mandatory (must-have, explicitly required), preferred (nice-to-have, explicitly called out as a plus), and optional (mentioned but clearly not a bar to entry).
 - Brief notes on anything distinctive about this JD versus a generic posting for this role (e.g. an unusual tech requirement, a domain specialization).
 
-Be concise and factual. Do not invent requirements the JD doesn't support.`;
+Be concise and factual. Do not invent requirements the JD doesn't support.
+
+${languageInstruction(input.interviewLanguage)}`;
 
   const user = `Position: ${input.positionTitle}
 Interviewer-selected Role Family: ${input.roleFamily ?? "(not specified)"}
@@ -101,7 +118,9 @@ ${stageGuidance}
 
 ${codeGuidance}
 
-Critical: the SAME topic at a different seniority should probe different depth (architecture/trade-offs/scale for Senior+, fundamentals/correct-pattern-application for Junior/Mid) — not the same question with harder adjectives. Ground everything in the actual Job Description text; do not generate generic filler unrelated to it.`;
+Critical: the SAME topic at a different seniority should probe different depth (architecture/trade-offs/scale for Senior+, fundamentals/correct-pattern-application for Junior/Mid) — not the same question with harder adjectives. Ground everything in the actual Job Description text; do not generate generic filler unrelated to it.
+
+${languageInstruction(input.interviewLanguage)}`;
 
   const user = `Position: ${input.positionTitle}
 Role Family: ${input.roleFamily ?? "(not specified)"}
@@ -145,7 +164,9 @@ The question needs: the question text, difficulty, importance, expected/strong/a
 
 ${codeGuidance}
 
-Ground the question in the Job Description when one is provided; otherwise ground it in the competency name and its Expected Depth description alone.`;
+Ground the question in the Job Description when one is provided; otherwise ground it in the competency name and its Expected Depth description alone.
+
+${languageInstruction(input.interviewLanguage)}`;
 
   const user = `Position: ${input.positionTitle}
 Role Family: ${input.roleFamily ?? "(not specified)"}

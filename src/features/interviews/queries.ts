@@ -32,6 +32,7 @@ export async function getSessionDetail(sessionId: string) {
       templateName: interviewTemplates.name,
       templateVersion: interviewTemplates.version,
       stage: interviewTemplates.stage,
+      interviewLanguage: interviewTemplates.interviewLanguage,
       passThreshold: interviewTemplates.passThreshold,
       borderlineMin: interviewTemplates.borderlineMin,
       criticalMin: interviewTemplates.criticalMin,

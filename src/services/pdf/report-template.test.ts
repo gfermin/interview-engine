@@ -3,6 +3,7 @@ import { buildReportHtml, type ReportData } from "./report-template";
 
 const baseData: ReportData = {
   generatedAt: new Date("2026-01-15T10:00:00Z"),
+  language: "en",
   candidateName: "Jordan Rivera",
   candidateEmail: "jordan@example.com",
   positionTitle: "Senior Backend Developer",
@@ -102,6 +103,14 @@ describe("buildReportHtml", () => {
   it("omits the English section entirely when the stage doesn't offer it", () => {
     const html = buildReportHtml({ ...baseData, englishAssessment: null });
     expect(html).not.toContain("English Assessment");
+  });
+
+  it("renders section headings in Spanish when language is 'es'", () => {
+    const html = buildReportHtml({ ...baseData, language: "es" });
+    expect(html).toContain("Desglose de Competencias");
+    expect(html).toContain("Requisitos Obligatorios");
+    expect(html).toContain("Resumen Narrativo");
+    expect(html).not.toContain("Competency Breakdown");
   });
 
   it("escapes HTML-significant characters from free text fields", () => {

@@ -2,14 +2,17 @@
 
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
+import { t, type Locale } from "@/lib/i18n";
 import type { FormActionState } from "./actions";
 
 export function GenerateReportButton({
   action,
+  locale = "en",
 }: {
   action: (
     prevState: FormActionState | undefined
   ) => Promise<FormActionState | undefined>;
+  locale?: Locale;
 }) {
   const [state, formAction, pending] = useActionState<
     FormActionState | undefined,
@@ -21,7 +24,7 @@ export function GenerateReportButton({
       {state?.error ? <p className="text-xs text-destructive">{state.error}</p> : null}
       <form action={formAction}>
         <Button type="submit" size="sm" disabled={pending}>
-          {pending ? "Generating..." : "Generate Report"}
+          {pending ? t(locale, "interview.generating") : t(locale, "interview.generateReport")}
         </Button>
       </form>
     </div>

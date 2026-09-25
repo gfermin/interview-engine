@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { t, type Locale } from "@/lib/i18n";
 import { ROLE_FAMILY_SUGGESTIONS, SENIORITY_SUGGESTIONS } from "@/lib/reference-data";
 import type { FormActionState } from "./actions";
 
@@ -19,9 +20,10 @@ interface PositionFormProps {
     seniority?: string | null;
   };
   submitLabel: string;
+  locale?: Locale;
 }
 
-export function PositionForm({ action, defaultValues, submitLabel }: PositionFormProps) {
+export function PositionForm({ action, defaultValues, submitLabel, locale = "en" }: PositionFormProps) {
   const [state, formAction, pending] = useActionState<
     FormActionState | undefined,
     FormData
@@ -34,11 +36,11 @@ export function PositionForm({ action, defaultValues, submitLabel }: PositionFor
       ) : null}
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="title">Position title</Label>
+        <Label htmlFor="title">{t(locale, "positions.positionTitleLabel")}</Label>
         <Input
           id="title"
           name="title"
-          placeholder="e.g. Senior Backend Developer"
+          placeholder={t(locale, "positions.positionTitlePlaceholder")}
           defaultValue={defaultValues?.title}
           required
         />
@@ -49,12 +51,12 @@ export function PositionForm({ action, defaultValues, submitLabel }: PositionFor
 
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="roleFamily">Role family</Label>
+          <Label htmlFor="roleFamily">{t(locale, "positions.roleFamilyLabel")}</Label>
           <Input
             id="roleFamily"
             name="roleFamily"
             list="role-family-suggestions"
-            placeholder="e.g. Software Engineering"
+            placeholder={t(locale, "positions.roleFamilyPlaceholder")}
             defaultValue={defaultValues?.roleFamily ?? ""}
           />
           <datalist id="role-family-suggestions">
@@ -65,12 +67,12 @@ export function PositionForm({ action, defaultValues, submitLabel }: PositionFor
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="seniority">Seniority</Label>
+          <Label htmlFor="seniority">{t(locale, "positions.seniorityLabel")}</Label>
           <Input
             id="seniority"
             name="seniority"
             list="seniority-suggestions"
-            placeholder="e.g. Senior"
+            placeholder={t(locale, "positions.seniorityPlaceholder")}
             defaultValue={defaultValues?.seniority ?? ""}
           />
           <datalist id="seniority-suggestions">
@@ -82,23 +84,21 @@ export function PositionForm({ action, defaultValues, submitLabel }: PositionFor
       </div>
 
       <p className="text-xs text-muted-foreground -mt-2">
-        Free text — pick a suggestion or type your own. These jointly drive
-        interview generation alongside the Job Description and Interview
-        Stage (not the JD alone).
+        {t(locale, "positions.freeTextHelp")}
       </p>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="department">Department (optional)</Label>
+        <Label htmlFor="department">{t(locale, "positions.departmentLabel")}</Label>
         <Input
           id="department"
           name="department"
-          placeholder="e.g. Engineering"
+          placeholder={t(locale, "positions.departmentPlaceholder")}
           defaultValue={defaultValues?.department ?? ""}
         />
       </div>
 
       <Button type="submit" disabled={pending} className="self-start">
-        {pending ? "Saving..." : submitLabel}
+        {pending ? t(locale, "positions.saving") : submitLabel}
       </Button>
     </form>
   );

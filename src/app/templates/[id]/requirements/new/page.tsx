@@ -1,11 +1,15 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppTopbar } from "@/components/layout/app-topbar";
+import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isTemplateEditable } from "@/domain/interviews/template-versioning";
 import { createMandatoryRequirementAction } from "@/features/templates/actions";
 import { MandatoryRequirementForm } from "@/features/templates/mandatory-requirement-form";
 import { getTemplate } from "@/features/templates/queries";
+import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
+import { t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -14,35 +18,39 @@ export default async function NewMandatoryRequirementPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const cookieStore = await cookies();
+  const locale = resolveLocale(cookieStore.get(APP_LOCALE_COOKIE)?.value);
+
   const { id } = await params;
   const template = await getTemplate(id);
   if (!template) notFound();
 
   return (
     <>
-      <AppTopbar title="Add Mandatory Requirement" />
-      <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col gap-5 px-6 py-7">
+      <AppTopbar title={t(locale, "templates.addRequirementTitle")} locale={locale} />
+      <PageContainer width="standard">
         <Card>
           <CardHeader>
-            <CardTitle className="text-[15px]">Add Mandatory Requirement</CardTitle>
+            <CardTitle className="text-[15px]">{t(locale, "templates.addRequirementTitle")}</CardTitle>
           </CardHeader>
           <CardContent>
             {isTemplateEditable(template) ? (
               <MandatoryRequirementForm
                 action={createMandatoryRequirementAction.bind(null, id)}
-                submitLabel="Add Requirement"
+                submitLabel={t(locale, "templates.addRequirementButton")}
+                locale={locale}
               />
             ) : (
               <p className="text-sm text-muted-foreground">
-                This template version is no longer editable.{" "}
+                {t(locale, "templates.notEditableMessage")}
                 <Link href={`/templates/${id}`} className="underline">
-                  Back to template
+                  {t(locale, "templates.backToTemplateLink")}
                 </Link>
               </p>
             )}
           </CardContent>
         </Card>
-      </main>
+      </PageContainer>
     </>
   );
 }

@@ -28,10 +28,14 @@ export async function GET(
     throw error;
   }
 
+  // Older reports generated before the naming columns existed (plan §42)
+  // fall back to the previous id-based name rather than needing a backfill.
+  const downloadName = report.fileName ?? `interview-report-${report.id}.pdf`;
+
   return new Response(new Uint8Array(bytes), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="interview-report-${report.id}.pdf"`,
+      "Content-Disposition": `attachment; filename="${downloadName}"`,
       "Content-Length": String(bytes.byteLength),
     },
   });

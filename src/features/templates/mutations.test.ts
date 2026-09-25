@@ -504,6 +504,23 @@ describe("createNewTemplateVersion", () => {
     expect(newRequirements[0].label).toBe("Work authorization");
   });
 
+  it("carries interviewLanguage forward unchanged, same as stage", async () => {
+    const [position] = await db
+      .insert(positions)
+      .values({ title: `Test Position ${randomUUID()}` })
+      .returning();
+    const [template] = await db
+      .insert(interviewTemplates)
+      .values({ positionId: position.id, stage: "technical", name: "Test Template", interviewLanguage: "es" })
+      .returning();
+    await createCompetency(template.id, { name: "Programming", weight: 100, critical: false, expectedDepth: null });
+    await publishTemplate(template.id);
+
+    const newVersion = await createNewTemplateVersion(template.id);
+
+    expect(newVersion.interviewLanguage).toBe("es");
+  });
+
   it("leaves the source template and its content untouched", async () => {
     const { template, competency } = await createPublishedTemplateWithContent();
 

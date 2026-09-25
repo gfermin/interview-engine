@@ -32,7 +32,7 @@ async function createSessionFixture() {
     .insert(positions)
     .values({ title: `Test Position ${randomUUID()}` })
     .returning();
-  const template = await createTemplate({ positionId: position.id, stage: "technical", name: "T" });
+  const template = await createTemplate({ positionId: position.id, stage: "technical", name: "T", interviewLanguage: "en" });
   const competency = await createCompetency(template.id, {
     name: "Programming",
     weight: 100,

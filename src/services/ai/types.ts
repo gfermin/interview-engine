@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { InterviewLanguage } from "@/domain/interviews/interview-language";
 import type { InterviewStage } from "@/domain/interviews/stage-config";
 import type { JobAnalysisResult, TemplateDraft, TemplateDraftQuestion } from "./schemas";
 
@@ -8,6 +9,9 @@ export interface AnalyzeJobDescriptionInput {
   seniority: string | null;
   stage: InterviewStage;
   jobDescriptionText: string;
+  /** The template's own interview content language (plan Phase 21/§42) —
+   * explicit, never inferred from the JD text. */
+  interviewLanguage: InterviewLanguage;
 }
 
 export interface GenerateTemplateDraftInput {
@@ -20,6 +24,9 @@ export interface GenerateTemplateDraftInput {
   /** Whether to ask for code-exercise questions at all — plan §8/§20:
    * Screening doesn't code with the candidate, Technical does. */
   includeCodeExercises: boolean;
+  /** The template's own interview content language (plan Phase 21/§42) —
+   * explicit, never inferred from the JD text. */
+  interviewLanguage: InterviewLanguage;
 }
 
 export interface RegenerateQuestionInput {
@@ -33,6 +40,8 @@ export interface RegenerateQuestionInput {
   jobDescriptionText: string | null;
   competencyName: string;
   competencyExpectedDepth: string | null;
+  /** The template's own interview content language (plan Phase 21/§42). */
+  interviewLanguage: InterviewLanguage;
   /** What's being replaced — steers the model toward a genuinely different
    * question on the same competency, not a reworded duplicate. */
   existingQuestion: {
