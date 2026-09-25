@@ -170,6 +170,8 @@ export async function createNewTemplateVersion(templateId: string) {
         rubric: q.rubric,
         code: q.code,
         solution: q.solution,
+        jdRequirementTag: q.jdRequirementTag,
+        altSolutions: q.altSolutions,
         sortOrder: q.sortOrder,
       }))
     );
@@ -395,6 +397,8 @@ export async function applyRegeneratedQuestion(
       rubric: regenerated.rubric,
       code: options.includeCodeExercises ? regenerated.code : null,
       solution: options.includeCodeExercises ? regenerated.solution : null,
+      jdRequirementTag: regenerated.jdRequirementTag,
+      altSolutions: options.includeCodeExercises ? regenerated.altSolutions : null,
       updatedAt: new Date(),
     })
     .where(eq(questions.id, id))
@@ -543,6 +547,8 @@ export async function applyGeneratedDraft(
             // approve" — this is data hygiene, not a review step).
             code: options.includeCodeExercises ? draftQuestion.code : null,
             solution: options.includeCodeExercises ? draftQuestion.solution : null,
+            jdRequirementTag: draftQuestion.jdRequirementTag,
+            altSolutions: options.includeCodeExercises ? draftQuestion.altSolutions : null,
             sortOrder: questionIndex,
           })
           .run();

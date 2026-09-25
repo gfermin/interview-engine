@@ -1,6 +1,18 @@
-import { Button } from "@/components/ui/button";
+import { Button, type buttonVariants } from "@/components/ui/button";
 import type { MandatoryRequirementStatus } from "@/domain/scoring/types";
 import { updateMandatoryRequirementStatusAction } from "./actions";
+
+type ButtonVariant = NonNullable<Parameters<typeof buttonVariants>[0]>["variant"];
+
+// Met/Not Met carry the same fixed pass/fail color regardless of which is
+// currently selected (matching the artifact's decision buttons — see
+// decision-form.tsx's own note on this), not a single toggle color; only
+// the *selected* option gets a solid fill, the rest stay outline.
+const VARIANT_WHEN_SELECTED: Record<MandatoryRequirementStatus, ButtonVariant> = {
+  met: "default",
+  not_met: "destructive",
+  unknown: "secondary",
+};
 
 const OPTIONS: { status: MandatoryRequirementStatus; label: string }[] = [
   { status: "met", label: "Met" },
@@ -33,7 +45,7 @@ export function MandatoryRequirementControl({
           <Button
             type="submit"
             size="sm"
-            variant={currentStatus === status ? "default" : "outline"}
+            variant={currentStatus === status ? VARIANT_WHEN_SELECTED[status] : "outline"}
           >
             {label}
           </Button>

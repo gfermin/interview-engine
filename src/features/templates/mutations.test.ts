@@ -61,6 +61,8 @@ const sampleDraft: TemplateDraft = {
           rubric: ["0 - no strategy", "5 - systematic investigation"],
           code: "function example() {}",
           solution: "// solution here",
+          jdRequirementTag: null,
+          altSolutions: null,
         },
         {
           text: "Explain a debugging exercise.",
@@ -75,6 +77,8 @@ const sampleDraft: TemplateDraft = {
           rubric: [],
           code: null,
           solution: null,
+          jdRequirementTag: null,
+          altSolutions: null,
         },
       ],
     },
@@ -98,6 +102,8 @@ const sampleDraft: TemplateDraft = {
           rubric: [],
           code: null,
           solution: null,
+          jdRequirementTag: null,
+          altSolutions: null,
         },
       ],
     },
@@ -260,6 +266,8 @@ const sampleRegenerated: TemplateDraftQuestion = {
   rubric: ["0 - no strategy", "5 - systematic investigation"],
   code: "function leak() {}",
   solution: "// fixed version",
+  jdRequirementTag: null,
+  altSolutions: null,
 };
 
 describe("applyRegeneratedQuestion", () => {
@@ -285,6 +293,8 @@ describe("applyRegeneratedQuestion", () => {
       rubric: [],
       code: null,
       solution: null,
+      jdRequirementTag: null,
+      altSolutions: null,
     });
 
     const updated = await applyRegeneratedQuestion(original.id, sampleRegenerated, {
@@ -322,6 +332,8 @@ describe("applyRegeneratedQuestion", () => {
       rubric: [],
       code: null,
       solution: null,
+      jdRequirementTag: null,
+      altSolutions: null,
     });
 
     const updated = await applyRegeneratedQuestion(original.id, sampleRegenerated, {
@@ -354,6 +366,8 @@ describe("applyRegeneratedQuestion", () => {
       rubric: [],
       code: null,
       solution: null,
+      jdRequirementTag: null,
+      altSolutions: null,
     });
     const questionB = await createQuestion(template.id, {
       competencyId: competency.id,
@@ -369,6 +383,8 @@ describe("applyRegeneratedQuestion", () => {
       rubric: [],
       code: null,
       solution: null,
+      jdRequirementTag: null,
+      altSolutions: null,
     });
 
     await applyRegeneratedQuestion(questionA.id, sampleRegenerated, {
@@ -403,6 +419,8 @@ describe("applyRegeneratedQuestion", () => {
       rubric: [],
       code: null,
       solution: null,
+      jdRequirementTag: null,
+      altSolutions: null,
     });
     await publishTemplate(template.id);
 
@@ -438,6 +456,8 @@ describe("createNewTemplateVersion", () => {
       rubric: ["0 - no strategy", "5 - systematic investigation"],
       code: null,
       solution: null,
+      jdRequirementTag: null,
+      altSolutions: null,
     });
     const requirement = await createMandatoryRequirement(template.id, {
       label: "Work authorization",
@@ -615,6 +635,8 @@ describe("editable-template guard shared by delete/update mutations", () => {
       rubric: [],
       code: null,
       solution: null,
+      jdRequirementTag: null,
+      altSolutions: null,
     });
     await publishTemplate(template.id);
 
@@ -633,6 +655,8 @@ describe("editable-template guard shared by delete/update mutations", () => {
         rubric: [],
         code: null,
         solution: null,
+        jdRequirementTag: null,
+        altSolutions: null,
       })
     ).rejects.toThrow(/no longer editable/);
   });
@@ -659,6 +683,8 @@ describe("editable-template guard shared by delete/update mutations", () => {
       rubric: [],
       code: null,
       solution: null,
+      jdRequirementTag: null,
+      altSolutions: null,
     });
     await publishTemplate(template.id);
 
@@ -711,6 +737,8 @@ describe("createQuestion/updateQuestion competency-ownership guard", () => {
         rubric: [],
         code: null,
         solution: null,
+        jdRequirementTag: null,
+        altSolutions: null,
       })
     ).rejects.toThrow(/doesn't belong to this template/);
   });
@@ -744,6 +772,8 @@ describe("createQuestion/updateQuestion competency-ownership guard", () => {
       rubric: [],
       code: null,
       solution: null,
+      jdRequirementTag: null,
+      altSolutions: null,
     });
 
     await expect(
@@ -761,6 +791,8 @@ describe("createQuestion/updateQuestion competency-ownership guard", () => {
         rubric: [],
         code: null,
         solution: null,
+        jdRequirementTag: null,
+        altSolutions: null,
       })
     ).rejects.toThrow(/doesn't belong to this template/);
   });
@@ -828,6 +860,8 @@ describe("moveQuestion", () => {
       rubric: [],
       code: null,
       solution: null,
+      jdRequirementTag: null,
+      altSolutions: null,
     });
     await createQuestion(template.id, {
       competencyId: competencyA.id,
@@ -843,6 +877,8 @@ describe("moveQuestion", () => {
       rubric: [],
       code: null,
       solution: null,
+      jdRequirementTag: null,
+      altSolutions: null,
     });
     const b1 = await createQuestion(template.id, {
       competencyId: competencyB.id,
@@ -858,6 +894,8 @@ describe("moveQuestion", () => {
       rubric: [],
       code: null,
       solution: null,
+      jdRequirementTag: null,
+      altSolutions: null,
     });
 
     await moveQuestion(a1.id, "down");

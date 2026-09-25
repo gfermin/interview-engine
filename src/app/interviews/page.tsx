@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { SESSION_STATUS_LABELS } from "@/domain/interviews/session-lifecycle";
@@ -118,7 +118,9 @@ export default async function InterviewsHistoryPage({
                   Filter
                 </Button>
                 {hasFilters ? (
-                  <Button size="sm" variant="outline" render={<Link href="/interviews">Clear</Link>} />
+                  <ButtonLink size="sm" variant="outline" href="/interviews">
+                    Clear
+                  </ButtonLink>
                 ) : null}
               </div>
             </form>
@@ -185,16 +187,16 @@ export default async function InterviewsHistoryPage({
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1.5">
-                          <Button
+                          <ButtonLink size="sm" variant="outline" href={`/interviews/${session.id}`}>
+                            Rate
+                          </ButtonLink>
+                          <ButtonLink
                             size="sm"
                             variant="outline"
-                            render={<Link href={`/interviews/${session.id}`}>Rate</Link>}
-                          />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            render={<Link href={`/interviews/${session.id}/summary`}>Summary</Link>}
-                          />
+                            href={`/interviews/${session.id}/summary`}
+                          >
+                            Summary
+                          </ButtonLink>
                         </div>
                       </TableCell>
                     </TableRow>

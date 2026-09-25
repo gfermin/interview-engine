@@ -50,6 +50,8 @@ async function createDecidedSession() {
     rubric: [],
     code: null,
     solution: null,
+    jdRequirementTag: null,
+    altSolutions: null,
   });
   await publishTemplate(template.id);
   const [candidate] = await db

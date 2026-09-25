@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
@@ -19,7 +18,9 @@ export default function NotFound() {
           <p className="text-sm text-muted-foreground">
             The page or record you&apos;re looking for doesn&apos;t exist, or may have been removed.
           </p>
-          <Button render={<Link href="/">Back to dashboard</Link>} className="self-start" />
+          <ButtonLink href="/" className="self-start">
+            Back to dashboard
+          </ButtonLink>
         </CardContent>
       </Card>
     </div>

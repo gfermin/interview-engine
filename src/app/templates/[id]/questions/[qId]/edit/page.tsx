@@ -53,6 +53,8 @@ export default async function EditQuestionPage({
                   rubric: question.rubric,
                   code: question.code,
                   solution: question.solution,
+                  jdRequirementTag: question.jdRequirementTag,
+                  altSolutions: question.altSolutions,
                 }}
                 submitLabel="Save Changes"
               />

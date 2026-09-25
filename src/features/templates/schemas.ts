@@ -116,6 +116,10 @@ export const questionFormSchema = z.object({
   rubric: lines,
   code: optionalText(4000),
   solution: optionalText(4000),
+  // Phase 16/§41: the artifact's "JD: <requirement>" traceability tag and
+  // its "other valid approaches" note for code questions.
+  jdRequirementTag: optionalText(500),
+  altSolutions: optionalText(2000),
 });
 
 export type QuestionFormValues = z.infer<typeof questionFormSchema>;

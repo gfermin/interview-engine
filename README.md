@@ -126,8 +126,12 @@ filters, `DecisionForm`, and the Server Actions this pass's fixes touched.
 A coverage tool (`@vitest/coverage-v8`, `npm run test:coverage`) is
 configured for the first time.
 
-Phase 12 (BambooHR Integration POC) and Phase 14 (Production Readiness)
-remain open.
+Phase 12 (BambooHR Integration POC) and Phase 17 (Production Readiness)
+remain open. Phases 14-16 (Calibración QA visual/interaction parity,
+Dashboard operational rebuild, question/data parity closeout) were added
+after a second full re-read of the "Calibración QA" artifact source
+focused on UI/interaction fidelity rather than domain logic — see the
+implementation plan's §41 — and are next up.
 
 ## Stack
 

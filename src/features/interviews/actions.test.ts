@@ -53,6 +53,8 @@ async function createSessionFixture() {
     rubric: [],
     code: null,
     solution: null,
+    jdRequirementTag: null,
+    altSolutions: null,
   });
   const [candidate] = await db
     .insert(candidates)

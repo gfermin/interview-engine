@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { resolveTheme, THEME_COOKIE } from "@/features/settings/theme";
 import "./globals.css";
 
 const plexSans = IBM_Plex_Sans({
@@ -20,11 +22,14 @@ export const metadata: Metadata = {
   description: "Universal, JD-driven interview assessment platform.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const cookieStore = await cookies();
+  const theme = resolveTheme(cookieStore.get(THEME_COOKIE)?.value);
+
   return (
     <html
       lang="en"
-      className={`${plexSans.variable} ${plexMono.variable} h-full antialiased`}
+      className={`${plexSans.variable} ${plexMono.variable} h-full antialiased ${theme === "dark" ? "dark" : ""}`}
     >
       <body className="flex min-h-full">
         <AppSidebar />

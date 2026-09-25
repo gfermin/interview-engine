@@ -86,9 +86,13 @@ export function DecisionForm({ action, status, stage, existingDecision }: Decisi
           >
             Force {statusLabelFor(stage, "PASS")}
           </Button>
+          {/* The artifact's forced-call FAIL button is always styled danger
+              (red), never the accept/pass color — a toggle that briefly
+              turned it teal when selected would be a real color-scheme
+              regression, not a neutral UI choice. */}
           <Button
             type="button"
-            variant={forcedChoice === "FAIL" ? "default" : "outline"}
+            variant={forcedChoice === "FAIL" ? "destructive" : "outline"}
             onClick={() => setForcedChoice("FAIL")}
           >
             Force {statusLabelFor(stage, "FAIL")}
@@ -103,9 +107,12 @@ export function DecisionForm({ action, status, stage, existingDecision }: Decisi
           >
             Accept
           </Button>
+          {/* Same reasoning as Force FAIL above — Override is the artifact's
+              danger action (`.btn.danger`), not a second accept-colored
+              option. */}
           <Button
             type="button"
-            variant={mode === "override" ? "default" : "outline"}
+            variant={mode === "override" ? "destructive" : "outline"}
             onClick={() => setMode("override")}
           >
             Override

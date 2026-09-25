@@ -1,3 +1,5 @@
+import * as React from "react"
+import Link from "next/link"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
@@ -54,4 +56,30 @@ function Button({
   )
 }
 
-export { Button, buttonVariants }
+/**
+ * A `<Link>` styled to look like a Button, for navigation rather than an
+ * in-page action. `Button`'s own `render` prop is *not* the right tool for
+ * this: Base UI's Button enforces button semantics (`role="button"`,
+ * keyboard handlers, and by default `nativeButton` expects the rendered
+ * element to actually be a `<button>`) and its own docs are explicit that
+ * links "have their own semantics and should not be rendered as buttons
+ * through the `render` prop" — the recommended fix is exactly this: style
+ * the `<a>` directly with the button's classes instead of routing it
+ * through `Button`.
+ */
+function ButtonLink({
+  className,
+  variant = "default",
+  size = "default",
+  ...props
+}: React.ComponentProps<typeof Link> & VariantProps<typeof buttonVariants>) {
+  return (
+    <Link
+      data-slot="button"
+      className={cn(buttonVariants({ variant, size, className }))}
+      {...props}
+    />
+  )
+}
+
+export { Button, buttonVariants, ButtonLink }

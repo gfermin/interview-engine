@@ -81,6 +81,38 @@ describe("templateDraftSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  // Phase 16/§41 Task 16.5: jdRequirementTag/altSolutions are new, optional
+  // question fields (the artifact's "JD: <requirement>" tag and its "other
+  // valid approaches" note) — must default to null when a provider omits
+  // them, and accept a real value when one is given.
+  it("defaults jdRequirementTag/altSolutions to null when omitted", () => {
+    const result = templateDraftSchema.safeParse(validDraft);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.competencies[0].questions[0].jdRequirementTag).toBeNull();
+      expect(result.data.competencies[0].questions[0].altSolutions).toBeNull();
+    }
+  });
+
+  it("accepts an explicit jdRequirementTag/altSolutions value", () => {
+    const result = templateDraftSchema.safeParse({
+      ...validDraft,
+      competencies: [
+        {
+          ...validDraft.competencies[0],
+          questions: [
+            { ...validQuestion, jdRequirementTag: "API Testing", altSolutions: "Also valid with a Set." },
+          ],
+        },
+      ],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.competencies[0].questions[0].jdRequirementTag).toBe("API Testing");
+      expect(result.data.competencies[0].questions[0].altSolutions).toBe("Also valid with a Set.");
+    }
+  });
+
   it("defaults an omitted mandatoryRequirements list to an empty array", () => {
     const { mandatoryRequirements: _mr, ...withoutRequirements } = validDraft;
     const result = templateDraftSchema.safeParse(withoutRequirements);

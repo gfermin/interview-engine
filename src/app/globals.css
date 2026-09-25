@@ -70,6 +70,8 @@
   --color-na: var(--na);
   --color-na-bg: var(--na-bg);
   --color-na-border: var(--na-border);
+  --color-surface-3: var(--surface-3);
+  --color-ink-faint: var(--ink-faint);
 }
 
 :root {
@@ -121,6 +123,9 @@
   --na: #6b7a7c;
   --na-bg: #eef1f1;
   --na-border: #d4dcdc;
+
+  --surface-3: #dde7e4;
+  --ink-faint: #8398999a;
 }
 
 .dark {
@@ -171,6 +176,9 @@
   --na: #8fa3a5;
   --na-bg: #1c2a2b;
   --na-border: #2f4547;
+
+  --surface-3: #1c2e30;
+  --ink-faint: #5c7274;
 }
 
 @layer base {

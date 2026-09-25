@@ -1,18 +1,22 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AppTopbar } from "@/components/layout/app-topbar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { canGenerateReport, canReopenSession, isSessionDecided } from "@/domain/interviews/session-lifecycle";
 import { canRecordDecision } from "@/domain/interviews/decision";
 import { buildNarrative } from "@/domain/interviews/narrative";
+import { categorizeCompetencies } from "@/domain/interviews/result-categories";
 import { getStageConfig, statusLabelFor, type InterviewStage } from "@/domain/interviews/stage-config";
-import type { InterviewStatus, MandatoryRequirementStatus } from "@/domain/scoring/types";
+import type { MandatoryRequirementStatus } from "@/domain/scoring/types";
 import { recordDecisionAction, reopenSessionAction } from "@/features/interviews/actions";
+import { CompetencyDashboard, type CompetencyDashboardEntry } from "@/features/interviews/competency-dashboard";
 import { DecisionForm } from "@/features/interviews/decision-form";
 import { EnglishAssessmentControl } from "@/features/interviews/english-assessment-control";
+import { InterviewScoreboard } from "@/features/interviews/interview-scoreboard";
+import { type BadgeTone, ToneBadge } from "@/features/interviews/status-badge";
 import { MandatoryRequirementControl } from "@/features/interviews/mandatory-requirement-control";
 import {
+  buildSessionEvaluationState,
   getDecision,
   getSessionDetail,
   getSupplementaryAssessment,
@@ -28,23 +32,19 @@ import { listCompetencies, listMandatoryRequirements } from "@/features/template
 
 export const dynamic = "force-dynamic";
 
-const STATUS_VARIANT: Record<InterviewStatus, "default" | "secondary" | "destructive" | "outline"> = {
-  NOT_EVALUATED: "outline",
-  PROVISIONAL: "outline",
-  FAIL: "destructive",
-  BORDERLINE: "secondary",
-  PASS: "default",
-};
-
 const MANDATORY_STATUS_LABEL: Record<MandatoryRequirementStatus, string> = {
   met: "Met",
   not_met: "Not Met",
   unknown: "Unknown",
 };
-const MANDATORY_STATUS_VARIANT: Record<MandatoryRequirementStatus, "default" | "destructive" | "outline"> = {
-  met: "default",
-  not_met: "destructive",
-  unknown: "outline",
+// A MandatoryRequirement is a boolean knockout gate (plan §4.3/§19) — the
+// same pass/fail/na color language the calculated interview status uses
+// applies directly: met=pass, not_met=fail, unknown=na (no evidence yet,
+// same as a critical competency with no evidence — not itself a failure).
+const MANDATORY_STATUS_TONE: Record<MandatoryRequirementStatus, BadgeTone> = {
+  met: "pass",
+  not_met: "fail",
+  unknown: "na",
 };
 
 export default async function InterviewSummaryPage({
@@ -59,19 +59,29 @@ export default async function InterviewSummaryPage({
   const stage = session.stage as InterviewStage;
   const stageConfig = getStageConfig(stage);
 
-  const [result, competencies, mandatoryRequirements, mrEvaluations, position, englishAssessment, decision, reports] =
-    await Promise.all([
-      computeFullScoringResult(sessionId, session.templateId),
-      listCompetencies(session.templateId),
-      listMandatoryRequirements(session.templateId),
-      listMandatoryRequirementEvaluations(sessionId),
-      getPosition(session.positionId),
-      stageConfig.modules.supplementaryAssessments
-        ? getSupplementaryAssessment(sessionId, "english")
-        : Promise.resolve(undefined),
-      getDecision(sessionId),
-      listReportsForSession(sessionId),
-    ]);
+  const [
+    result,
+    competencies,
+    mandatoryRequirements,
+    mrEvaluations,
+    position,
+    englishAssessment,
+    decision,
+    reports,
+    { questions, evaluationByQuestionId },
+  ] = await Promise.all([
+    computeFullScoringResult(sessionId, session.templateId),
+    listCompetencies(session.templateId),
+    listMandatoryRequirements(session.templateId),
+    listMandatoryRequirementEvaluations(sessionId),
+    getPosition(session.positionId),
+    stageConfig.modules.supplementaryAssessments
+      ? getSupplementaryAssessment(sessionId, "english")
+      : Promise.resolve(undefined),
+    getDecision(sessionId),
+    listReportsForSession(sessionId),
+    buildSessionEvaluationState(session.templateId, sessionId),
+  ]);
 
   // `interviewDecisions.mode`/`finalDecision` are nullable at the column
   // level (Phase 2 schema), but `recordDecision` (features/interviews/
@@ -97,9 +107,67 @@ export default async function InterviewSummaryPage({
     reason: result.reason,
   });
 
+  const dashboardEntries: CompetencyDashboardEntry[] = competencies.map((competency) => {
+    const stat = competencyStatById.get(competency.id);
+    const critical = criticalById.get(competency.id);
+    return {
+      competencyId: competency.id,
+      name: competency.name,
+      weight: competency.weight,
+      critical: competency.critical,
+      percent: stat?.percent ?? null,
+      evaluated: stat?.evaluated ?? 0,
+      na: stat?.na ?? 0,
+      criticalHasEvidence: critical?.hasEvidence ?? false,
+      criticalMeets: critical?.meets ?? false,
+      criticalMin: session.criticalMin,
+    };
+  });
+
+  const categories = categorizeCompetencies(
+    competencies.map((competency) => ({
+      competencyId: competency.id,
+      name: competency.name,
+      percent: competencyStatById.get(competency.id)?.percent ?? null,
+    })),
+    { borderlineMin: session.borderlineMin, passThreshold: session.passThreshold }
+  );
+
+  const questionsByCompetency = new Map<string, typeof questions>();
+  for (const question of questions) {
+    const list = questionsByCompetency.get(question.competencyId) ?? [];
+    list.push(question);
+    questionsByCompetency.set(question.competencyId, list);
+  }
+  const unratedCountByCompetency = new Map(
+    categories.borderlineAreas.map((area) => {
+      const compQuestions = questionsByCompetency.get(area.competencyId) ?? [];
+      const unrated = compQuestions.filter((question) => {
+        const row = evaluationByQuestionId.get(question.id);
+        return !row || (row.score === null && !row.isNa);
+      }).length;
+      return [area.competencyId, unrated] as const;
+    })
+  );
+
   return (
     <>
-      <AppTopbar title={`${session.candidateName} — Summary`} />
+      <InterviewScoreboard
+        candidateName={session.candidateName}
+        subtitle={`${session.positionTitle} · ${stageConfig.label} · v${session.templateVersion} · Summary`}
+        overall={result.overall}
+        completion={result.completion}
+        criticalMet={
+          result.criticalCompetencyStatus.length -
+          result.criticalCompetencyStatus.filter((c) => c.hasEvidence && !c.meets).length
+        }
+        criticalTotal={result.criticalCompetencyStatus.length}
+        status={result.status}
+        statusLabel={statusLabel}
+        borderlineMin={session.borderlineMin}
+        passThreshold={session.passThreshold}
+        englishLevel={stageConfig.modules.supplementaryAssessments ? (englishAssessment?.level ?? null) : undefined}
+      />
       <main className="mx-auto flex w-full max-w-[840px] flex-1 flex-col gap-5 px-6 py-7">
         <Card>
           <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
@@ -119,14 +187,9 @@ export default async function InterviewSummaryPage({
                 </Badge>
               </div>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <Badge variant={STATUS_VARIANT[result.status]} className="text-[13px]">
-                {statusLabel}
-              </Badge>
-              {canReopenSession(session) ? (
-                <ReopenSessionButton action={reopenSessionAction.bind(null, sessionId)} />
-              ) : null}
-            </div>
+            {canReopenSession(session) ? (
+              <ReopenSessionButton action={reopenSessionAction.bind(null, sessionId)} />
+            ) : null}
           </CardHeader>
         </Card>
 
@@ -158,37 +221,54 @@ export default async function InterviewSummaryPage({
                 </dd>
               </div>
             </dl>
-
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {competencies.map((competency) => {
-                const stat = competencyStatById.get(competency.id);
-                const critical = criticalById.get(competency.id);
-                return (
-                  <div
-                    key={competency.id}
-                    className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[12.5px]">{competency.name}</span>
-                      {competency.critical ? (
-                        <Badge
-                          variant={critical && critical.hasEvidence && !critical.meets ? "destructive" : "outline"}
-                        >
-                          Critical
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <span className="font-mono text-[12.5px] text-muted-foreground">
-                      {stat?.percent !== null && stat?.percent !== undefined
-                        ? `${Math.round(stat.percent)}%`
-                        : "—"}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-[13.5px]">Competency Dashboard</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CompetencyDashboard entries={dashboardEntries} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-[13.5px]">Results</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <ResultList label="Strongest areas" tone="pass" items={categories.strengths} />
+            <ResultList label="Borderline areas" tone="borderline" items={categories.borderlineAreas} />
+            <ResultList label="Areas of concern" tone="fail" items={categories.concerns} />
+          </CardContent>
+        </Card>
+
+        {categories.borderlineAreas.length > 0 ? (
+          <Card className="border-borderline-border">
+            <CardHeader>
+              <CardTitle className="text-[13.5px] text-borderline">
+                Borderline follow-up — additional evidence recommended
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="flex flex-col gap-1.5 text-[12.5px]">
+                {categories.borderlineAreas.map((area) => (
+                  <li key={area.competencyId} className="flex items-center justify-between gap-2">
+                    <span>
+                      {area.name} — {Math.round(area.percent)}%
+                    </span>
+                    <span className="font-mono text-[11.5px] text-muted-foreground">
+                      {unratedCountByCompetency.get(area.competencyId)
+                        ? `${unratedCountByCompetency.get(area.competencyId)} unrated question(s)`
+                        : "no additional questions available"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <Card>
           <CardHeader>
@@ -214,9 +294,10 @@ export default async function InterviewSummaryPage({
                       ) : null}
                     </div>
                     {isSessionDecided(session) ? (
-                      <Badge variant={MANDATORY_STATUS_VARIANT[mrStatusByRequirementId.get(requirement.id) ?? "unknown"]}>
-                        {MANDATORY_STATUS_LABEL[mrStatusByRequirementId.get(requirement.id) ?? "unknown"]}
-                      </Badge>
+                      <ToneBadge
+                        tone={MANDATORY_STATUS_TONE[mrStatusByRequirementId.get(requirement.id) ?? "unknown"]}
+                        label={MANDATORY_STATUS_LABEL[mrStatusByRequirementId.get(requirement.id) ?? "unknown"]}
+                      />
                     ) : (
                       <MandatoryRequirementControl
                         sessionId={sessionId}
@@ -269,14 +350,17 @@ export default async function InterviewSummaryPage({
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             {recordedDecision ? (
-              <div className="rounded-lg border border-border bg-muted/40 p-3 text-[12.5px]">
-                <p>
-                  <span className="font-medium">Recorded: </span>
-                  {statusLabelFor(stage, recordedDecision.finalDecision)} (
-                  {recordedDecision.mode.replace("_", " ")})
-                </p>
+              <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-muted/40 p-3 text-[12.5px]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">Recorded:</span>
+                  <ToneBadge
+                    tone={recordedDecision.finalDecision === "PASS" ? "pass" : "fail"}
+                    label={statusLabelFor(stage, recordedDecision.finalDecision)}
+                  />
+                  <span className="text-muted-foreground">({recordedDecision.mode.replace("_", " ")})</span>
+                </div>
                 {recordedDecision.reason ? (
-                  <p className="mt-1 text-muted-foreground">{recordedDecision.reason}</p>
+                  <p className="text-muted-foreground">{recordedDecision.reason}</p>
                 ) : null}
               </div>
             ) : null}
@@ -316,8 +400,8 @@ export default async function InterviewSummaryPage({
                     className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-[12.5px]"
                   >
                     <span className="text-muted-foreground">
-                      Generated {report.createdAt.toLocaleString()} (
-                      {Math.round(report.fileSize / 1024)} KB)
+                      Generated <span className="font-mono">{report.createdAt.toLocaleString()}</span> (
+                      <span className="font-mono">{Math.round(report.fileSize / 1024)} KB</span>)
                     </span>
                     <a
                       href={`/api/reports/${report.id}`}
@@ -341,5 +425,42 @@ export default async function InterviewSummaryPage({
         </Card>
       </main>
     </>
+  );
+}
+
+const RESULT_LIST_CLASSES = {
+  pass: "text-pass",
+  borderline: "text-borderline",
+  fail: "text-fail",
+} as const;
+
+/** The artifact's strengths/borderline/concerns categorization (plan Phase
+ * 14 Task 14.5/§41) — an empty list reads as "no evidence yet" rather than
+ * being hidden, so the interviewer can tell "nothing qualifies" apart from
+ * "this section is missing." */
+function ResultList({
+  label,
+  tone,
+  items,
+}: {
+  label: string;
+  tone: keyof typeof RESULT_LIST_CLASSES;
+  items: { competencyId: string; name: string; percent: number }[];
+}) {
+  return (
+    <div>
+      <h4 className={`text-[11px] font-semibold tracking-wide uppercase ${RESULT_LIST_CLASSES[tone]}`}>{label}</h4>
+      {items.length > 0 ? (
+        <ul className="mt-1 flex flex-col gap-0.5 text-[12.5px]">
+          {items.map((item) => (
+            <li key={item.competencyId}>
+              {item.name} — {Math.round(item.percent)}%
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-1 text-[12px] text-muted-foreground">Insufficient evidence yet.</p>
+      )}
+    </div>
   );
 }
