@@ -60,6 +60,11 @@ export const templateFormSchema = z.object({
   // by src/features/templates/schemas.test.ts.
   stage: z.enum(["technical", "screening"], { error: "Select a valid interview stage." }),
   name: z.string().trim().min(1, "Name is required").max(200),
+  // The interview's content language (plan Phase 21/§42) — required, not
+  // defaulted, so template creation never silently picks a language for the
+  // reviewer; matches INTERVIEW_LANGUAGES, asserted equal in schemas.test.ts
+  // for the same reason as `stage` above.
+  interviewLanguage: z.enum(["en", "es"], { error: "Select an interview language." }),
 });
 
 export type TemplateFormValues = z.infer<typeof templateFormSchema>;
@@ -74,6 +79,16 @@ export const scoringConfigFormSchema = z
     // whether it's required for a PASS, and what level clears the bar.
     englishRequired: checkbox,
     englishMinLevel: level1to5().default(3),
+    // First Screening only (plan Phase 22/§43.11) — opt-in, never generated
+    // or scored indiscriminately. Harmless no-ops for a Technical Interview
+    // template, which never surfaces these toggles in the UI.
+    includeCompensationQuestion: checkbox,
+    includeWorkAuthorizationCheck: checkbox,
+    // Technical Interview only (plan Phase 25/§45) — opt-in, off by default;
+    // the mirror-image precedent of the two screening toggles above. A
+    // harmless no-op for a screening template, which never surfaces this
+    // toggle and whose stage ceiling forces it off regardless (ai-actions.ts).
+    includeCodeExercises: checkbox,
   })
   .refine((v) => v.borderlineMin <= v.passThreshold, {
     message: "Borderline minimum must not exceed the pass threshold.",
@@ -120,6 +135,11 @@ export const questionFormSchema = z.object({
   // its "other valid approaches" note for code questions.
   jdRequirementTag: optionalText(500),
   altSolutions: optionalText(2000),
+  // First Screening HR-usability fields (plan Phase 22/§43.7/§43.12) —
+  // human-editable the same as any AI-generated field; meaningful mainly
+  // for screening-stage questions but not restricted to them.
+  requiresTechnicalKnowledge: checkbox,
+  technicalTermHelper: optionalText(2000),
 });
 
 export type QuestionFormValues = z.infer<typeof questionFormSchema>;

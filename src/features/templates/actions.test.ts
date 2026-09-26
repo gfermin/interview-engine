@@ -40,7 +40,12 @@ describe("createTemplateAction", () => {
 
     await createTemplateAction(
       undefined,
-      formData({ positionId: position.id, stage: "technical", name: "Backend — Technical" })
+      formData({
+        positionId: position.id,
+        stage: "technical",
+        name: "Backend — Technical",
+        interviewLanguage: "en",
+      })
     );
 
     expect(revalidatePath).toHaveBeenCalledWith("/templates");
@@ -54,7 +59,7 @@ describe("publishTemplateAction", () => {
       .insert(positions)
       .values({ title: `Test Position ${randomUUID()}` })
       .returning();
-    const template = await createTemplate({ positionId: position.id, stage: "technical", name: "T" });
+    const template = await createTemplate({ positionId: position.id, stage: "technical", name: "T", interviewLanguage: "en" });
     // No competencies added — checkPublishable refuses.
 
     const result = await publishTemplateAction(template.id, undefined);
@@ -67,7 +72,7 @@ describe("publishTemplateAction", () => {
       .insert(positions)
       .values({ title: `Test Position ${randomUUID()}` })
       .returning();
-    const template = await createTemplate({ positionId: position.id, stage: "technical", name: "T" });
+    const template = await createTemplate({ positionId: position.id, stage: "technical", name: "T", interviewLanguage: "en" });
     await createCompetency(template.id, { name: "x", weight: 100, critical: false, expectedDepth: null });
 
     const result = await publishTemplateAction(template.id, undefined);
@@ -83,7 +88,7 @@ describe("updateScoringConfigAction", () => {
       .insert(positions)
       .values({ title: `Test Position ${randomUUID()}` })
       .returning();
-    const template = await createTemplate({ positionId: position.id, stage: "technical", name: "T" });
+    const template = await createTemplate({ positionId: position.id, stage: "technical", name: "T", interviewLanguage: "en" });
 
     const result = await updateScoringConfigAction(
       template.id,
@@ -99,7 +104,7 @@ describe("updateScoringConfigAction", () => {
       .insert(positions)
       .values({ title: `Test Position ${randomUUID()}` })
       .returning();
-    const template = await createTemplate({ positionId: position.id, stage: "technical", name: "T" });
+    const template = await createTemplate({ positionId: position.id, stage: "technical", name: "T", interviewLanguage: "en" });
 
     const result = await updateScoringConfigAction(
       template.id,

@@ -3,11 +3,13 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { db } from "@/db";
-import { competencies, interviewTemplates, jobDescriptions, positions, questions } from "@/db/schema";
+import { candidates, competencies, interviewTemplates, jobDescriptions, positions, questions } from "@/db/schema";
 import type { TemplateDraft, TemplateDraftQuestion } from "@/services/ai/schemas";
+import { startInterviewSession } from "@/features/candidates/mutations";
 import {
   applyGeneratedDraft,
   applyRegeneratedQuestion,
+  archiveTemplate,
   createCompetency,
   createMandatoryRequirement,
   createNewTemplateVersion,
@@ -15,11 +17,13 @@ import {
   deleteCompetency,
   deleteMandatoryRequirement,
   deleteQuestion,
+  deleteTemplate,
   moveCompetency,
   moveMandatoryRequirement,
   moveQuestion,
   publishTemplate,
   recordAIGeneration,
+  restoreTemplate,
   saveJobAnalysis,
   updateCompetency,
   updateMandatoryRequirement,
@@ -63,6 +67,8 @@ const sampleDraft: TemplateDraft = {
           solution: "// solution here",
           jdRequirementTag: null,
           altSolutions: null,
+          requiresTechnicalKnowledge: false,
+          technicalTermHelper: null,
         },
         {
           text: "Explain a debugging exercise.",
@@ -79,6 +85,8 @@ const sampleDraft: TemplateDraft = {
           solution: null,
           jdRequirementTag: null,
           altSolutions: null,
+          requiresTechnicalKnowledge: false,
+          technicalTermHelper: null,
         },
       ],
     },
@@ -104,6 +112,8 @@ const sampleDraft: TemplateDraft = {
           solution: null,
           jdRequirementTag: null,
           altSolutions: null,
+          requiresTechnicalKnowledge: false,
+          technicalTermHelper: null,
         },
       ],
     },
@@ -268,6 +278,8 @@ const sampleRegenerated: TemplateDraftQuestion = {
   solution: "// fixed version",
   jdRequirementTag: null,
   altSolutions: null,
+  requiresTechnicalKnowledge: false,
+  technicalTermHelper: null,
 };
 
 describe("applyRegeneratedQuestion", () => {
@@ -295,6 +307,8 @@ describe("applyRegeneratedQuestion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
 
     const updated = await applyRegeneratedQuestion(original.id, sampleRegenerated, {
@@ -334,6 +348,8 @@ describe("applyRegeneratedQuestion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
 
     const updated = await applyRegeneratedQuestion(original.id, sampleRegenerated, {
@@ -368,6 +384,8 @@ describe("applyRegeneratedQuestion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
     const questionB = await createQuestion(template.id, {
       competencyId: competency.id,
@@ -385,6 +403,8 @@ describe("applyRegeneratedQuestion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
 
     await applyRegeneratedQuestion(questionA.id, sampleRegenerated, {
@@ -421,6 +441,8 @@ describe("applyRegeneratedQuestion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
     await publishTemplate(template.id);
 
@@ -458,6 +480,8 @@ describe("createNewTemplateVersion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
     const requirement = await createMandatoryRequirement(template.id, {
       label: "Work authorization",
@@ -504,6 +528,23 @@ describe("createNewTemplateVersion", () => {
     expect(newRequirements[0].label).toBe("Work authorization");
   });
 
+  it("carries interviewLanguage forward unchanged, same as stage", async () => {
+    const [position] = await db
+      .insert(positions)
+      .values({ title: `Test Position ${randomUUID()}` })
+      .returning();
+    const [template] = await db
+      .insert(interviewTemplates)
+      .values({ positionId: position.id, stage: "technical", name: "Test Template", interviewLanguage: "es" })
+      .returning();
+    await createCompetency(template.id, { name: "Programming", weight: 100, critical: false, expectedDepth: null });
+    await publishTemplate(template.id);
+
+    const newVersion = await createNewTemplateVersion(template.id);
+
+    expect(newVersion.interviewLanguage).toBe("es");
+  });
+
   it("leaves the source template and its content untouched", async () => {
     const { template, competency } = await createPublishedTemplateWithContent();
 
@@ -534,6 +575,9 @@ describe("createNewTemplateVersion", () => {
       minCompletion: 80,
       englishRequired: true,
       englishMinLevel: 4,
+      includeCompensationQuestion: false,
+      includeWorkAuthorizationCheck: false,
+      includeCodeExercises: false,
     });
     await publishTemplate(template.id);
 
@@ -637,6 +681,8 @@ describe("editable-template guard shared by delete/update mutations", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
     await publishTemplate(template.id);
 
@@ -657,6 +703,8 @@ describe("editable-template guard shared by delete/update mutations", () => {
         solution: null,
         jdRequirementTag: null,
         altSolutions: null,
+        requiresTechnicalKnowledge: false,
+        technicalTermHelper: null,
       })
     ).rejects.toThrow(/no longer editable/);
   });
@@ -685,6 +733,8 @@ describe("editable-template guard shared by delete/update mutations", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
     await publishTemplate(template.id);
 
@@ -704,6 +754,9 @@ describe("editable-template guard shared by delete/update mutations", () => {
         minCompletion: 70,
         englishRequired: false,
         englishMinLevel: 3,
+        includeCompensationQuestion: false,
+        includeWorkAuthorizationCheck: false,
+        includeCodeExercises: false,
       })
     ).rejects.toThrow(/no longer editable/);
   });
@@ -739,6 +792,8 @@ describe("createQuestion/updateQuestion competency-ownership guard", () => {
         solution: null,
         jdRequirementTag: null,
         altSolutions: null,
+        requiresTechnicalKnowledge: false,
+        technicalTermHelper: null,
       })
     ).rejects.toThrow(/doesn't belong to this template/);
   });
@@ -774,6 +829,8 @@ describe("createQuestion/updateQuestion competency-ownership guard", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
 
     await expect(
@@ -793,6 +850,8 @@ describe("createQuestion/updateQuestion competency-ownership guard", () => {
         solution: null,
         jdRequirementTag: null,
         altSolutions: null,
+        requiresTechnicalKnowledge: false,
+        technicalTermHelper: null,
       })
     ).rejects.toThrow(/doesn't belong to this template/);
   });
@@ -862,6 +921,8 @@ describe("moveQuestion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
     await createQuestion(template.id, {
       competencyId: competencyA.id,
@@ -879,6 +940,8 @@ describe("moveQuestion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
     const b1 = await createQuestion(template.id, {
       competencyId: competencyB.id,
@@ -896,6 +959,8 @@ describe("moveQuestion", () => {
       solution: null,
       jdRequirementTag: null,
       altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
     });
 
     await moveQuestion(a1.id, "down");
@@ -911,5 +976,79 @@ describe("moveQuestion", () => {
       where: eq(questions.id, b1.id),
     });
     expect(competencyBQuestion?.sortOrder).toBe(0);
+  });
+});
+
+// Plan Phase 23/§44.4/§44.8 — a template can be hard-deleted only while
+// status !== "locked", matching the DB's own RESTRICT on
+// interview_sessions.template_id exactly (locking happens automatically at
+// first Session use).
+describe("deleteTemplate / archiveTemplate / restoreTemplate", () => {
+  it("deletes a draft template, cascading its competencies/questions/requirements", async () => {
+    const { template } = await createTestTemplate();
+    const competency = await createCompetency(template.id, {
+      name: "Programming",
+      weight: 100,
+      critical: false,
+      expectedDepth: null,
+    });
+    await createMandatoryRequirement(template.id, { label: "Work authorization", description: null });
+
+    await deleteTemplate(template.id);
+
+    const reloadedTemplate = await db.query.interviewTemplates.findFirst({
+      where: eq(interviewTemplates.id, template.id),
+    });
+    expect(reloadedTemplate).toBeUndefined();
+    const reloadedCompetency = await db.query.competencies.findFirst({
+      where: eq(competencies.id, competency.id),
+    });
+    expect(reloadedCompetency).toBeUndefined();
+  });
+
+  it("deletes an approved-but-never-used template", async () => {
+    const { template } = await createTestTemplate();
+    await createCompetency(template.id, { name: "Programming", weight: 100, critical: false, expectedDepth: null });
+    await publishTemplate(template.id);
+
+    await deleteTemplate(template.id);
+
+    const reloaded = await db.query.interviewTemplates.findFirst({
+      where: eq(interviewTemplates.id, template.id),
+    });
+    expect(reloaded).toBeUndefined();
+  });
+
+  it("refuses to delete a locked template (has at least one Session)", async () => {
+    const { template } = await createTestTemplate();
+    await createCompetency(template.id, { name: "Programming", weight: 100, critical: false, expectedDepth: null });
+    await publishTemplate(template.id);
+    const [candidate] = await db
+      .insert(candidates)
+      .values({ name: `Test Candidate ${randomUUID()}` })
+      .returning();
+    await startInterviewSession(candidate.id, template.id);
+
+    await expect(deleteTemplate(template.id)).rejects.toThrow(/cannot be permanently deleted/);
+
+    const reloaded = await db.query.interviewTemplates.findFirst({
+      where: eq(interviewTemplates.id, template.id),
+    });
+    expect(reloaded).toBeDefined();
+  });
+
+  it("archives and restores a template", async () => {
+    const { template } = await createTestTemplate();
+    await archiveTemplate(template.id);
+    const afterArchive = await db.query.interviewTemplates.findFirst({
+      where: eq(interviewTemplates.id, template.id),
+    });
+    expect(afterArchive?.archivedAt).not.toBeNull();
+
+    await restoreTemplate(template.id);
+    const afterRestore = await db.query.interviewTemplates.findFirst({
+      where: eq(interviewTemplates.id, template.id),
+    });
+    expect(afterRestore?.archivedAt).toBeNull();
   });
 });

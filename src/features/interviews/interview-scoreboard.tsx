@@ -1,4 +1,5 @@
 import type { InterviewStatus } from "@/domain/scoring/types";
+import { t, type Locale } from "@/lib/i18n";
 import { PerformanceBar } from "./performance-bar";
 import { StatusBadge } from "./status-badge";
 
@@ -19,6 +20,7 @@ export function InterviewScoreboard({
   borderlineMin,
   passThreshold,
   englishLevel,
+  locale = "en",
 }: {
   candidateName: string;
   subtitle: string;
@@ -33,6 +35,7 @@ export function InterviewScoreboard({
   /** Omit entirely when the stage has no supplementary-assessment module;
    * `null` means the module is active but nothing's been recorded yet. */
   englishLevel?: number | null;
+  locale?: Locale;
 }) {
   return (
     <header className="sticky top-0 z-20 flex flex-col gap-3 border-b border-border bg-card px-6 py-3 shadow-sm">
@@ -42,11 +45,17 @@ export function InterviewScoreboard({
           <p className="text-[11.5px] text-muted-foreground">{subtitle}</p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          <ScoreChip label="Overall" value={overall !== null ? `${Math.round(overall)}%` : "—"} />
-          <ScoreChip label="Completion" value={`${Math.round(completion)}%`} />
-          <ScoreChip label="Critical" value={`${criticalMet}/${criticalTotal}`} />
+          <ScoreChip
+            label={t(locale, "interview.chipOverall")}
+            value={overall !== null ? `${Math.round(overall)}%` : "—"}
+          />
+          <ScoreChip label={t(locale, "interview.chipCompletion")} value={`${Math.round(completion)}%`} />
+          <ScoreChip label={t(locale, "interview.chipCritical")} value={`${criticalMet}/${criticalTotal}`} />
           {englishLevel !== undefined ? (
-            <ScoreChip label="English" value={englishLevel !== null ? `${englishLevel}/5` : "—"} />
+            <ScoreChip
+              label={t(locale, "interview.chipEnglish")}
+              value={englishLevel !== null ? `${englishLevel}/5` : "—"}
+            />
           ) : null}
           <StatusBadge status={status} label={statusLabel} className="ml-1" />
         </div>

@@ -189,4 +189,46 @@ describe("templateDraftSchema", () => {
       expect(q.expected).toBeNull();
     }
   });
+
+  // Plan Phase 22/§43.7/§43.12: First Screening HR-usability fields —
+  // additive on the shared question schema, defaulting to
+  // false/null so a technical-stage draft that never sets them still
+  // validates unchanged.
+  it("defaults requiresTechnicalKnowledge to false and technicalTermHelper to null when omitted", () => {
+    const minimalQuestion = { text: "What is a Page Object?", difficulty: "easy", importance: "core" };
+    const result = templateDraftSchema.safeParse({
+      ...validDraft,
+      competencies: [{ ...validDraft.competencies[0], questions: [minimalQuestion] }],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const q = result.data.competencies[0].questions[0];
+      expect(q.requiresTechnicalKnowledge).toBe(false);
+      expect(q.technicalTermHelper).toBeNull();
+    }
+  });
+
+  it("accepts an explicit requiresTechnicalKnowledge/technicalTermHelper value", () => {
+    const result = templateDraftSchema.safeParse({
+      ...validDraft,
+      competencies: [
+        {
+          ...validDraft.competencies[0],
+          questions: [
+            {
+              ...validQuestion,
+              requiresTechnicalKnowledge: true,
+              technicalTermHelper: "Kubernetes is commonly used to deploy containerized applications.",
+            },
+          ],
+        },
+      ],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const q = result.data.competencies[0].questions[0];
+      expect(q.requiresTechnicalKnowledge).toBe(true);
+      expect(q.technicalTermHelper).toBe("Kubernetes is commonly used to deploy containerized applications.");
+    }
+  });
 });

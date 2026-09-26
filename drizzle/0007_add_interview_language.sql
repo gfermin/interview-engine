@@ -1,0 +1,1 @@
+ALTER TABLE `interview_templates` ADD `interview_language` text DEFAULT 'en' NOT NULL;

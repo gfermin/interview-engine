@@ -1,5 +1,7 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PageContainer } from "@/components/layout/page-container";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +17,8 @@ import { QuestionCard } from "@/features/interviews/question-card";
 import { ReopenSessionButton } from "@/features/interviews/reopen-session-button";
 import { computeFullScoringResult } from "@/features/interviews/scoring";
 import { SectionNav } from "@/features/interviews/section-nav";
+import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
+import { t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +27,9 @@ export default async function LiveInterviewPage({
 }: {
   params: Promise<{ sessionId: string }>;
 }) {
+  const cookieStore = await cookies();
+  const locale = resolveLocale(cookieStore.get(APP_LOCALE_COOKIE)?.value);
+
   const { sessionId } = await params;
   const session = await getSessionDetail(sessionId);
   if (!session) notFound();
@@ -86,8 +93,9 @@ export default async function LiveInterviewPage({
         borderlineMin={session.borderlineMin}
         passThreshold={session.passThreshold}
         englishLevel={stageConfig.modules.supplementaryAssessments ? (englishAssessment?.level ?? null) : undefined}
+        locale={locale}
       />
-      <main className="mx-auto flex w-full max-w-[840px] flex-1 flex-col gap-5 px-6 py-7">
+      <PageContainer width="full">
         <Card>
           <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
             <div>
@@ -97,7 +105,7 @@ export default async function LiveInterviewPage({
                   href={`/candidates/${session.candidateId}`}
                   className="text-[12.5px] text-muted-foreground hover:underline"
                 >
-                  Back to candidate
+                  {t(locale, "interview.backToCandidate")}
                 </Link>
                 <Badge variant="secondary">{session.positionTitle}</Badge>
                 <Badge variant="secondary">{STAGE_LABELS[stage]}</Badge>
@@ -110,12 +118,12 @@ export default async function LiveInterviewPage({
               {editable ? (
                 <form action={finishRatingAction.bind(null, sessionId)}>
                   <Button type="submit" size="sm" variant="outline">
-                    View Summary
+                    {t(locale, "interview.viewSummary")}
                   </Button>
                 </form>
               ) : (
                 <ButtonLink size="sm" variant="outline" href={`/interviews/${sessionId}/summary`}>
-                  View Summary
+                  {t(locale, "interview.viewSummary")}
                 </ButtonLink>
               )}
             </div>
@@ -126,11 +134,12 @@ export default async function LiveInterviewPage({
           <Card>
             <CardContent className="flex items-center justify-between gap-2 p-4">
               <p className="text-[12.5px] text-muted-foreground">
-                This interview has been finished ({SESSION_STATUS_LABELS[session.status]}) —
-                ratings are read-only. Reopen it to make further changes.
+                {t(locale, "interview.finishedBannerPrefix")}
+                {SESSION_STATUS_LABELS[session.status]}
+                {t(locale, "interview.finishedBannerSuffix")}
               </p>
               {canReopenSession(session) ? (
-                <ReopenSessionButton action={reopenSessionAction.bind(null, sessionId)} />
+                <ReopenSessionButton action={reopenSessionAction.bind(null, sessionId)} locale={locale} />
               ) : null}
             </CardContent>
           </Card>
@@ -138,7 +147,7 @@ export default async function LiveInterviewPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-[13.5px]">Sections</CardTitle>
+            <CardTitle className="text-[13.5px]">{t(locale, "interview.sectionsHeading")}</CardTitle>
           </CardHeader>
           <CardContent>
             <SectionNav sections={sections} />
@@ -148,7 +157,7 @@ export default async function LiveInterviewPage({
         {competencies.length === 0 ? (
           <Card>
             <CardContent className="p-6 text-sm text-muted-foreground">
-              This template has no competencies — nothing to evaluate.
+              {t(locale, "interview.noCompetencies")}
             </CardContent>
           </Card>
         ) : (
@@ -161,7 +170,7 @@ export default async function LiveInterviewPage({
                     {competency.name}
                     {competency.critical ? (
                       <Badge variant="destructive" className="ml-2 align-middle">
-                        Critical
+                        {t(locale, "interview.criticalBadge")}
                       </Badge>
                     ) : null}
                   </CardTitle>
@@ -169,17 +178,20 @@ export default async function LiveInterviewPage({
                     {competencyStatById.get(competency.id)?.percent !== null &&
                     competencyStatById.get(competency.id)?.percent !== undefined
                       ? `${Math.round(competencyStatById.get(competency.id)!.percent!)}%`
-                      : "No evidence yet"}
+                      : t(locale, "interview.noEvidenceYet")}
                   </span>
                 </CardHeader>
                 <CardContent>
                   {competency.expectedDepth ? (
                     <p className="mb-3 text-[11.5px] text-muted-foreground">
-                      Expected depth: {competency.expectedDepth}
+                      {t(locale, "interview.expectedDepthPrefix")}
+                      {competency.expectedDepth}
                     </p>
                   ) : null}
                   {competencyQuestions.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No questions in this competency.</p>
+                    <p className="text-sm text-muted-foreground">
+                      {t(locale, "interview.noQuestionsInCompetency")}
+                    </p>
                   ) : (
                     <ul className="flex flex-col gap-3">
                       {competencyQuestions.map((question) => {
@@ -195,6 +207,8 @@ export default async function LiveInterviewPage({
                             currentValue={currentValue}
                             notes={row?.notes ?? null}
                             editable={editable}
+                            stage={stage}
+                            locale={locale}
                           />
                         );
                       })}
@@ -205,7 +219,7 @@ export default async function LiveInterviewPage({
             );
           })
         )}
-      </main>
+      </PageContainer>
     </>
   );
 }

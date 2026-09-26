@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { t, type Locale } from "@/lib/i18n";
 import type { FormActionState } from "./actions";
 
 interface CandidateFormProps {
@@ -18,9 +19,10 @@ interface CandidateFormProps {
     notes?: string | null;
   };
   submitLabel: string;
+  locale?: Locale;
 }
 
-export function CandidateForm({ action, defaultValues, submitLabel }: CandidateFormProps) {
+export function CandidateForm({ action, defaultValues, submitLabel, locale = "en" }: CandidateFormProps) {
   const [state, formAction, pending] = useActionState<
     FormActionState | undefined,
     FormData
@@ -33,11 +35,11 @@ export function CandidateForm({ action, defaultValues, submitLabel }: CandidateF
       ) : null}
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="name">Full name</Label>
+        <Label htmlFor="name">{t(locale, "candidates.fullNameLabel")}</Label>
         <Input
           id="name"
           name="name"
-          placeholder="e.g. Jordan Rivera"
+          placeholder={t(locale, "candidates.fullNamePlaceholder")}
           defaultValue={defaultValues?.name}
           required
         />
@@ -47,12 +49,12 @@ export function CandidateForm({ action, defaultValues, submitLabel }: CandidateF
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="email">Email (optional)</Label>
+        <Label htmlFor="email">{t(locale, "candidates.emailLabel")}</Label>
         <Input
           id="email"
           name="email"
           type="email"
-          placeholder="jordan@example.com"
+          placeholder={t(locale, "candidates.emailPlaceholder")}
           defaultValue={defaultValues?.email ?? ""}
         />
         {state?.fieldErrors?.email ? (
@@ -61,18 +63,18 @@ export function CandidateForm({ action, defaultValues, submitLabel }: CandidateF
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="notes">Notes (optional)</Label>
+        <Label htmlFor="notes">{t(locale, "candidates.notesLabel")}</Label>
         <Textarea
           id="notes"
           name="notes"
           rows={4}
-          placeholder="Sourcing context, scheduling notes, etc."
+          placeholder={t(locale, "candidates.notesPlaceholder")}
           defaultValue={defaultValues?.notes ?? ""}
         />
       </div>
 
       <Button type="submit" disabled={pending} className="self-start">
-        {pending ? "Saving..." : submitLabel}
+        {pending ? t(locale, "candidates.saving") : submitLabel}
       </Button>
     </form>
   );

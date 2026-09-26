@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getActiveJobDescription } from "@/features/positions/queries";
 import {
+  archiveTemplate,
   createCompetency,
   createMandatoryRequirement,
   createNewTemplateVersion,
@@ -12,10 +13,12 @@ import {
   deleteCompetency,
   deleteMandatoryRequirement,
   deleteQuestion,
+  deleteTemplate,
   moveCompetency,
   moveMandatoryRequirement,
   moveQuestion,
   publishTemplate,
+  restoreTemplate,
   updateCompetency,
   updateMandatoryRequirement,
   updateQuestion,
@@ -77,6 +80,32 @@ export async function createNewVersionAction(templateId: string) {
   const newVersion = await createNewTemplateVersion(templateId);
   revalidatePath("/templates");
   redirect(`/templates/${newVersion.id}`);
+}
+
+/** Plan Phase 23/§44 — the Template detail page only ever renders this
+ * button when the precondition (`hasSessionsForTemplate` returning false)
+ * already holds, so a call here is expected to succeed; a stale/guarded
+ * request is a silent no-op, matching this file's own `deleteCompetencyAction`
+ * pattern below. The template no longer exists afterward, so this redirects
+ * to the Templates list rather than revalidating a page that's gone. */
+export async function deleteTemplateAction(templateId: string) {
+  try {
+    await deleteTemplate(templateId);
+  } catch {
+    // see deleteCompetencyAction's identical note further down this file
+  }
+  revalidatePath("/templates");
+  redirect("/templates");
+}
+
+export async function archiveTemplateAction(templateId: string) {
+  await archiveTemplate(templateId);
+  revalidateTemplate(templateId);
+}
+
+export async function restoreTemplateAction(templateId: string) {
+  await restoreTemplate(templateId);
+  revalidateTemplate(templateId);
 }
 
 export async function updateScoringConfigAction(

@@ -1,9 +1,13 @@
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { AppTopbar } from "@/components/layout/app-topbar";
+import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { updatePositionAction } from "@/features/positions/actions";
 import { PositionForm } from "@/features/positions/position-form";
 import { getPosition } from "@/features/positions/queries";
+import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
+import { t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +16,9 @@ export default async function EditPositionPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const cookieStore = await cookies();
+  const locale = resolveLocale(cookieStore.get(APP_LOCALE_COOKIE)?.value);
+
   const { id } = await params;
   const position = await getPosition(id);
   if (!position) notFound();
@@ -20,21 +27,22 @@ export default async function EditPositionPage({
 
   return (
     <>
-      <AppTopbar title={`Edit ${position.title}`} />
-      <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col gap-5 px-6 py-7">
+      <AppTopbar title={`${t(locale, "positions.editPrefix")}${position.title}`} locale={locale} />
+      <PageContainer width="standard">
         <Card>
           <CardHeader>
-            <CardTitle className="text-[15px]">Edit Position</CardTitle>
+            <CardTitle className="text-[15px]">{t(locale, "positions.editPositionHeading")}</CardTitle>
           </CardHeader>
           <CardContent>
             <PositionForm
               action={boundUpdatePosition}
               defaultValues={position}
-              submitLabel="Save Changes"
+              submitLabel={t(locale, "positions.saveChangesButton")}
+              locale={locale}
             />
           </CardContent>
         </Card>
-      </main>
+      </PageContainer>
     </>
   );
 }

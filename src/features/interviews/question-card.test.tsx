@@ -20,6 +20,7 @@ const BASE_QUESTION = {
   solution: null,
   jdRequirementTag: null,
   altSolutions: null,
+  technicalTermHelper: null,
 };
 
 describe("QuestionCard", () => {

@@ -1,14 +1,31 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import { PageContainer } from "@/components/layout/page-container";
+import { LifecycleActionButton } from "@/components/lifecycle-action-button";
+import { RowActionButton } from "@/components/row-action-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { canGenerateReport, canReopenSession, isSessionDecided } from "@/domain/interviews/session-lifecycle";
+import {
+  canDeleteSession,
+  canGenerateReport,
+  canReopenSession,
+  isSessionDecided,
+} from "@/domain/interviews/session-lifecycle";
 import { canRecordDecision } from "@/domain/interviews/decision";
+import type { InterviewLanguage } from "@/domain/interviews/interview-language";
 import { buildNarrative } from "@/domain/interviews/narrative";
 import { categorizeCompetencies } from "@/domain/interviews/result-categories";
 import { getStageConfig, statusLabelFor, type InterviewStage } from "@/domain/interviews/stage-config";
 import type { MandatoryRequirementStatus } from "@/domain/scoring/types";
-import { recordDecisionAction, reopenSessionAction } from "@/features/interviews/actions";
+import {
+  archiveSessionAction,
+  deleteSessionAction,
+  recordDecisionAction,
+  reopenSessionAction,
+  restoreSessionAction,
+} from "@/features/interviews/actions";
 import { CompetencyDashboard, type CompetencyDashboardEntry } from "@/features/interviews/competency-dashboard";
 import { DecisionForm } from "@/features/interviews/decision-form";
 import { EnglishAssessmentControl } from "@/features/interviews/english-assessment-control";
@@ -25,18 +42,15 @@ import {
 import { ReopenSessionButton } from "@/features/interviews/reopen-session-button";
 import { computeFullScoringResult } from "@/features/interviews/scoring";
 import { getPosition } from "@/features/positions/queries";
-import { generateReportAction } from "@/features/reports/actions";
+import { deleteReportAction, generateReportAction } from "@/features/reports/actions";
 import { GenerateReportButton } from "@/features/reports/generate-report-button";
 import { listReportsForSession } from "@/features/reports/queries";
+import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
 import { listCompetencies, listMandatoryRequirements } from "@/features/templates/queries";
+import { t, type Locale } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-const MANDATORY_STATUS_LABEL: Record<MandatoryRequirementStatus, string> = {
-  met: "Met",
-  not_met: "Not Met",
-  unknown: "Unknown",
-};
 // A MandatoryRequirement is a boolean knockout gate (plan §4.3/§19) — the
 // same pass/fail/na color language the calculated interview status uses
 // applies directly: met=pass, not_met=fail, unknown=na (no evidence yet,
@@ -47,17 +61,27 @@ const MANDATORY_STATUS_TONE: Record<MandatoryRequirementStatus, BadgeTone> = {
   unknown: "na",
 };
 
+function mandatoryStatusLabel(locale: Locale, status: MandatoryRequirementStatus): string {
+  const key = status === "met" ? "mandatoryStatusMet" : status === "not_met" ? "mandatoryStatusNotMet" : "mandatoryStatusUnknown";
+  return t(locale, `interview.${key}`);
+}
+
 export default async function InterviewSummaryPage({
   params,
 }: {
   params: Promise<{ sessionId: string }>;
 }) {
+  const cookieStore = await cookies();
+  const locale = resolveLocale(cookieStore.get(APP_LOCALE_COOKIE)?.value);
+
   const { sessionId } = await params;
   const session = await getSessionDetail(sessionId);
   if (!session) notFound();
 
   const stage = session.stage as InterviewStage;
   const stageConfig = getStageConfig(stage);
+  const isArchived = Boolean(session.archivedAt);
+  const deleteCheck = canDeleteSession(session);
 
   const [
     result,
@@ -105,6 +129,8 @@ export default async function InterviewSummaryPage({
     overall: result.overall,
     completion: result.completion,
     reason: result.reason,
+    language: session.interviewLanguage as InterviewLanguage,
+    stage,
   });
 
   const dashboardEntries: CompetencyDashboardEntry[] = competencies.map((competency) => {
@@ -154,7 +180,7 @@ export default async function InterviewSummaryPage({
     <>
       <InterviewScoreboard
         candidateName={session.candidateName}
-        subtitle={`${session.positionTitle} · ${stageConfig.label} · v${session.templateVersion} · Summary`}
+        subtitle={`${session.positionTitle} · ${stageConfig.label} · v${session.templateVersion} · ${t(locale, "interview.summaryLabel")}`}
         overall={result.overall}
         completion={result.completion}
         criticalMet={
@@ -167,8 +193,9 @@ export default async function InterviewSummaryPage({
         borderlineMin={session.borderlineMin}
         passThreshold={session.passThreshold}
         englishLevel={stageConfig.modules.supplementaryAssessments ? (englishAssessment?.level ?? null) : undefined}
+        locale={locale}
       />
-      <main className="mx-auto flex w-full max-w-[840px] flex-1 flex-col gap-5 px-6 py-7">
+      <PageContainer width="full">
         <Card>
           <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
             <div>
@@ -178,46 +205,91 @@ export default async function InterviewSummaryPage({
                   href={`/interviews/${sessionId}`}
                   className="text-[12.5px] text-muted-foreground hover:underline"
                 >
-                  Back to rating
+                  {t(locale, "interview.backToRating")}
                 </Link>
                 <Badge variant="secondary">{session.positionTitle}</Badge>
                 <Badge variant="secondary">{stageConfig.label}</Badge>
                 <Badge variant="outline" className="font-mono">
                   v{session.templateVersion}
                 </Badge>
+                {isArchived ? (
+                  <Badge variant="outline">{t(locale, "interview.archivedBadge")}</Badge>
+                ) : null}
               </div>
             </div>
-            {canReopenSession(session) ? (
-              <ReopenSessionButton action={reopenSessionAction.bind(null, sessionId)} />
-            ) : null}
+            <div className="flex flex-wrap items-start gap-2">
+              {canReopenSession(session) ? (
+                <ReopenSessionButton action={reopenSessionAction.bind(null, sessionId)} locale={locale} />
+              ) : null}
+              {isArchived ? (
+                <LifecycleActionButton
+                  action={restoreSessionAction.bind(null, sessionId)}
+                  label={t(locale, "interview.restoreSessionButton")}
+                  icon={<ArchiveRestore />}
+                />
+              ) : (
+                <>
+                  <LifecycleActionButton
+                    action={archiveSessionAction.bind(null, sessionId)}
+                    label={t(locale, "interview.archiveSessionButton")}
+                    icon={<Archive />}
+                    confirmMessage={t(locale, "interview.archiveSessionConfirm")}
+                  />
+                  {deleteCheck ? (
+                    <LifecycleActionButton
+                      action={deleteSessionAction.bind(null, sessionId)}
+                      label={t(locale, "interview.deleteSessionButton")}
+                      icon={<Trash2 />}
+                      variant="destructive"
+                      confirmMessage={`${t(locale, "interview.deleteSessionConfirmPrefix")}${session.candidateName}${t(locale, "interview.deleteSessionConfirmSuffix")}`}
+                    />
+                  ) : null}
+                </>
+              )}
+            </div>
           </CardHeader>
+          {!isArchived && !deleteCheck ? (
+            <CardContent className="pt-0">
+              <p className="text-[11.5px] text-muted-foreground">
+                {t(locale, "interview.cannotDeleteSessionNote")}
+              </p>
+            </CardContent>
+          ) : null}
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-[13.5px]">Score Breakdown</CardTitle>
+            <CardTitle className="text-[13.5px]">{t(locale, "interview.scoreBreakdownHeading")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <p className="text-[12.5px] text-muted-foreground">{result.reason}</p>
             <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
               <div>
-                <dt className="text-[11px] text-muted-foreground">Overall</dt>
+                <dt className="text-[11px] text-muted-foreground">{t(locale, "interview.overallLabel")}</dt>
                 <dd className="font-mono text-sm">
                   {result.overall !== null ? `${Math.round(result.overall)}%` : "—"}
                 </dd>
               </div>
               <div>
-                <dt className="text-[11px] text-muted-foreground">Completion</dt>
+                <dt className="text-[11px] text-muted-foreground">{t(locale, "interview.completionLabel")}</dt>
                 <dd className="font-mono text-sm">{Math.round(result.completion)}%</dd>
               </div>
               <div>
-                <dt className="text-[11px] text-muted-foreground">Recommendation</dt>
+                <dt className="text-[11px] text-muted-foreground">{t(locale, "interview.recommendationLabel")}</dt>
                 <dd className="text-sm">
                   {result.recommendation === "REVIEW_REQUIRED"
-                    ? "Review Required"
+                    ? t(locale, "interview.reviewRequired")
                     : result.recommendation
                       ? statusLabelFor(stage, result.recommendation)
                       : "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-muted-foreground">{t(locale, "interview.codingExerciseLabel")}</dt>
+                <dd className="text-sm">
+                  {stage === "technical" && session.includeCodeExercises
+                    ? t(locale, "interview.codingExerciseIncludedValue")
+                    : t(locale, "interview.codingExerciseNotIncludedValue")}
                 </dd>
               </div>
             </dl>
@@ -226,21 +298,36 @@ export default async function InterviewSummaryPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-[13.5px]">Competency Dashboard</CardTitle>
+            <CardTitle className="text-[13.5px]">{t(locale, "interview.competencyDashboardHeading")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <CompetencyDashboard entries={dashboardEntries} />
+            <CompetencyDashboard entries={dashboardEntries} locale={locale} />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-[13.5px]">Results</CardTitle>
+            <CardTitle className="text-[13.5px]">{t(locale, "interview.resultsHeading")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <ResultList label="Strongest areas" tone="pass" items={categories.strengths} />
-            <ResultList label="Borderline areas" tone="borderline" items={categories.borderlineAreas} />
-            <ResultList label="Areas of concern" tone="fail" items={categories.concerns} />
+            <ResultList
+              label={t(locale, "interview.strongestAreas")}
+              tone="pass"
+              items={categories.strengths}
+              locale={locale}
+            />
+            <ResultList
+              label={t(locale, "interview.borderlineAreasLabel")}
+              tone="borderline"
+              items={categories.borderlineAreas}
+              locale={locale}
+            />
+            <ResultList
+              label={t(locale, "interview.areasOfConcern")}
+              tone="fail"
+              items={categories.concerns}
+              locale={locale}
+            />
           </CardContent>
         </Card>
 
@@ -248,7 +335,7 @@ export default async function InterviewSummaryPage({
           <Card className="border-borderline-border">
             <CardHeader>
               <CardTitle className="text-[13.5px] text-borderline">
-                Borderline follow-up — additional evidence recommended
+                {t(locale, "interview.borderlineFollowupHeading")}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -260,8 +347,8 @@ export default async function InterviewSummaryPage({
                     </span>
                     <span className="font-mono text-[11.5px] text-muted-foreground">
                       {unratedCountByCompetency.get(area.competencyId)
-                        ? `${unratedCountByCompetency.get(area.competencyId)} unrated question(s)`
-                        : "no additional questions available"}
+                        ? `${unratedCountByCompetency.get(area.competencyId)}${t(locale, "interview.unratedQuestionsSuffix")}`
+                        : t(locale, "interview.noAdditionalQuestions")}
                     </span>
                   </li>
                 ))}
@@ -272,13 +359,12 @@ export default async function InterviewSummaryPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-[13.5px]">Mandatory Requirements</CardTitle>
+            <CardTitle className="text-[13.5px]">{t(locale, "interview.mandatoryRequirementsHeading")}</CardTitle>
           </CardHeader>
           <CardContent>
             {mandatoryRequirements.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                This template has no mandatory requirements — the PASS/FAIL gate here is
-                purely competency-driven.
+                {t(locale, "interview.noMandatoryRequirementsNote")}
               </p>
             ) : (
               <ul className="flex flex-col gap-2">
@@ -296,13 +382,14 @@ export default async function InterviewSummaryPage({
                     {isSessionDecided(session) ? (
                       <ToneBadge
                         tone={MANDATORY_STATUS_TONE[mrStatusByRequirementId.get(requirement.id) ?? "unknown"]}
-                        label={MANDATORY_STATUS_LABEL[mrStatusByRequirementId.get(requirement.id) ?? "unknown"]}
+                        label={mandatoryStatusLabel(locale, mrStatusByRequirementId.get(requirement.id) ?? "unknown")}
                       />
                     ) : (
                       <MandatoryRequirementControl
                         sessionId={sessionId}
                         requirementId={requirement.id}
                         currentStatus={mrStatusByRequirementId.get(requirement.id) ?? "unknown"}
+                        locale={locale}
                       />
                     )}
                   </li>
@@ -315,16 +402,16 @@ export default async function InterviewSummaryPage({
         {stageConfig.modules.supplementaryAssessments ? (
           <Card>
             <CardHeader>
-              <CardTitle className="text-[13.5px]">English Assessment</CardTitle>
+              <CardTitle className="text-[13.5px]">{t(locale, "interview.englishAssessmentHeading")}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
               <p className="text-[11.5px] text-muted-foreground">
-                Optional supplementary module — only gates the decision if the template
-                marks it required.
+                {t(locale, "interview.englishAssessmentNote")}
               </p>
               {isSessionDecided(session) ? (
                 <Badge variant="outline" className="w-fit">
-                  Level: {englishAssessment?.level ?? "Not assessed"}
+                  {t(locale, "interview.levelPrefix")}
+                  {englishAssessment?.level ?? t(locale, "interview.notAssessed")}
                 </Badge>
               ) : (
                 <EnglishAssessmentControl sessionId={sessionId} currentLevel={englishAssessment?.level ?? null} />
@@ -335,7 +422,7 @@ export default async function InterviewSummaryPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-[13.5px]">Narrative Summary</CardTitle>
+            <CardTitle className="text-[13.5px]">{t(locale, "interview.narrativeSummaryHeading")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="rounded-lg border border-border bg-muted/40 p-3 text-[12.5px] leading-relaxed">
@@ -346,13 +433,13 @@ export default async function InterviewSummaryPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-[13.5px]">Decision</CardTitle>
+            <CardTitle className="text-[13.5px]">{t(locale, "interview.decisionHeading")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             {recordedDecision ? (
               <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-muted/40 p-3 text-[12.5px]">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">Recorded:</span>
+                  <span className="font-medium">{t(locale, "interview.recordedLabel")}</span>
                   <ToneBadge
                     tone={recordedDecision.finalDecision === "PASS" ? "pass" : "fail"}
                     label={statusLabelFor(stage, recordedDecision.finalDecision)}
@@ -376,12 +463,18 @@ export default async function InterviewSummaryPage({
                 status={result.status}
                 stage={stage}
                 existingDecision={recordedDecision}
+                locale={locale}
               />
             ) : (
               <p className="text-sm text-muted-foreground">
-                {result.reason} A decision can be recorded once the interview reaches a{" "}
-                {statusLabelFor(stage, "PASS")}, {statusLabelFor(stage, "FAIL")}, or{" "}
-                {statusLabelFor(stage, "BORDERLINE")} calculated result.
+                {result.reason}
+                {t(locale, "interview.decisionPendingPrefix")}
+                {statusLabelFor(stage, "PASS")}
+                {t(locale, "interview.decisionPendingSeparator")}
+                {statusLabelFor(stage, "FAIL")}
+                {t(locale, "interview.decisionPendingOr")}
+                {statusLabelFor(stage, "BORDERLINE")}
+                {t(locale, "interview.decisionPendingSuffix")}
               </p>
             )}
           </CardContent>
@@ -389,7 +482,7 @@ export default async function InterviewSummaryPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-[13.5px]">Report</CardTitle>
+            <CardTitle className="text-[13.5px]">{t(locale, "interview.reportHeading")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             {reports.length > 0 ? (
@@ -397,33 +490,45 @@ export default async function InterviewSummaryPage({
                 {reports.map((report) => (
                   <li
                     key={report.id}
-                    className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-[12.5px]"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-[12.5px]"
                   >
-                    <span className="text-muted-foreground">
-                      Generated <span className="font-mono">{report.createdAt.toLocaleString()}</span> (
-                      <span className="font-mono">{Math.round(report.fileSize / 1024)} KB</span>)
-                    </span>
-                    <a
-                      href={`/api/reports/${report.id}`}
-                      className="font-medium text-primary hover:underline"
-                    >
-                      Download
-                    </a>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium">
+                        {report.displayName ?? `${session.candidateName} — ${session.positionTitle} — ${stageConfig.label}`}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {t(locale, "interview.reportGenerated")}{" "}
+                        <span className="font-mono">{report.createdAt.toLocaleString(locale)}</span> (
+                        <span className="font-mono">{Math.round(report.fileSize / 1024)} KB</span>)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <a
+                        href={`/api/reports/${report.id}`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {t(locale, "interview.downloadLabel")}
+                      </a>
+                      <RowActionButton
+                        action={deleteReportAction.bind(null, report.id, sessionId)}
+                        icon={<Trash2 />}
+                        label={t(locale, "interview.deleteReportButton")}
+                        confirmMessage={t(locale, "interview.deleteReportConfirm")}
+                      />
+                    </div>
                   </li>
                 ))}
               </ul>
             ) : null}
 
             {canGenerateReport(session) ? (
-              <GenerateReportButton action={generateReportAction.bind(null, sessionId)} />
+              <GenerateReportButton action={generateReportAction.bind(null, sessionId)} locale={locale} />
             ) : (
-              <p className="text-sm text-muted-foreground">
-                A report can be generated once a decision has been recorded above.
-              </p>
+              <p className="text-sm text-muted-foreground">{t(locale, "interview.reportPendingNote")}</p>
             )}
           </CardContent>
         </Card>
-      </main>
+      </PageContainer>
     </>
   );
 }
@@ -442,10 +547,12 @@ function ResultList({
   label,
   tone,
   items,
+  locale,
 }: {
   label: string;
   tone: keyof typeof RESULT_LIST_CLASSES;
   items: { competencyId: string; name: string; percent: number }[];
+  locale: Locale;
 }) {
   return (
     <div>
@@ -459,7 +566,7 @@ function ResultList({
           ))}
         </ul>
       ) : (
-        <p className="mt-1 text-[12px] text-muted-foreground">Insufficient evidence yet.</p>
+        <p className="mt-1 text-[12px] text-muted-foreground">{t(locale, "interview.insufficientEvidence")}</p>
       )}
     </div>
   );

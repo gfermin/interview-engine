@@ -17,7 +17,12 @@ import {
   type DecisionMode,
   type FinalDecision,
 } from "@/domain/interviews/decision";
-import { canReopenSession, isSessionDecided, isSessionEditable } from "@/domain/interviews/session-lifecycle";
+import {
+  canDeleteSession,
+  canReopenSession,
+  isSessionDecided,
+  isSessionEditable,
+} from "@/domain/interviews/session-lifecycle";
 import type { MandatoryRequirementStatus, QuestionScore } from "@/domain/scoring/types";
 import { getMandatoryRequirement, getQuestion, listCompetencies } from "@/features/templates/queries";
 import { buildSessionEvaluationState, getSession } from "./queries";
@@ -294,5 +299,47 @@ export async function reopenSession(sessionId: string) {
       reopenCount: session.reopenCount + 1,
       updatedAt: new Date(),
     })
+    .where(eq(interviewSessions.id, sessionId));
+}
+
+/**
+ * Deletes an Interview Session (plan Phase 23/§44.4) — allowed only for
+ * `in_progress`/`completed` sessions (no recorded decision yet). A
+ * `decided` session represents a real hiring evaluation and can only be
+ * archived, never hard-deleted, in this policy. Cascades (DB-level) through
+ * its question/mandatory-requirement/competency evaluations, supplementary
+ * assessment, decision, and reports — all correctly empty or non-authoritative
+ * for a session this check allows deleting.
+ */
+export async function deleteSession(sessionId: string) {
+  const session = await getSession(sessionId);
+  if (!session) throw new Error("Session not found.");
+  if (!canDeleteSession(session)) {
+    throw new Error(
+      "This interview has a recorded decision and cannot be permanently deleted. Archive it instead to preserve the evaluation history."
+    );
+  }
+  await db.delete(interviewSessions).where(eq(interviewSessions.id, sessionId));
+}
+
+/** Archives a session (plan Phase 23/§44.4) — hides it from the global
+ * Interview History list and Dashboard, but not from the candidate's own
+ * session list or the Reports list. Available for any status, and is the
+ * only removal path for a `decided` session. */
+export async function archiveSession(sessionId: string) {
+  const session = await getSession(sessionId);
+  if (!session) throw new Error("Session not found.");
+  await db
+    .update(interviewSessions)
+    .set({ archivedAt: new Date(), updatedAt: new Date() })
+    .where(eq(interviewSessions.id, sessionId));
+}
+
+export async function restoreSession(sessionId: string) {
+  const session = await getSession(sessionId);
+  if (!session) throw new Error("Session not found.");
+  await db
+    .update(interviewSessions)
+    .set({ archivedAt: null, updatedAt: new Date() })
     .where(eq(interviewSessions.id, sessionId));
 }

@@ -1,5 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { SCORE_TO_PERCENT, type QuestionScore } from "@/domain/scoring/types";
+import type { InterviewStage } from "@/domain/interviews/stage-config";
+import { t, type Locale } from "@/lib/i18n";
 import { difficultyBadgeClass } from "@/lib/question-style";
 import { updateNotesAction } from "./actions";
 import { NotesField } from "./notes-field";
@@ -21,11 +23,12 @@ interface QuestionCardQuestion {
   solution: string | null;
   jdRequirementTag: string | null;
   altSolutions: string | null;
+  technicalTermHelper: string | null;
 }
 
-function scorePercentLabel(value: QuestionScore): string {
-  if (value === null) return "unrated";
-  if (value === "na") return "excluded";
+function scorePercentLabel(locale: Locale, value: QuestionScore): string {
+  if (value === null) return t(locale, "interview.unratedLower");
+  if (value === "na") return t(locale, "interview.excludedLower");
   return `${SCORE_TO_PERCENT[value]}%`;
 }
 
@@ -45,12 +48,16 @@ export function QuestionCard({
   currentValue,
   notes,
   editable = true,
+  stage = "technical",
+  locale = "en",
 }: {
   sessionId: string;
   question: QuestionCardQuestion;
   currentValue: QuestionScore;
   notes: string | null;
   editable?: boolean;
+  stage?: InterviewStage;
+  locale?: Locale;
 }) {
   const hasReference =
     question.expected ||
@@ -78,27 +85,39 @@ export function QuestionCard({
             </Badge>
             {question.jdRequirementTag ? (
               <Badge variant="secondary" className="font-normal normal-case">
-                JD: {question.jdRequirementTag}
+                {t(locale, "interview.jdTagPrefix")}
+                {question.jdRequirementTag}
               </Badge>
             ) : null}
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
           {editable ? (
-            <RateBar sessionId={sessionId} questionId={question.id} currentValue={currentValue} />
+            <RateBar
+              sessionId={sessionId}
+              questionId={question.id}
+              currentValue={currentValue}
+              stage={stage}
+            />
           ) : (
             <Badge variant="outline" className="font-mono">
-              {currentValue === null ? "Unrated" : currentValue === "na" ? "N/A" : `Score: ${currentValue}`}
+              {currentValue === null
+                ? t(locale, "interview.unrated")
+                : currentValue === "na"
+                  ? "N/A"
+                  : `${t(locale, "interview.scorePrefix")}${currentValue}`}
             </Badge>
           )}
-          <span className="font-mono text-[11px] text-muted-foreground">{scorePercentLabel(currentValue)}</span>
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {scorePercentLabel(locale, currentValue)}
+          </span>
         </div>
       </div>
 
       {question.code ? (
         <details>
           <summary className="cursor-pointer text-[11.5px] text-muted-foreground">
-            Code exercise
+            {t(locale, "interview.codeExercise")}
           </summary>
           <div className="mt-2 flex flex-col gap-2">
             <pre className="overflow-auto rounded-lg border border-border bg-muted/40 p-3 text-[11.5px] whitespace-pre-wrap">
@@ -111,7 +130,7 @@ export function QuestionCard({
             ) : null}
             {question.altSolutions ? (
               <p className="text-[12px]">
-                <span className="font-medium">Other valid approaches: </span>
+                <span className="font-medium">{t(locale, "interview.otherValidApproachesPrefix")}</span>
                 {question.altSolutions}
               </p>
             ) : null}
@@ -119,39 +138,48 @@ export function QuestionCard({
         </details>
       ) : null}
 
+      {question.technicalTermHelper ? (
+        <details className="rounded-lg border border-dashed border-border" open>
+          <summary className="cursor-pointer px-3 py-2 text-[11.5px] font-medium text-muted-foreground">
+            {t(locale, "interview.whatIsThisLabel")}
+          </summary>
+          <p className="px-3 pb-3 text-[12px]">{question.technicalTermHelper}</p>
+        </details>
+      ) : null}
+
       {hasReference ? (
         <details>
           <summary className="cursor-pointer text-[11.5px] text-muted-foreground">
-            Expected answer
+            {t(locale, "interview.expectedAnswer")}
           </summary>
           <div className="mt-2 flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-3 text-[12px]">
             {question.expected ? (
               <p>
-                <span className="font-medium">Expected: </span>
+                <span className="font-medium">{t(locale, "interview.expectedPrefix")}</span>
                 {question.expected}
               </p>
             ) : null}
             {question.strong ? (
               <p>
-                <span className="font-medium">Strong answer: </span>
+                <span className="font-medium">{t(locale, "interview.strongAnswerPrefix")}</span>
                 {question.strong}
               </p>
             ) : null}
             {question.acceptable ? (
               <p>
-                <span className="font-medium">Acceptable: </span>
+                <span className="font-medium">{t(locale, "interview.acceptablePrefix")}</span>
                 {question.acceptable}
               </p>
             ) : null}
             {question.concepts.length > 0 ? (
               <p>
-                <span className="font-medium">Key concepts: </span>
+                <span className="font-medium">{t(locale, "interview.keyConceptsPrefix")}</span>
                 {question.concepts.join(", ")}
               </p>
             ) : null}
             {question.redFlags.length > 0 ? (
               <p>
-                <span className="font-medium text-destructive">Red flags: </span>
+                <span className="font-medium text-destructive">{t(locale, "interview.redFlagsPrefix")}</span>
                 {question.redFlags.join(", ")}
               </p>
             ) : null}
@@ -162,7 +190,7 @@ export function QuestionCard({
       {question.rubric.length > 0 ? (
         <details>
           <summary className="cursor-pointer text-[11.5px] text-muted-foreground">
-            Scoring guide
+            {t(locale, "interview.scoringGuide")}
           </summary>
           <ul className="mt-2 flex flex-col gap-1 rounded-lg border border-border bg-muted/40 p-3 text-[12px]">
             {question.rubric.map((line, index) => (
@@ -175,7 +203,7 @@ export function QuestionCard({
       {question.followUps.length > 0 ? (
         <details>
           <summary className="cursor-pointer text-[11.5px] text-muted-foreground">
-            Follow-ups
+            {t(locale, "interview.followUps")}
           </summary>
           <ul className="mt-2 list-disc rounded-lg border border-border bg-muted/40 p-3 pl-8 text-[12px]">
             {question.followUps.map((followUp) => (

@@ -5,7 +5,14 @@ import { describe, expect, it } from "vitest";
 import { db } from "@/db";
 import { interviewTemplates, positions } from "@/db/schema";
 import { createCompetency, publishTemplate } from "@/features/templates/mutations";
-import { createCandidate, startInterviewSession, updateCandidate } from "./mutations";
+import {
+  archiveCandidate,
+  createCandidate,
+  deleteCandidate,
+  restoreCandidate,
+  startInterviewSession,
+  updateCandidate,
+} from "./mutations";
 
 async function createTestCandidate() {
   return createCandidate({
@@ -105,5 +112,45 @@ describe("startInterviewSession", () => {
       where: eq(interviewTemplates.id, template!.id),
     });
     expect(reloaded?.status).toBe("locked");
+  });
+});
+
+// Plan Phase 23/§44.4 — the single highest-risk gap the analysis identified
+// (§44.3): Candidate -> InterviewSession is CASCADE with no DB-level
+// RESTRICT, so this domain-layer check is the only thing standing between
+// deleteCandidate and silently destroying a finalized hiring evaluation.
+describe("deleteCandidate / archiveCandidate / restoreCandidate", () => {
+  it("deletes a candidate with zero sessions", async () => {
+    const candidate = await createTestCandidate();
+    await deleteCandidate(candidate.id);
+    const reloaded = await db.query.candidates.findFirst({ where: (c, { eq: eqOp }) => eqOp(c.id, candidate.id) });
+    expect(reloaded).toBeUndefined();
+  });
+
+  it("refuses to delete a candidate with an existing session, even in_progress", async () => {
+    const candidate = await createTestCandidate();
+    const template = await createTestTemplate("approved");
+    await startInterviewSession(candidate.id, template!.id);
+
+    await expect(deleteCandidate(candidate.id)).rejects.toThrow(/cannot be permanently deleted/);
+
+    // The candidate and their session must survive the rejected attempt.
+    const reloaded = await db.query.candidates.findFirst({ where: (c, { eq: eqOp }) => eqOp(c.id, candidate.id) });
+    expect(reloaded).toBeDefined();
+  });
+
+  it("archives and restores a candidate", async () => {
+    const candidate = await createTestCandidate();
+    await archiveCandidate(candidate.id);
+    const afterArchive = await db.query.candidates.findFirst({
+      where: (c, { eq: eqOp }) => eqOp(c.id, candidate.id),
+    });
+    expect(afterArchive?.archivedAt).not.toBeNull();
+
+    await restoreCandidate(candidate.id);
+    const afterRestore = await db.query.candidates.findFirst({
+      where: (c, { eq: eqOp }) => eqOp(c.id, candidate.id),
+    });
+    expect(afterRestore?.archivedAt).toBeNull();
   });
 });

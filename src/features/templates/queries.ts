@@ -1,8 +1,9 @@
-import { and, asc, desc, eq, ne } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import { db } from "@/db";
 import {
   aiGenerationRecords,
   competencies,
+  interviewSessions,
   interviewTemplates,
   jobAnalyses,
   mandatoryRequirements,
@@ -10,7 +11,21 @@ import {
   questions,
 } from "@/db/schema";
 
-export function listTemplates() {
+export interface TemplateListFilters {
+  /** Plan Phase 23/§44.9 — defaults to "active" so archived Templates never
+   * clutter the default Templates list. */
+  archived?: "active" | "archived" | "all";
+}
+
+export function listTemplates(filters: TemplateListFilters = {}) {
+  const archived = filters.archived ?? "active";
+  const archivedCondition =
+    archived === "all"
+      ? undefined
+      : archived === "archived"
+        ? isNotNull(interviewTemplates.archivedAt)
+        : isNull(interviewTemplates.archivedAt);
+
   return db
     .select({
       id: interviewTemplates.id,
@@ -18,12 +33,14 @@ export function listTemplates() {
       stage: interviewTemplates.stage,
       version: interviewTemplates.version,
       status: interviewTemplates.status,
+      archivedAt: interviewTemplates.archivedAt,
       createdAt: interviewTemplates.createdAt,
       positionId: positions.id,
       positionTitle: positions.title,
     })
     .from(interviewTemplates)
     .innerJoin(positions, eq(interviewTemplates.positionId, positions.id))
+    .where(archivedCondition)
     .orderBy(desc(interviewTemplates.createdAt));
 }
 
@@ -33,17 +50,39 @@ export function getTemplate(id: string) {
   });
 }
 
+/**
+ * Whether a Template has ever had a Session started against it (plan Phase
+ * 23/§44.4/§44.5) — the ground truth `deleteTemplate` (mutations.ts) and
+ * the Template detail page both call, so the "can this be deleted"
+ * decision can never diverge. Checks Session existence directly rather
+ * than trusting `status === "locked"`: that field is set by a second,
+ * non-atomic write in `startInterviewSession`
+ * (features/candidates/mutations.ts), so it can lag reality.
+ */
+export async function hasSessionsForTemplate(templateId: string): Promise<boolean> {
+  const session = await db.query.interviewSessions.findFirst({
+    where: eq(interviewSessions.templateId, templateId),
+    columns: { id: true },
+  });
+  return session !== undefined;
+}
+
 /** Templates a candidate can actually be interviewed against (plan §22/
  * Phase 7) — `approved` (published, not yet used) or `locked` (already in
  * use by another session; a version can back more than one candidate's
  * session). A `draft` is excluded: it hasn't been through the human
  * review/approve gate (ADR-004) yet. */
+/** Excludes archived templates unconditionally (plan Phase 23/§44.9) — this
+ * is specifically "what can back a NEW interview," and an archived template
+ * is by definition no longer offered for that, regardless of any list-page
+ * filter elsewhere. */
 export function listPublishedTemplates() {
   return db
     .select({
       id: interviewTemplates.id,
       name: interviewTemplates.name,
       stage: interviewTemplates.stage,
+      interviewLanguage: interviewTemplates.interviewLanguage,
       version: interviewTemplates.version,
       status: interviewTemplates.status,
       positionId: positions.id,
@@ -51,7 +90,7 @@ export function listPublishedTemplates() {
     })
     .from(interviewTemplates)
     .innerJoin(positions, eq(interviewTemplates.positionId, positions.id))
-    .where(ne(interviewTemplates.status, "draft"))
+    .where(and(ne(interviewTemplates.status, "draft"), isNull(interviewTemplates.archivedAt)))
     .orderBy(desc(interviewTemplates.createdAt));
 }
 
@@ -72,7 +111,7 @@ export function listDraftTemplates() {
     })
     .from(interviewTemplates)
     .innerJoin(positions, eq(interviewTemplates.positionId, positions.id))
-    .where(eq(interviewTemplates.status, "draft"))
+    .where(and(eq(interviewTemplates.status, "draft"), isNull(interviewTemplates.archivedAt)))
     .orderBy(desc(interviewTemplates.createdAt));
 }
 

@@ -40,7 +40,7 @@ export function ToneBadge({
   );
 }
 
-const STATUS_TONE: Record<InterviewStatus, BadgeTone> = {
+export const STATUS_TONE: Record<InterviewStatus, BadgeTone> = {
   PASS: "pass",
   BORDERLINE: "borderline",
   FAIL: "fail",

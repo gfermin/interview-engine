@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { interviewReports } from "@/db/schema";
 import { canGenerateReport } from "@/domain/interviews/session-lifecycle";
+import type { InterviewLanguage } from "@/domain/interviews/interview-language";
 import { buildNarrative } from "@/domain/interviews/narrative";
+import { buildInterviewReportDisplayName, buildInterviewReportFilename } from "@/domain/reports/naming";
 import { getStageConfig, type InterviewStage } from "@/domain/interviews/stage-config";
 import { getCandidate } from "@/features/candidates/queries";
 import {
@@ -19,6 +22,7 @@ import { getPosition } from "@/features/positions/queries";
 import { getTemplate, listCompetencies, listMandatoryRequirements } from "@/features/templates/queries";
 import { buildReportHtml, type ReportData } from "@/services/pdf/report-template";
 import { renderHtmlToPdf } from "@/services/pdf/render";
+import { getReport } from "./queries";
 
 // Relative to the project root, matching src/db/index.ts's convention for
 // the SQLite file path — Node resolves it against process.cwd(), which is
@@ -73,8 +77,11 @@ export async function generateReport(sessionId: string) {
   const criticalByCompetencyId = new Map(result.criticalCompetencyStatus.map((c) => [c.competencyId, c]));
   const statusLabel = stageConfig.statusLabels[result.status];
 
+  const interviewLanguage = sessionDetail.interviewLanguage as InterviewLanguage;
+
   const reportData: ReportData = {
     generatedAt: new Date(),
+    language: interviewLanguage,
     candidateName: sessionDetail.candidateName,
     candidateEmail: candidate?.email ?? null,
     positionTitle: sessionDetail.positionTitle,
@@ -87,6 +94,7 @@ export async function generateReport(sessionId: string) {
     overall: result.overall,
     completion: result.completion,
     reason: result.reason,
+    codingExerciseIncluded: stage === "technical" && template.includeCodeExercises,
     competencies: competencies.map((c) => {
       const stat = result.competencyStats.find((s) => s.competencyId === c.id);
       const critical = criticalByCompetencyId.get(c.id);
@@ -125,6 +133,8 @@ export async function generateReport(sessionId: string) {
       overall: result.overall,
       completion: result.completion,
       reason: result.reason,
+      language: interviewLanguage,
+      stage,
     }),
   };
 
@@ -136,10 +146,50 @@ export async function generateReport(sessionId: string) {
   await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, pdf);
 
+  const namingInput = {
+    candidateName: sessionDetail.candidateName,
+    positionTitle: sessionDetail.positionTitle,
+    stageLabel: stageConfig.label,
+    generatedAt: reportData.generatedAt,
+    reportId,
+  };
+
   const [report] = await db
     .insert(interviewReports)
-    .values({ id: reportId, sessionId, filePath, fileSize: pdf.byteLength })
+    .values({
+      id: reportId,
+      sessionId,
+      filePath,
+      fileSize: pdf.byteLength,
+      displayName: buildInterviewReportDisplayName(namingInput),
+      fileName: buildInterviewReportFilename(namingInput),
+    })
     .returning();
 
   return report;
+}
+
+/**
+ * Deletes a generated report (plan Phase 23/§44.4) — always allowed, no
+ * archive concept needed: an `interview_reports` row has no dependents
+ * (nothing references it back), so removing it never touches the
+ * underlying finalized Session/Decision/evaluations, and a fresh report can
+ * always be regenerated from those (already true today per Phase 11's
+ * "reopen -> re-finalize produces a second report" design). Best-effort
+ * unlinks the PDF file — a missing file (§40.3's existing ENOENT-tolerant
+ * pattern) is not an error, it just means there's nothing left to remove.
+ */
+export async function deleteReport(id: string) {
+  const report = await getReport(id);
+  if (!report) throw new Error("Report not found.");
+
+  await db.delete(interviewReports).where(eq(interviewReports.id, id));
+
+  try {
+    await unlink(report.filePath);
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
+      throw error;
+    }
+  }
 }

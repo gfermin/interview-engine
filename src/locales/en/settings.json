@@ -1,0 +1,9 @@
+{
+  "title": "Settings",
+  "appearanceTitle": "Appearance",
+  "appearanceDescription": "Defaults to dark, matching the \"Calibración QA\" reference artifact's own dark palette. Switch to light any time — the choice is remembered on this device.",
+  "themeDark": "Dark",
+  "themeLight": "Light",
+  "languageTitle": "Language",
+  "languageDescription": "Changes navigation, buttons, and labels only — it never translates interview content, which always follows that interview's own configured language."
+}

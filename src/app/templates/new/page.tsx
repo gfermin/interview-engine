@@ -1,8 +1,12 @@
+import { cookies } from "next/headers";
 import { AppTopbar } from "@/components/layout/app-topbar";
+import { PageContainer } from "@/components/layout/page-container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createTemplateAction } from "@/features/templates/actions";
 import { TemplateForm } from "@/features/templates/template-form";
 import { listPositions } from "@/features/positions/queries";
+import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
+import { t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -11,32 +15,35 @@ export default async function NewTemplatePage({
 }: {
   searchParams: Promise<{ positionId?: string }>;
 }) {
+  const cookieStore = await cookies();
+  const locale = resolveLocale(cookieStore.get(APP_LOCALE_COOKIE)?.value);
+
   const [positions, { positionId }] = await Promise.all([listPositions(), searchParams]);
 
   return (
     <>
-      <AppTopbar title="New Template" />
-      <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col gap-5 px-6 py-7">
+      <AppTopbar title={t(locale, "templates.newTemplateButton")} locale={locale} />
+      <PageContainer width="standard">
         <Card>
           <CardHeader>
-            <CardTitle className="text-[15px]">Create Draft Template</CardTitle>
+            <CardTitle className="text-[15px]">{t(locale, "templates.createDraftTemplateTitle")}</CardTitle>
           </CardHeader>
           <CardContent>
             {positions.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Create a Position first — a template belongs to a Position +
-                Interview Stage.
+                {t(locale, "templates.noPositionsMessage")}
               </p>
             ) : (
               <TemplateForm
                 action={createTemplateAction}
                 positions={positions}
                 defaultPositionId={positionId}
+                locale={locale}
               />
             )}
           </CardContent>
         </Card>
-      </main>
+      </PageContainer>
     </>
   );
 }

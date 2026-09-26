@@ -3,6 +3,7 @@ import { buildReportHtml, type ReportData } from "./report-template";
 
 const baseData: ReportData = {
   generatedAt: new Date("2026-01-15T10:00:00Z"),
+  language: "en",
   candidateName: "Jordan Rivera",
   candidateEmail: "jordan@example.com",
   positionTitle: "Senior Backend Developer",
@@ -15,6 +16,7 @@ const baseData: ReportData = {
   overall: 82.4,
   completion: 100,
   reason: "Overall score meets the passing threshold.",
+  codingExerciseIncluded: true,
   competencies: [
     {
       name: "Programming",
@@ -73,6 +75,19 @@ describe("buildReportHtml", () => {
     expect(html).toContain("Jordan Rivera was evaluated for");
   });
 
+  // Plan Phase 25/§45: the report must say whether coding was actually
+  // evaluated, not leave it silently absent — a future reviewer needs to
+  // tell "not evaluated via coding" apart from "evaluated and scored".
+  it("shows the coding exercise as Included when the template had it enabled", () => {
+    const html = buildReportHtml({ ...baseData, codingExerciseIncluded: true });
+    expect(html).toContain("Included");
+  });
+
+  it("shows the coding exercise as Not Included when the template had it disabled", () => {
+    const html = buildReportHtml({ ...baseData, codingExerciseIncluded: false });
+    expect(html).toContain("Not Included");
+  });
+
   it("shows the override reason when present", () => {
     const html = buildReportHtml({
       ...baseData,
@@ -102,6 +117,14 @@ describe("buildReportHtml", () => {
   it("omits the English section entirely when the stage doesn't offer it", () => {
     const html = buildReportHtml({ ...baseData, englishAssessment: null });
     expect(html).not.toContain("English Assessment");
+  });
+
+  it("renders section headings in Spanish when language is 'es'", () => {
+    const html = buildReportHtml({ ...baseData, language: "es" });
+    expect(html).toContain("Desglose de Competencias");
+    expect(html).toContain("Requisitos Obligatorios");
+    expect(html).toContain("Resumen Narrativo");
+    expect(html).not.toContain("Competency Breakdown");
   });
 
   it("escapes HTML-significant characters from free text fields", () => {

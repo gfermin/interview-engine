@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { t, type Locale } from "@/lib/i18n";
 import type { FormActionState } from "./actions";
 
 interface CompetencyOption {
@@ -36,8 +37,11 @@ interface QuestionFormProps {
     solution?: string | null;
     jdRequirementTag?: string | null;
     altSolutions?: string | null;
+    requiresTechnicalKnowledge?: boolean;
+    technicalTermHelper?: string | null;
   };
   submitLabel: string;
+  locale?: Locale;
 }
 
 const toLines = (values?: string[]) => (values ?? []).join("\n");
@@ -48,6 +52,7 @@ export function QuestionForm({
   showCodeFields,
   defaultValues,
   submitLabel,
+  locale = "en",
 }: QuestionFormProps) {
   const [state, formAction, pending] = useActionState<
     FormActionState | undefined,
@@ -67,14 +72,14 @@ export function QuestionForm({
 
       <div className="grid grid-cols-3 gap-4">
         <div className="col-span-3 flex flex-col gap-1.5 sm:col-span-1">
-          <Label htmlFor="competencyId">Competency</Label>
+          <Label htmlFor="competencyId">{t(locale, "templates.competencyLabel")}</Label>
           <Select
             id="competencyId"
             name="competencyId"
             defaultValue={defaultValues?.competencyId ?? ""}
           >
             <option value="" disabled>
-              Select...
+              {t(locale, "templates.selectEllipsis")}
             </option>
             {competencies.map((c) => (
               <option key={c.id} value={c.id}>
@@ -86,12 +91,14 @@ export function QuestionForm({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="difficulty">Difficulty</Label>
+          <Label htmlFor="difficulty">{t(locale, "templates.difficultyLabel")}</Label>
           <Select
             id="difficulty"
             name="difficulty"
             defaultValue={defaultValues?.difficulty ?? "medium"}
           >
+            {/* Difficulty enum values (easy/medium/hard) are domain data, not
+                UI chrome — they stay English regardless of app language. */}
             <option value="easy">Easy</option>
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
@@ -99,12 +106,15 @@ export function QuestionForm({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="importance">Importance</Label>
+          <Label htmlFor="importance">{t(locale, "templates.importanceLabel")}</Label>
           <Select
             id="importance"
             name="importance"
             defaultValue={defaultValues?.importance ?? "core"}
           >
+            {/* Importance enum values (core/secondary/optional) are domain
+                data, not UI chrome — they stay English regardless of app
+                language. */}
             <option value="core">Core</option>
             <option value="secondary">Secondary</option>
             <option value="optional">Optional</option>
@@ -113,12 +123,12 @@ export function QuestionForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="text">Question text</Label>
+        <Label htmlFor="text">{t(locale, "templates.questionTextLabel")}</Label>
         <Textarea
           id="text"
           name="text"
           rows={3}
-          placeholder="What is the question the interviewer asks?"
+          placeholder={t(locale, "templates.questionTextPlaceholder")}
           defaultValue={defaultValues?.text}
           required
         />
@@ -127,19 +137,20 @@ export function QuestionForm({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="jdRequirementTag">
-          JD requirement <span className="text-muted-foreground">(optional)</span>
+          {t(locale, "templates.jdRequirementLabel")}{" "}
+          <span className="text-muted-foreground">{t(locale, "templates.optionalTag")}</span>
         </Label>
         <Input
           id="jdRequirementTag"
           name="jdRequirementTag"
-          placeholder="e.g. API Testing"
+          placeholder={t(locale, "templates.jdRequirementPlaceholder")}
           defaultValue={defaultValues?.jdRequirementTag ?? ""}
         />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="expected">Expected answer</Label>
+          <Label htmlFor="expected">{t(locale, "templates.expectedAnswerLabel")}</Label>
           <Textarea
             id="expected"
             name="expected"
@@ -148,7 +159,7 @@ export function QuestionForm({
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="strong">Strong answer</Label>
+          <Label htmlFor="strong">{t(locale, "templates.strongAnswerLabel")}</Label>
           <Textarea
             id="strong"
             name="strong"
@@ -157,7 +168,7 @@ export function QuestionForm({
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="acceptable">Acceptable answer</Label>
+          <Label htmlFor="acceptable">{t(locale, "templates.acceptableAnswerLabel")}</Label>
           <Textarea
             id="acceptable"
             name="acceptable"
@@ -167,10 +178,34 @@ export function QuestionForm({
         </div>
       </div>
 
+      <div className="flex flex-col gap-1.5">
+        <label className="flex items-center gap-2 text-[12.5px]">
+          <input
+            type="checkbox"
+            name="requiresTechnicalKnowledge"
+            defaultChecked={defaultValues?.requiresTechnicalKnowledge ?? false}
+            className="size-3.5"
+          />
+          {t(locale, "templates.requiresTechnicalKnowledgeCheckboxLabel")}
+        </label>
+        <Label htmlFor="technicalTermHelper">
+          {t(locale, "templates.technicalTermHelperLabel")}{" "}
+          <span className="text-muted-foreground">{t(locale, "templates.optionalTag")}</span>
+        </Label>
+        <Textarea
+          id="technicalTermHelper"
+          name="technicalTermHelper"
+          rows={2}
+          placeholder={t(locale, "templates.technicalTermHelperPlaceholder")}
+          defaultValue={defaultValues?.technicalTermHelper ?? ""}
+        />
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="concepts">
-            Key concepts <span className="text-muted-foreground">(one per line)</span>
+            {t(locale, "templates.keyConceptsLabel")}{" "}
+            <span className="text-muted-foreground">{t(locale, "templates.onePerLineTag")}</span>
           </Label>
           <Textarea
             id="concepts"
@@ -181,7 +216,8 @@ export function QuestionForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="redFlags">
-            Red flags <span className="text-muted-foreground">(one per line)</span>
+            {t(locale, "templates.redFlagsLabel")}{" "}
+            <span className="text-muted-foreground">{t(locale, "templates.onePerLineTag")}</span>
           </Label>
           <Textarea
             id="redFlags"
@@ -192,7 +228,8 @@ export function QuestionForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="followUps">
-            Follow-ups <span className="text-muted-foreground">(one per line)</span>
+            {t(locale, "templates.followUpsLabel")}{" "}
+            <span className="text-muted-foreground">{t(locale, "templates.onePerLineTag")}</span>
           </Label>
           <Textarea
             id="followUps"
@@ -203,13 +240,14 @@ export function QuestionForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="rubric">
-            Rubric <span className="text-muted-foreground">(one line per 0-5 score)</span>
+            {t(locale, "templates.rubricLabel")}{" "}
+            <span className="text-muted-foreground">{t(locale, "templates.rubricLinesTag")}</span>
           </Label>
           <Textarea
             id="rubric"
             name="rubric"
             rows={3}
-            placeholder={"0 - ...\n1 - ...\n...\n5 - ..."}
+            placeholder={t(locale, "templates.rubricPlaceholder")}
             defaultValue={toLines(defaultValues?.rubric)}
           />
         </div>
@@ -219,7 +257,8 @@ export function QuestionForm({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="code">
-              Code exercise <span className="text-muted-foreground">(optional)</span>
+              {t(locale, "templates.codeExerciseLabel")}{" "}
+              <span className="text-muted-foreground">{t(locale, "templates.optionalTag")}</span>
             </Label>
             <Textarea
               id="code"
@@ -231,7 +270,8 @@ export function QuestionForm({
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="solution">
-              Solution <span className="text-muted-foreground">(optional)</span>
+              {t(locale, "templates.solutionLabel")}{" "}
+              <span className="text-muted-foreground">{t(locale, "templates.optionalTag")}</span>
             </Label>
             <Textarea
               id="solution"
@@ -243,13 +283,14 @@ export function QuestionForm({
           </div>
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="altSolutions">
-              Alternate solutions <span className="text-muted-foreground">(optional)</span>
+              {t(locale, "templates.altSolutionsLabel")}{" "}
+              <span className="text-muted-foreground">{t(locale, "templates.optionalTag")}</span>
             </Label>
             <Textarea
               id="altSolutions"
               name="altSolutions"
               rows={2}
-              placeholder="Other valid approaches besides the primary solution..."
+              placeholder={t(locale, "templates.altSolutionsPlaceholder")}
               defaultValue={defaultValues?.altSolutions ?? ""}
             />
           </div>
@@ -263,7 +304,7 @@ export function QuestionForm({
       {!showCodeFields ? <input type="hidden" name="solution" value="" /> : null}
 
       <Button type="submit" disabled={pending} className="self-start">
-        {pending ? "Saving..." : submitLabel}
+        {pending ? t(locale, "templates.savingButton") : submitLabel}
       </Button>
     </form>
   );

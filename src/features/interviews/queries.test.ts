@@ -9,6 +9,7 @@ async function createSessionFixture(
   overrides: {
     stage?: "technical" | "screening";
     status?: "in_progress" | "completed" | "decided";
+    archivedAt?: Date | null;
   } = {}
 ) {
   const [position] = await db
@@ -25,7 +26,12 @@ async function createSessionFixture(
     .returning();
   const [session] = await db
     .insert(interviewSessions)
-    .values({ candidateId: candidate.id, templateId: template.id, status: overrides.status ?? "in_progress" })
+    .values({
+      candidateId: candidate.id,
+      templateId: template.id,
+      status: overrides.status ?? "in_progress",
+      archivedAt: overrides.archivedAt ?? null,
+    })
     .returning();
   return { position, template, candidate, session };
 }
@@ -99,5 +105,40 @@ describe("listSessions", () => {
     await createSessionFixture({ stage: "technical" });
     const results = await listSessions({ positionId: randomUUID() });
     expect(results).toEqual([]);
+  });
+
+  // Plan Phase 23/§44.9 — archived sessions must never clutter the default
+  // Interview History list/Dashboard, but must remain reachable via an
+  // explicit filter.
+  describe("archived filter", () => {
+    it("defaults to excluding archived sessions", async () => {
+      const active = await createSessionFixture();
+      const archived = await createSessionFixture({ archivedAt: new Date() });
+
+      const ids = (await listSessions()).map((r) => r.id);
+
+      expect(ids).toContain(active.session.id);
+      expect(ids).not.toContain(archived.session.id);
+    });
+
+    it('archived: "archived" returns only archived sessions', async () => {
+      const active = await createSessionFixture();
+      const archived = await createSessionFixture({ archivedAt: new Date() });
+
+      const ids = (await listSessions({ archived: "archived" })).map((r) => r.id);
+
+      expect(ids).toContain(archived.session.id);
+      expect(ids).not.toContain(active.session.id);
+    });
+
+    it('archived: "all" returns both', async () => {
+      const active = await createSessionFixture();
+      const archived = await createSessionFixture({ archivedAt: new Date() });
+
+      const ids = (await listSessions({ archived: "all" })).map((r) => r.id);
+
+      expect(ids).toContain(active.session.id);
+      expect(ids).toContain(archived.session.id);
+    });
   });
 });

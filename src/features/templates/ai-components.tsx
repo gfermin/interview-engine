@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { t, type Locale } from "@/lib/i18n";
 import type { AIActionState } from "./ai-actions";
 
 /**
@@ -14,10 +15,12 @@ export function AIActionButton({
   action,
   label,
   pendingLabel,
+  locale = "en",
 }: {
   action: (prevState: AIActionState | undefined) => Promise<AIActionState | undefined>;
   label: string;
   pendingLabel: string;
+  locale?: Locale;
 }) {
   const [state, formAction, pending] = useActionState<AIActionState | undefined, FormData>(
     action,
@@ -37,7 +40,7 @@ export function AIActionButton({
           {state.rawOutput ? (
             <details>
               <summary className="cursor-pointer text-xs text-muted-foreground">
-                Raw AI output
+                {t(locale, "templates.rawAiOutputLabel")}
               </summary>
               <pre className="mt-1 max-h-64 overflow-auto rounded bg-muted p-2 text-[10.5px] whitespace-pre-wrap">
                 {state.rawOutput}
@@ -59,8 +62,10 @@ export function AIActionButton({
  */
 export function RegenerateQuestionButton({
   action,
+  locale = "en",
 }: {
   action: (prevState: AIActionState | undefined) => Promise<AIActionState | undefined>;
+  locale?: Locale;
 }) {
   const [state, formAction, pending] = useActionState<AIActionState | undefined, FormData>(
     action,
@@ -75,8 +80,8 @@ export function RegenerateQuestionButton({
           variant="ghost"
           size="icon-sm"
           disabled={pending}
-          aria-label="Regenerate with AI"
-          title="Regenerate with AI"
+          aria-label={t(locale, "templates.regenerateAriaLabel")}
+          title={t(locale, "templates.regenerateAriaLabel")}
         >
           <RefreshCw className={pending ? "animate-spin" : undefined} />
         </Button>
@@ -87,7 +92,7 @@ export function RegenerateQuestionButton({
           {state.rawOutput ? (
             <details>
               <summary className="cursor-pointer text-[11px] text-muted-foreground">
-                Raw AI output
+                {t(locale, "templates.rawAiOutputLabel")}
               </summary>
               <pre className="mt-1 max-h-48 overflow-auto rounded bg-muted p-2 text-[10px] whitespace-pre-wrap">
                 {state.rawOutput}

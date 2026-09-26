@@ -11,7 +11,7 @@ import {
   reopenSession,
   updateMandatoryRequirementStatus,
 } from "@/features/interviews/mutations";
-import { generateReport } from "./mutations";
+import { deleteReport, generateReport } from "./mutations";
 import { getReport, listReportsForSession } from "./queries";
 
 async function createDecidedSessionFixture() {
@@ -45,6 +45,8 @@ async function createDecidedSessionFixture() {
     solution: null,
     jdRequirementTag: null,
     altSolutions: null,
+    requiresTechnicalKnowledge: false,
+    technicalTermHelper: null,
   });
   const requirement = await createMandatoryRequirement(template.id, {
     label: "Work authorization",
@@ -121,6 +123,23 @@ describe("generateReport", () => {
     await expect(generateReport(randomUUID())).rejects.toThrow(/not found/);
   });
 
+  // Plan Phase 18/§42: report naming must be candidate-identifiable, not
+  // just a UUID, both in the stored displayName and the download fileName.
+  it("persists a candidate-identifiable displayName and filesystem-safe fileName", async () => {
+    const { session } = await createDecidedSessionFixture();
+    const candidate = await db.query.candidates.findFirst({
+      where: (t, { eq: eqOp }) => eqOp(t.id, session.candidateId),
+    });
+
+    const report = await generateReport(session.id);
+
+    expect(report.displayName).toContain(candidate!.name);
+    expect(report.displayName).toContain("Test Position");
+    expect(report.displayName).toContain("Technical Interview");
+    expect(report.fileName).toMatch(/\.pdf$/);
+    expect(report.fileName).not.toMatch(/[/\\]/);
+  }, 20000);
+
   // Plan §11/Phase 11's testing requirement: finalize, reopen, re-rate,
   // re-finalize, confirm two distinct InterviewReport records exist.
   it("a full finalize -> reopen -> re-rate -> re-finalize cycle produces a second, distinct report", async () => {
@@ -147,4 +166,58 @@ describe("generateReport", () => {
     });
     expect(finalDecision?.finalDecision).toBe("FAIL");
   }, 30000);
+});
+
+// Plan Phase 23/§44.4 — a report row has no dependents; deleting it must
+// never touch the underlying finalized Session/Decision/evaluations, and
+// the file on disk should be removed alongside the DB row.
+describe("deleteReport", () => {
+  it("deletes the DB row and removes the PDF file from disk", async () => {
+    const { session } = await createDecidedSessionFixture();
+    const report = await generateReport(session.id);
+    const fileExistedBefore = await stat(report.filePath).then(
+      () => true,
+      () => false
+    );
+    expect(fileExistedBefore).toBe(true);
+
+    await deleteReport(report.id);
+
+    const reloaded = await getReport(report.id);
+    expect(reloaded).toBeUndefined();
+    const fileExistsAfter = await stat(report.filePath).then(
+      () => true,
+      () => false
+    );
+    expect(fileExistsAfter).toBe(false);
+  }, 20000);
+
+  it("never touches the underlying session, decision, or evaluations", async () => {
+    const { session } = await createDecidedSessionFixture();
+    const report = await generateReport(session.id);
+
+    await deleteReport(report.id);
+
+    const reloadedSession = await db.query.interviewSessions.findFirst({
+      where: (t, { eq: eqOp }) => eqOp(t.id, session.id),
+    });
+    expect(reloadedSession).toBeDefined();
+    const decision = await db.query.interviewDecisions.findFirst({
+      where: (t, { eq: eqOp }) => eqOp(t.sessionId, session.id),
+    });
+    expect(decision?.finalDecision).toBe("PASS");
+  }, 20000);
+
+  it("throws when the report doesn't exist", async () => {
+    await expect(deleteReport(randomUUID())).rejects.toThrow(/not found/);
+  });
+
+  it("is a no-op-safe re-delete when the file is already missing from disk (§40.3 pattern)", async () => {
+    const { session } = await createDecidedSessionFixture();
+    const report = await generateReport(session.id);
+    const { unlink } = await import("node:fs/promises");
+    await unlink(report.filePath);
+
+    await expect(deleteReport(report.id)).resolves.not.toThrow();
+  }, 20000);
 });

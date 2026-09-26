@@ -1,0 +1,9 @@
+{
+  "title": "Configuración",
+  "appearanceTitle": "Apariencia",
+  "appearanceDescription": "Predeterminado a oscuro, igual que la paleta del artefacto de referencia \"Calibración QA\". Cambia a claro cuando quieras — la elección se recuerda en este dispositivo.",
+  "themeDark": "Oscuro",
+  "themeLight": "Claro",
+  "languageTitle": "Idioma",
+  "languageDescription": "Cambia la navegación, botones y etiquetas únicamente — nunca traduce el contenido de la entrevista, que siempre sigue el idioma configurado en esa entrevista."
+}

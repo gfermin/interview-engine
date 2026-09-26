@@ -3,14 +3,17 @@
 import { useActionState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
+import { t, type Locale } from "@/lib/i18n";
 import type { FormActionState } from "./actions";
 
 export function PublishButton({
   action,
+  locale = "en",
 }: {
   action: (
     prevState: FormActionState | undefined
   ) => Promise<FormActionState | undefined>;
+  locale?: Locale;
 }) {
   const [state, formAction, pending] = useActionState<
     FormActionState | undefined,
@@ -24,7 +27,7 @@ export function PublishButton({
       ) : null}
       <form action={formAction}>
         <Button type="submit" disabled={pending}>
-          {pending ? "Publishing..." : "Publish Template"}
+          {pending ? t(locale, "templates.publishingButton") : t(locale, "templates.publishButton")}
         </Button>
       </form>
     </div>
@@ -35,11 +38,11 @@ export function PublishButton({
  * reports the status of the nearest enclosing `<form>` when called from a
  * *child* of that form, not from the component that renders the form
  * itself. */
-function NewVersionSubmitButton() {
+function NewVersionSubmitButton({ locale }: { locale: Locale }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" variant="outline" disabled={pending}>
-      {pending ? "Creating..." : "Create New Version to Edit"}
+      {pending ? t(locale, "templates.creatingButton") : t(locale, "templates.createNewVersionButton")}
     </Button>
   );
 }
@@ -54,12 +57,14 @@ function NewVersionSubmitButton() {
  */
 export function NewVersionButton({
   action,
+  locale = "en",
 }: {
   action: () => Promise<void>;
+  locale?: Locale;
 }) {
   return (
     <form action={action}>
-      <NewVersionSubmitButton />
+      <NewVersionSubmitButton locale={locale} />
     </form>
   );
 }

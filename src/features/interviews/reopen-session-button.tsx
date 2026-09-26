@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { t, type Locale } from "@/lib/i18n";
 
 /**
  * Reopen is a meaningful state change — it unfreezes ratings and, once a
@@ -10,22 +11,24 @@ import { Button } from "@/components/ui/button";
  * already uses for destructive row actions, rather than firing on a single
  * click.
  */
-export function ReopenSessionButton({ action }: { action: () => Promise<void> }) {
+export function ReopenSessionButton({
+  action,
+  locale = "en",
+}: {
+  action: () => Promise<void>;
+  locale?: Locale;
+}) {
   return (
     <form
       action={action}
       onSubmit={(e) => {
-        if (
-          !window.confirm(
-            "Reopen this interview? Ratings become editable again, and any recorded decision will need to be re-confirmed."
-          )
-        ) {
+        if (!window.confirm(t(locale, "interview.reopenConfirm"))) {
           e.preventDefault();
         }
       }}
     >
       <Button type="submit" variant="outline" size="sm">
-        Reopen
+        {t(locale, "interview.reopen")}
       </Button>
     </form>
   );

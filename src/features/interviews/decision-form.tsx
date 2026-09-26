@@ -13,6 +13,7 @@ import {
 } from "@/domain/interviews/decision";
 import { statusLabelFor, type InterviewStage } from "@/domain/interviews/stage-config";
 import type { InterviewStatus } from "@/domain/scoring/types";
+import { t, type Locale } from "@/lib/i18n";
 import type { FormActionState } from "./actions";
 
 interface ExistingDecision {
@@ -29,6 +30,7 @@ interface DecisionFormProps {
   status: InterviewStatus;
   stage: InterviewStage;
   existingDecision?: ExistingDecision | null;
+  locale?: Locale;
 }
 
 /**
@@ -40,7 +42,7 @@ interface DecisionFormProps {
  * BORDERLINE only ever offers a forced call, PASS/FAIL only ever offer
  * accept/override.
  */
-export function DecisionForm({ action, status, stage, existingDecision }: DecisionFormProps) {
+export function DecisionForm({ action, status, stage, existingDecision, locale = "en" }: DecisionFormProps) {
   const [state, formAction, pending] = useActionState<
     FormActionState | undefined,
     FormData
@@ -84,7 +86,8 @@ export function DecisionForm({ action, status, stage, existingDecision }: Decisi
             variant={forcedChoice === "PASS" ? "default" : "outline"}
             onClick={() => setForcedChoice("PASS")}
           >
-            Force {statusLabelFor(stage, "PASS")}
+            {t(locale, "interview.forcePrefix")}
+            {statusLabelFor(stage, "PASS")}
           </Button>
           {/* The artifact's forced-call FAIL button is always styled danger
               (red), never the accept/pass color — a toggle that briefly
@@ -95,7 +98,8 @@ export function DecisionForm({ action, status, stage, existingDecision }: Decisi
             variant={forcedChoice === "FAIL" ? "destructive" : "outline"}
             onClick={() => setForcedChoice("FAIL")}
           >
-            Force {statusLabelFor(stage, "FAIL")}
+            {t(locale, "interview.forcePrefix")}
+            {statusLabelFor(stage, "FAIL")}
           </Button>
         </div>
       ) : (
@@ -105,7 +109,7 @@ export function DecisionForm({ action, status, stage, existingDecision }: Decisi
             variant={mode === "accept" ? "default" : "outline"}
             onClick={() => setMode("accept")}
           >
-            Accept
+            {t(locale, "interview.accept")}
           </Button>
           {/* Same reasoning as Force FAIL above — Override is the artifact's
               danger action (`.btn.danger`), not a second accept-colored
@@ -115,14 +119,14 @@ export function DecisionForm({ action, status, stage, existingDecision }: Decisi
             variant={mode === "override" ? "destructive" : "outline"}
             onClick={() => setMode("override")}
           >
-            Override
+            {t(locale, "interview.override")}
           </Button>
         </div>
       )}
 
       {needsReason ? (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="reason">Reason (required)</Label>
+          <Label htmlFor="reason">{t(locale, "interview.reasonRequired")}</Label>
           <Textarea
             id="reason"
             name="reason"
@@ -137,7 +141,11 @@ export function DecisionForm({ action, status, stage, existingDecision }: Decisi
       ) : null}
 
       <Button type="submit" disabled={pending} className="self-start">
-        {pending ? "Saving..." : existingDecision ? "Change Decision" : "Record Decision"}
+        {pending
+          ? t(locale, "interview.saving")
+          : existingDecision
+            ? t(locale, "interview.changeDecision")
+            : t(locale, "interview.recordDecision")}
       </Button>
     </form>
   );
