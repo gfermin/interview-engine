@@ -88,6 +88,8 @@
   "englishMinLevelLabel": "Nivel mínimo de inglés (1-5)",
   "includeCompensationQuestionLabel": "Preguntar sobre expectativas salariales",
   "includeWorkAuthorizationCheckLabel": "Incluir verificación de autorización para trabajar",
+  "includeCodeExercisesLabel": "Incluir ejercicio de código",
+  "includeCodeExercisesHelp": "Agrega un ejercicio práctico de programación, acorde al rol y la seniority, a la entrevista generada. Si está desactivado, la entrevista contendrá solo preguntas.",
   "saveScoringButton": "Guardar configuración de puntuación",
 
   "rawAiOutputLabel": "Salida sin procesar de la IA",
@@ -126,6 +128,9 @@
   "competenciesHeading": "Competencias",
   "weightsPrefix": "Pesos: ",
   "noCompetenciesMessage": "Aún no hay competencias — agrégalas manualmente arriba o genera un borrador a partir del Análisis del puesto.",
+  "codingExerciseStatPrefix": "Ejercicio de código: ",
+  "includedLabel": "Incluido",
+  "notIncludedLabel": "No incluido",
   "generateDraftButton": "Generar borrador (Competencias, Requisitos y Preguntas)",
   "generatingDraftButton": "Generando borrador... esto puede tardar un minuto",
   "tableWeight": "Peso",

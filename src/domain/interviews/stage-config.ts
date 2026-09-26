@@ -19,8 +19,13 @@ export const STAGE_LABELS: Record<InterviewStage, string> = {
 };
 
 export interface StageModuleConfig {
-  /** Code-exercise questions are meaningful for a hands-on technical
-   * interview; a screening stage doesn't code with the candidate. */
+  /** Whether coding exercises are AVAILABLE at all for this stage — a
+   * ceiling, not a default (plan Phase 25/§45). Screening's `false` is an
+   * absolute rule: a screening stage never codes with the candidate,
+   * regardless of any per-template opt-in. Technical's `true` only means
+   * the module CAN be used; whether it actually is comes from the
+   * template's own `includeCodeExercises` column (opt-in, defaults off —
+   * features/templates/ai-actions.ts ANDs the two together). */
   codeExercises: boolean;
   /** English (or another SupplementaryAssessment) is optional in both
    * stages — plan §9's generalization of the artifact's hardcoded English

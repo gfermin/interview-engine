@@ -284,6 +284,14 @@ export default async function InterviewSummaryPage({
                       : "—"}
                 </dd>
               </div>
+              <div>
+                <dt className="text-[11px] text-muted-foreground">{t(locale, "interview.codingExerciseLabel")}</dt>
+                <dd className="text-sm">
+                  {stage === "technical" && session.includeCodeExercises
+                    ? t(locale, "interview.codingExerciseIncludedValue")
+                    : t(locale, "interview.codingExerciseNotIncludedValue")}
+                </dd>
+              </div>
             </dl>
           </CardContent>
         </Card>

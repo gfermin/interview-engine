@@ -323,6 +323,37 @@ the decided-session-archive-only path, clean report deletion, and correct
 Dashboard/Interview-History exclusion of an archived session that remains
 visible on its candidate's own page.
 
+**Phase 25 (Optional Coding Exercises, plan §45) is complete.** An analysis
+pass found coding/practical exercises were never actually a user decision:
+`STAGE_MODULES.technical.codeExercises` was hardcoded `true`, so every
+Technical Interview draft always asked the AI for a coding exercise and
+every First Screening draft never did — there was no way to generate a
+questions-only Technical Interview. Coding exercises are now opt-in per
+template (`interview_templates.includeCodeExercises`, default off, mirroring
+Phase 22's `includeCompensationQuestion` precedent exactly), editable in the
+Scoring Configuration form before "Generate Draft" is ever clicked and gated
+to appear only for the Technical stage; the stage's own module flag becomes
+a ceiling rather than a default, so a First Screening template can never
+produce an exercise regardless of that column's stored value. The AI prompt
+had a latent bug fixed along the way — a previously-unconditional "generate
+hands-on coding/debugging exercises" sentence that could contradict the very
+next, conditional instruction — and the disabled-case guidance now
+explicitly bans coding-challenge patterns and redirects the model toward
+question-based alternatives (architecture discussion, debugging-reasoning
+scenarios, trade-off questions) rather than leaving a competency
+under-assessed. No scoring, completeness, or Live Interview changes were
+needed: questions of any kind are already scored generically with no
+per-type weight/critical flag, and the code-exercise panel already rendered
+purely conditionally on a null `code` field. The Interview Summary screen
+and PDF report each gained a "Coding Exercise: Included / Not Included"
+line, sourced from the template's own recorded decision rather than
+incidental question content, so a reviewer can always tell whether coding
+was actually part of what was evaluated. English/Spanish i18n keys added
+throughout; verified live end-to-end in the browser (checkbox and help text
+render for a Technical template, are correctly absent for a First Screening
+template, and the read-only "Coding Exercise: Not Included" badge reflects
+the default-off state on a freshly created template of either stage).
+
 Phase 12 (BambooHR Integration POC) and Phase 24 (Production Readiness)
 remain open.
 

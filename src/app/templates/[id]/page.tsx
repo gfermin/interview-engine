@@ -290,8 +290,10 @@ export default async function TemplateDetailPage({
                   englishMinLevel: template.englishMinLevel,
                   includeCompensationQuestion: template.includeCompensationQuestion,
                   includeWorkAuthorizationCheck: template.includeWorkAuthorizationCheck,
+                  includeCodeExercises: template.includeCodeExercises,
                 }}
                 showScreeningLogisticsFields={stage === "screening"}
+                showCodeExerciseField={stage === "technical"}
                 locale={locale}
               />
             ) : (
@@ -331,6 +333,17 @@ export default async function TemplateDetailPage({
                     />
                   </>
                 ) : null}
+                {stage === "technical" ? (
+                  <ConfigStat
+                    label={t(locale, "templates.includeCodeExercisesLabel")}
+                    value={
+                      template.includeCodeExercises
+                        ? t(locale, "templates.yesLabel")
+                        : t(locale, "templates.noLabel")
+                    }
+                    suffix=""
+                  />
+                ) : null}
               </dl>
             )}
           </CardContent>
@@ -343,6 +356,12 @@ export default async function TemplateDetailPage({
               <Badge variant={weightSum === 100 ? "secondary" : "outline"}>
                 {t(locale, "templates.weightsPrefix")}
                 {weightSum}%
+              </Badge>
+              <Badge variant="outline">
+                {t(locale, "templates.codingExerciseStatPrefix")}
+                {stage === "technical" && template.includeCodeExercises
+                  ? t(locale, "templates.includedLabel")
+                  : t(locale, "templates.notIncludedLabel")}
               </Badge>
               {editable ? (
                 <ButtonLink size="sm" variant="outline" href={`/templates/${id}/competencies/new`}>

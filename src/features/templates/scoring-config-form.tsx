@@ -21,10 +21,16 @@ interface ScoringConfigFormProps {
     englishMinLevel: number;
     includeCompensationQuestion: boolean;
     includeWorkAuthorizationCheck: boolean;
+    includeCodeExercises: boolean;
   };
   /** Compensation/work-authorization toggles are First Screening only (plan
    * Phase 22/§43.11) — hidden entirely for a Technical Interview template. */
   showScreeningLogisticsFields?: boolean;
+  /** The coding-exercise toggle is Technical Interview only (plan Phase
+   * 25/§45) — the mirror-image gating of showScreeningLogisticsFields.
+   * Hidden entirely for a First Screening template, whose stage ceiling
+   * forces exercises off regardless of this column's stored value. */
+  showCodeExerciseField?: boolean;
   locale?: Locale;
 }
 
@@ -39,6 +45,7 @@ export function ScoringConfigForm({
   action,
   defaultValues,
   showScreeningLogisticsFields = false,
+  showCodeExerciseField = false,
   locale = "en",
 }: ScoringConfigFormProps) {
   const [state, formAction, pending] = useActionState<
@@ -117,6 +124,23 @@ export function ScoringConfigForm({
             />
             {t(locale, "templates.includeWorkAuthorizationCheckLabel")}
           </label>
+        </div>
+      ) : null}
+
+      {showCodeExerciseField ? (
+        <div className="flex flex-col gap-1.5 border-t border-border pt-3">
+          <label className="flex items-center gap-2 text-[12.5px]">
+            <input
+              type="checkbox"
+              name="includeCodeExercises"
+              defaultChecked={defaultValues.includeCodeExercises}
+              className="size-3.5"
+            />
+            {t(locale, "templates.includeCodeExercisesLabel")}
+          </label>
+          <p className="text-[11px] text-muted-foreground">
+            {t(locale, "templates.includeCodeExercisesHelp")}
+          </p>
         </div>
       ) : null}
 

@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
-import { competencies, positions, questions } from "@/db/schema";
+import { competencies, interviewTemplates, positions, questions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { saveJobDescription } from "@/features/positions/job-description";
 import type { InterviewStage } from "@/domain/interviews/stage-config";
@@ -232,6 +232,7 @@ describe("generateTemplateDraftAction — First Screening core-content merge (pl
       englishMinLevel: 3,
       includeCompensationQuestion: false,
       includeWorkAuthorizationCheck: true,
+      includeCodeExercises: false,
     });
     generateTemplateDraftMock.mockResolvedValueOnce(AI_DRAFT);
 
@@ -255,6 +256,7 @@ describe("generateTemplateDraftAction — First Screening core-content merge (pl
       englishMinLevel: 3,
       includeCompensationQuestion: true,
       includeWorkAuthorizationCheck: false,
+      includeCodeExercises: false,
     });
     generateTemplateDraftMock.mockResolvedValueOnce(AI_DRAFT);
 
@@ -277,5 +279,97 @@ describe("generateTemplateDraftAction — First Screening core-content merge (pl
 
     const saved = await db.query.competencies.findMany({ where: eq(competencies.templateId, template.id) });
     expect(saved.map((c) => c.name)).toEqual(["Cloud Experience"]);
+  });
+});
+
+// Plan Phase 25/§45: coding exercises are opt-in per template, defaulting
+// off, even for a Technical Interview — the stage only sets the ceiling of
+// what's possible, not the default.
+describe("generateTemplateDraftAction — coding exercises are opt-in per template (plan Phase 25/§45)", () => {
+  async function jobAnalysisFixture(jobDescriptionId: string) {
+    await saveJobAnalysis(jobDescriptionId, {
+      detectedRoleFamily: "Software Engineering",
+      detectedSeniority: "Senior",
+      mandatoryRequirements: [],
+      preferredRequirements: [],
+      optionalRequirements: [],
+      notes: "",
+    });
+  }
+
+  const AI_DRAFT_WITH_CODE: TemplateDraft = {
+    competencies: [
+      {
+        ...AI_DRAFT.competencies[0],
+        questions: [
+          {
+            ...AI_DRAFT.competencies[0].questions[0],
+            code: "def add(a, b): ...",
+            solution: "def add(a, b): return a + b",
+          },
+        ],
+      },
+    ],
+    mandatoryRequirements: [],
+  };
+
+  it("defaults to no coding exercises for a freshly created Technical Interview template", async () => {
+    const template = await createTemplateWithJobDescription("technical");
+    await jobAnalysisFixture(template.jobDescriptionId!);
+    generateTemplateDraftMock.mockResolvedValueOnce(AI_DRAFT_WITH_CODE);
+
+    await generateTemplateDraftAction(template.id, undefined);
+
+    expect(generateTemplateDraftMock).toHaveBeenCalledWith(
+      expect.objectContaining({ includeCodeExercises: false })
+    );
+    const saved = await db.query.questions.findMany({ where: eq(questions.templateId, template.id) });
+    for (const q of saved) {
+      expect(q.code).toBeNull();
+      expect(q.solution).toBeNull();
+    }
+  });
+
+  it("requests and persists coding exercises once the template opts in", async () => {
+    const template = await createTemplateWithJobDescription("technical");
+    await jobAnalysisFixture(template.jobDescriptionId!);
+    await updateScoringConfig(template.id, {
+      passThreshold: 70,
+      borderlineMin: 50,
+      criticalMin: 50,
+      minCompletion: 70,
+      englishRequired: false,
+      englishMinLevel: 3,
+      includeCompensationQuestion: false,
+      includeWorkAuthorizationCheck: false,
+      includeCodeExercises: true,
+    });
+    generateTemplateDraftMock.mockResolvedValueOnce(AI_DRAFT_WITH_CODE);
+
+    await generateTemplateDraftAction(template.id, undefined);
+
+    expect(generateTemplateDraftMock).toHaveBeenCalledWith(
+      expect.objectContaining({ includeCodeExercises: true })
+    );
+    const saved = await db.query.questions.findMany({ where: eq(questions.templateId, template.id) });
+    expect(saved.some((q) => q.code === "def add(a, b): ...")).toBe(true);
+  });
+
+  it("never requests coding exercises for a screening template even if the template row somehow had the column set", async () => {
+    const template = await createTemplateWithJobDescription("screening");
+    await jobAnalysisFixture(template.jobDescriptionId!);
+    // Simulate a stale/tampered value — the UI never exposes this toggle
+    // for screening, but the stage ceiling must hold regardless.
+    await db
+      .update(interviewTemplates)
+      .set({ includeCodeExercises: true })
+      .where(eq(interviewTemplates.id, template.id));
+    generateTemplateDraftMock.mockResolvedValueOnce(AI_DRAFT);
+
+    await generateTemplateDraftAction(template.id, undefined);
+
+    expect(generateTemplateDraftMock).toHaveBeenCalledWith(
+      expect.objectContaining({ includeCodeExercises: false })
+    );
   });
 });

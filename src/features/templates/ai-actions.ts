@@ -193,7 +193,13 @@ export async function generateTemplateDraftAction(
   }
 
   const stage = template.stage as InterviewStage;
-  const includeCodeExercises = getStageConfig(stage).modules.codeExercises;
+  // The stage's own module flag is a CEILING (screening never codes with
+  // the candidate, full stop); the template's own column is the human's
+  // opt-in within whatever the stage allows (plan Phase 25/§45). ANDing
+  // them means a screening template can never generate exercises even if
+  // its stored value were somehow true, and a technical template only
+  // generates them when the reviewer explicitly turned the toggle on.
+  const includeCodeExercises = getStageConfig(stage).modules.codeExercises && template.includeCodeExercises;
 
   try {
     const provider = getAIProvider();
@@ -278,7 +284,8 @@ export async function regenerateQuestionAction(
   if (!position || !competency) return { error: "Position or competency not found." };
 
   const stage = template.stage as InterviewStage;
-  const includeCodeExercises = getStageConfig(stage).modules.codeExercises;
+  // See the identical comment in generateTemplateDraftAction above.
+  const includeCodeExercises = getStageConfig(stage).modules.codeExercises && template.includeCodeExercises;
 
   try {
     const provider = getAIProvider();

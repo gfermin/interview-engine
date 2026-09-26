@@ -155,6 +155,17 @@ export const interviewTemplates = sqliteTable("interview_templates", {
   includeWorkAuthorizationCheck: integer("include_work_authorization_check", { mode: "boolean" })
     .notNull()
     .default(false),
+  // Coding exercises are optional and opt-in (plan Phase 25/§45) — mirrors
+  // includeCompensationQuestion's own precedent exactly. Defaults to false
+  // for every stage, including Technical: STAGE_MODULES.technical
+  // .codeExercises=true (stage-config.ts) is a CEILING (whether the module
+  // is available at all for this stage), not a default — the human
+  // reviewer still has to opt in before the AI is ever asked for one.
+  // Meaningless for "screening" — that stage's ceiling is false regardless
+  // of this column's value, and the UI never surfaces the toggle there.
+  includeCodeExercises: integer("include_code_exercises", { mode: "boolean" })
+    .notNull()
+    .default(false),
   // Entity lifecycle management (plan Phase 23/§44.7) — distinct from
   // `status` (draft/approved/locked, which governs editability/versioning,
   // not visibility). Archiving removes a template from
