@@ -1,411 +1,33 @@
-# Interview Platform
+# 🎙️ Interview Platform
 
-A local, JD-driven interview assessment platform — the universal successor to
-the "Calibración QA" reference artifact. Full analysis, architecture
-decisions, data model, and phased implementation plan live in
+## 📌 Overview
+
+This project is a local, JD-driven interview assessment platform — the universal, production-style successor to the "Calibración QA" reference artifact.
+
+It generates structured interview templates from a Job Description with the help of an LLM, runs the live candidate interview against them, and computes the final PASS/FAIL/BORDERLINE result with a deterministic scoring engine that never delegates the hiring decision to the AI.
+
+Full analysis, architecture decisions, data model, and the phased implementation plan (25 phases and counting) live in
 [`docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md`](../Prompts/docs/UNIVERSAL_INTERVIEW_PLATFORM_IMPLEMENTATION_PLAN.md)
-in the sibling `Prompts` project.
+in the sibling `Prompts` project — this README stays a snapshot of the current architecture, not a changelog.
 
-**Status:** Phase 11 (Persistence / History / Versioning Hardening) complete
-— **this is the POC completion** (plan §11: "this phase's completion is the
-POC completion").
-Phases 0-11 done: app shell + SQLite/Drizzle (1), ScoringEngine/
-CompletenessEngine/CriticalRequirementEngine + full schema (2), Position +
-Job Description management with Role Family/Seniority (3), the Template
-builder — Competency/MandatoryRequirement/Question CRUD, reordering,
-draft/approved/locked versioning (ADR-008), and the per-stage (Technical/
-Screening) config map (4), an `AIProvider` abstraction + `ClaudeProvider`
-behind forced tool-use, wired into the builder as "Analyze Job Description"
-(→ `JobAnalysis`, with a non-blocking role/seniority mismatch flag) and
-"Generate Draft" (→ a full Competency/MandatoryRequirement/Question set,
-Zod-validated before touching the database, with an `AIGenerationRecord`
-kept for provenance) (5), a second `AIProvider` implementation,
-`GeminiProvider`, for free-tier local testing without spending Anthropic
-credits (5.5, plan §38 addendum), per-question AI "Regenerate" — re-calls
-AI for one question only, replacing it in place (same id/order) so the
-rest of the template and sibling questions are untouched (6), a Candidate
-roster (create/edit, notes) with a "Start Interview Session" flow that
-picks any published (approved or locked) Template and creates an
-`InterviewSession` against its exact version — the first real exercise of
-Phase 4's lock-on-use guard: an `approved` Template flips to `locked` the
-moment a Session references it, and a `draft` Template is refused outright
-(7), and the live interview rating screen itself (`/interviews/[sessionId]`)
-— the artifact's question cards (collapsible expected-answer/rubric/
-follow-up panels, 0-5/N/A rate bar, autosaving notes) rebuilt as
-database-backed React, with a per-competency section nav (○/●/✓/⚠ status
-icons) and live overall/completion/critical chips recomputed by the same
-`ScoringEngine`/`CompletenessEngine`/`CriticalRequirementEngine` from
-Phase 2 on every rating change, and a `competencyEvaluations` rollup cache
-persisted alongside for later phases to read without recomputing (8), and
-a Summary/Decision screen (`/interviews/[sessionId]/summary`) reached from
-the live rating screen's "View Summary" action: the unmodified Phase 2
-`ScoringEngine.calculate()` now runs for real, wired up to a
-`MandatoryRequirement` gate with its own tri-state (Met/Not Met/Unknown)
-control per requirement — the boolean knockout the original master prompt
-specified but the "Calibración QA" artifact never built — an optional
-English `SupplementaryAssessment` (1-5 level, gated by a per-template
-`englishRequired`/`englishMinLevel` config on the Scoring Configuration
-form), a per-competency breakdown grid, a template-string narrative
-paragraph, and the artifact's three-path decision workflow (accept,
-override, or — only when the calculated status is the BORDERLINE
-"ambiguous middle" — an explicit forced PASS/FAIL call), each requiring a
-reason except a plain accept. Recording a decision moves the session
-`in_progress` → `decided` (with `completed` as an intermediate "finished
-rating, not yet decided" state) and freezes its ratings read-only; changing
-a decision overwrites the prior one with no history kept — a confirmed POC
-limitation (plan §21/§38) (9), and PDF reporting (ADR-007): a "Generate
-Report" action on the Summary screen (gated on the session being `decided`)
-renders a server-side HTML template — candidate/position/stage/version,
-calculated status and decision, competency breakdown, the Mandatory
-Requirement and English gates, deterministic strengths/concerns, and the
-narrative — through headless Chromium (`playwright`) into a real PDF,
-written to `.data/reports/` and referenced by an immutable
-`InterviewReport` row; a download route
-(`/api/reports/[id]`) streams the bytes back, and regenerating adds a new
-report rather than overwriting the last one (10).
-and an Interview History screen (`/interviews`) listing and filtering every
-session by position/candidate/stage/status, plus an explicit "Reopen"
-action — the only way back to an editable session once `finishRating` or
-`recordDecision` has locked it. Reopening sends the session back to
-`in_progress` and stamps `reopenedAt`/`reopenCount`; it doesn't delete the
-prior decision or report, which stay visible until the interviewer
-re-decides, and generating a report again after a reopen produces a
-*second*, distinct `InterviewReport` rather than overwriting the first
-(11). Hardening this phase also caught and fixed a real Phase 9 bug: the
-Summary screen's own Mandatory Requirement and English controls were
-guarded by the *ratings* lock (`in_progress`-only) instead of the *decision*
-lock (`decided`-only), so they broke the moment "View Summary" moved a
-session to `completed` — before a decision even existed. They're now
-guarded correctly, and read-only once a session is `decided`.
-Requires `ANTHROPIC_API_KEY` **or** `GEMINI_API_KEY` in `.env` to actually
-call an AI provider — without either, AI actions surface a clear error and
-everything else keeps working offline. Requires Playwright's Chromium
-browser to be installed locally (see Getting started) — without it, report
-generation fails with a clear error and everything else keeps working.
-**This completes the core POC loop (Phases 1-11).**
+This repository focuses not only on shipping features, but on demonstrating disciplined, phased product/engineering delivery: every phase has a written objective, dependencies, acceptance criteria, and a verified-in-browser completion note before the next one starts.
 
-**Phase 13 (Hardening / Testing / UX Polish)** — entered directly from
-Phase 11 (Phase 12/BambooHR deliberately skipped for now, per its own
-"only pursued after the core loop is proven" framing). Because this
-phase's plan entry is open-ended rather than a fixed requirements list, it
-started with a full-codebase audit (test coverage, error-messaging
-quality, missing Next.js conventions, UX rough edges, dead code, Zod
-schema gaps) instead of a predetermined task list — see plan §40 for the
-complete findings. The audit's pure-display/copy/comment findings were
-applied immediately: a duplicated position-title fix in the "Start
-Interview Session" template picker, friendly labels in place of raw
-enums (`REVIEW_REQUIRED`, `PASS`/`FAIL` now using each stage's own
-vocabulary via `statusLabelFor`) on the Summary screen's Recommendation
-and Decision displays, one shared session-status label map replacing
-three separate ad hoc versions, a clearer interview-history empty state,
-a working link on the Template builder's "add a competency first"
-message, and several stale phase-tense comments corrected. Findings that
-needed an actual logic change — a confirmed `DecisionForm` state bug after
-Reopen, several jargon-y/leaky error messages, missing `error.tsx`/
-`not-found.tsx`, a handful of data-integrity gaps, and the bulk of the
-test-coverage gaps (`createNewTemplateVersion` most notably) — were
-recorded in plan §40 as a reviewed backlog, then resolved in a deliberate
-follow-up pass (plan §40.7): the `DecisionForm` bug is fixed (guarded at
-both the component's initial-state derivation and via a `key={status}` at
-its call site, with a regression test proving both halves are needed);
-every jargon-y/leaky error message now reads in plain language, including
-mapped AI-provider status codes (401/429/5xx/network) and a friendly
-"install Chromium" message when Playwright's binary is missing; a styled
-root `error.tsx` and `not-found.tsx` now catch the class of uncaught
-exceptions/404s the audit flagged; the data-integrity gaps (double-click
-guard on "Create New Version," cross-template ownership checks on
-questions/mandatory-requirements, and length caps aligned between the
-human-authored form schemas and the AI-generated-content schemas) are
-closed; and the test-coverage backlog is closed except a deliberately
-skipped e2e journey test (real coverage of the core loop continues to live
-in Vitest integration tests, per the audit's own note that this was
-already an established, working deviation from the plan text) — 265
-unit/component tests now pass (up from 207), including new coverage for
-`createNewTemplateVersion`, the delete/update/move mutations, `listSessions`
-filters, `DecisionForm`, and the Server Actions this pass's fixes touched.
-A coverage tool (`@vitest/coverage-v8`, `npm run test:coverage`) is
-configured for the first time.
+---
 
-Phases 14-16 (Calibración QA visual/interaction parity — persistent
-scoreboard/performance bar, restored question-card styling, colored
-competency dashboard; Dashboard operational rebuild; JD-tag/alt-solutions
-question fields) are complete — see the implementation plan's §41.
+## 🎯 Goals of This Project
 
-**Phase 18 (Reports Hub & Report Naming)** is complete. A root-cause audit
-(plan §42) found `/reports` had no route at all — the sidebar's link hit
-the framework 404 — even though reports themselves were persisting
-correctly. `/reports` now lists every finalized report across every
-candidate (`listAllReports`, joined against the same `InterviewDecision`
-Summary already reads, never recalculated independently), searchable by
-candidate/position and filterable by stage, sorted newest-first, with a
-true empty state distinct from a "no filter matches" state. Reports are
-now candidate-identifiable everywhere: a centralized
-`domain/reports/naming.ts` builds both a human-readable `displayName`
-(`Candidate — Position — Stage`) and a filesystem-safe `fileName` (with a
-report-id suffix so same-day/duplicate-name candidates stay distinguishable),
-persisted on `InterviewReport` at generation time; the download route's
-`Content-Disposition` and the Summary screen's report list both use it,
-falling back to a live-computed value for the handful of reports generated
-before these columns existed (no backfill migration needed).
+- Build a domain-driven interview assessment engine with a deterministic, AI-independent scoring core
+- Keep AI generation strictly assistive — a human always reviews and can edit everything before it's used, and the AI never computes PASS/FAIL (ADR-006)
+- Support multiple interview stages (Technical Interview, First Screening) with genuinely different generation targets, not one prompt with a stage flag
+- Make every assessment method (coding exercises included) an explicit, opt-in decision — never implied by role type or interview stage
+- Provide safe template versioning (draft → approved → locked) so a candidate's historical evaluation stays meaningful even after the template evolves
+- Give every entity (Position, Template, Candidate, Session, Report) a domain-enforced lifecycle policy — no naive delete button that can silently destroy a finalized hiring decision
+- Ship a fully bilingual (English/Spanish) UI and interview content, on two independent axes (app language vs. interview content language)
+- Use TypeScript (`strict: true`) and Zod validation at every human/AI input boundary to catch mistakes at compile time or at the schema gate, not in production
 
-**Phase 19 (Layout Width System)** is complete. The audit (plan §42) traced
-the app's narrow feel to ~23 pages each independently hardcoding their own
-`<main className="mx-auto max-w-[Npx]">` wrapper (640-980px) — not a shell
-or sidebar bug, since `AppSidebar` + the `flex-1` main region already
-claimed full remaining viewport width correctly. A shared
-`components/layout/page-container.tsx` now owns width for every page via a
-`standard` (720px, simple forms) / `wide` (1200px, lists/detail/dashboard/
-template builder) / `full` (1440px, Live Interview + Summary) variant,
-replacing every one of those literals. Verified at 1920px, 1280px, and
-tablet (768px) widths — no horizontal overflow at any size, and the
-existing `InterviewScoreboard`'s `flex-wrap` chip row degrades cleanly on
-its own without needing a new breakpoint.
+---
 
-**Phase 20 (Internationalization Foundation)** is complete. Rather than
-next-intl/react-i18next (which assume `[locale]` URL routing or a client
-Context provider — a mismatch for an app that's 100% Server Components +
-Server Actions with no client router), the app language switch mirrors
-`features/settings/theme.ts`'s own cookie-based pattern exactly:
-`features/settings/locale.ts` (`APP_LOCALE_COOKIE`, `resolveLocale`) +
-`setLocaleAction`, defaulting to English (the app's actual current
-language, confirmed by audit before this phase started). A minimal
-`lib/i18n.ts` looks up `"namespace.key"` strings against namespaced JSON
-resources under `src/locales/{en,es}/` (`common`, `navigation`, `dashboard`,
-`settings`, `reports`, `interview` — the last two added in Phase 21), with
-an English fallback for any missing Spanish key and
-a dictionary-completeness test guarding both locales stay in sync. The
-Settings page now has a Language section alongside Appearance; the sidebar
-nav, `AppTopbar`'s "POC" badge, and the full Dashboard are localized as the
-proof-of-mechanism surfaces. Verified in-browser: switching languages
-updates the whole shell immediately (no page reload, same `revalidatePath`
-pattern as the theme toggle), the choice survives a fresh navigation
-(cookie persistence), and `<html lang>` tracks the active locale. Domain/
-business values (interview status, stage, template status) and
-query-generated prose (Attention Required item text) are deliberately left
-English for now — per plan §32/§33 those need their own stage-aware label
-maps, not ad-hoc UI-dictionary keys, and are Phase 21's job alongside the
-bulk hardcoded-string migration across the remaining pages.
-
-**Phase 21 (Interview Language & Content Localization) is complete.**
-Tasks 21.1-21.3 and 21.5 shipped as described below, and Task 21.4's bulk
-hardcoded-string migration now covers the whole app: Live Interview and
-Summary (the plan's own §18 "most information-dense screens" priority) plus
-every component they use (`QuestionCard`, `DecisionForm`,
-`MandatoryRequirementControl`, `CompetencyDashboard`, `InterviewScoreboard`,
-`ReopenSessionButton`, `GenerateReportButton`), and the full Templates
-builder (`template-form`, `competency-form`, `mandatory-requirement-form`,
-`question-form`, `scoring-config-form`, `ai-components`, `template-actions`,
-and all nine `app/templates/**` pages), Candidates (`candidate-form`,
-`start-session-form`, all four `app/candidates/**` pages), and Positions
-(`position-form`, `job-description-editor`, all four `app/positions/**`
-pages) — three new namespaces (`templates`, `candidates`, `positions`,
-187 combined keys) alongside the five from Phase 20. Verified end-to-end in
-the browser against real data across every major surface: switching the app
-to Spanish translates every UI label, heading, button, and form field
-throughout — including the role/seniority-mismatch warning on the template
-detail page — while question text, JD text, AI-analysis notes, and domain
-values (`PASS`, stage/status/difficulty/importance labels, template status)
-correctly stay in their original language. A `decided` session's Live
-Interview and Summary screens confirm the App-language/Interview-language
-independence works exactly as designed, not just unit-tested: the narrative
-paragraph and question content follow that session's own English-language
-template regardless of the app being set to Spanish. What shipped:
-`interviewTemplates.interviewLanguage` (`en`/`es`, required at creation,
-carried forward unchanged by `createNewTemplateVersion` — the same
-fixed-at-creation treatment `stage` already gets, since neither has an
-in-place edit mutation) is now visible on the template creation form, the
-template detail page, and the "Start Interview Session" template picker.
-`services/ai/prompts.ts`'s three generation prompts (job analysis, template
-draft, question regeneration) each now carry an explicit language
-instruction sourced from the template's `interviewLanguage` — confirmed via
-`prompts.test.ts` — rather than leaving the model to guess from the JD
-text. The PDF report template and its narrative paragraph (`buildNarrative`)
-now render in the session's template `interviewLanguage`, independent of
-whoever clicks "Generate Report" or what their own app language is set to
-(plan §28's simplest-predictable-rule); the ScoringEngine's own `reason`
-string is deliberately left untranslated — domain output, not narrative
-copy. The `/reports` page picked up a full `reports` namespace and is now
-bilingual end-to-end, including locale-aware date formatting
-(`toLocaleDateString(locale)`) — verified in-browser in both languages
-against real data. Business/domain values (status, stage, template status)
-remain intentionally untouched per §32/§33.
-
-**Phase 22 (First Screening Generation Redesign, plan §43) is complete.**
-A research pass (recruiter/HR screening best practices, cross-checked
-against independent sources) confirmed the hypothesis behind this phase:
-First Screening and Technical Interview shared one AI generation prompt
-(`buildTemplateDraftPrompt`) with a single stage-differentiating sentence —
-nothing stopped, and nothing actively discouraged, deep architecture/
-debugging/system-design questions from reaching an HR/recruiter
-interviewer with no technical background. First Screening now has its own
-generation instructions (`buildScreeningTemplateDraftPrompt`,
-`services/ai/prompts.ts`) with an explicit HR persona, a banned-question-
-type list (no coding/debugging/system-design/architecture/framework-
-internals questions), and an "evidence tier" pattern for validating claimed
-technical experience at a high level (has-used-professionally → duration →
-current role → project → responsibility) instead of judging correctness.
-A curated core question bank (`src/lib/screening-core-questions.ts` —
-introduction, motivation, availability, candidate questions) is merged into
-every screening draft programmatically, not AI-generated, and competency
-weights are renormalized to sum to 100 after the merge. Two new,
-opt-in-per-template toggles (`includeCompensationQuestion`,
-`includeWorkAuthorizationCheck` — off by default, alongside the existing
-English-assessment config) gate a compensation question and a Work
-Authorization `MandatoryRequirement`, respectively — neither is ever
-generated indiscriminately. Two additive question fields
-(`requiresTechnicalKnowledge`, `technicalTermHelper`) let the AI (or a
-human editor) flag when a question needs jargon explained to a non-
-technical interviewer; `QuestionCard` renders that as an open-by-default
-"What is this?" panel on the live rating screen. A new `RUBRIC_LABELS` map
-in `stage-config.ts` (parallel to the existing `STATUS_LABELS` mechanism)
-gives Screening evidence-based 0-5 labels ("No Evidence" … "Meets
-Screening Expectation" … "Excellent Evidence") instead of Technical's
-depth-based labels ("No Understanding" … "Meets Expected Level" …
-"Excellent") — shown as a hover title on each rate-bar button — without
-changing the underlying `ScoreValue`/`SCORE_TO_PERCENT` scale or the
-`ScoringEngine` in any way. The Summary/report narrative now appends a
-one-line disclaimer for screening sessions ("This reflects First Screening
-evidence only, not a technical validation."). Verified live against the
-real Anthropic API end-to-end: generating a First Screening draft for a
-QA-heavy JD produced zero coding/architecture/debugging questions, correct
-evidence-tier rubrics, `technicalTermHelper` text for both AI-generated
-questions that referenced jargon (QA Engineering; API/performance testing
-and Gitflow), and — with both toggles enabled — the Work Authorization
-gate and compensation question appearing exactly once each, alongside the
-unchanged Technical Interview generation path for the same position.
-
-**Phase 23 (Entity Lifecycle & Deletion Management, plan §44) is complete.**
-An analysis pass found zero delete/archive/restore capability existed for
-Positions, Templates, Candidates, Interview Sessions, or Reports — and that
-`Candidate → InterviewSession` (and its evaluation/decision/report
-children) was an unprotected `CASCADE` at the DB level, meaning a naive
-"Delete Candidate" button could have silently destroyed a finalized hiring
-evaluation. Each entity now has a domain-enforced lifecycle policy instead
-of a blanket delete button: Position/Template/Candidate support hard-delete
-only when genuinely dependency-free (no template ever used by a Session,
-for Position/Template; zero sessions, for Candidate) and Archive otherwise;
-Interview Session allows hard-delete for `in_progress`/`completed` but is
-Archive-only once `decided` (a real hiring decision exists); Report is
-always safely hard-deletable (it has no dependents — deleting it never
-touches the session/decision it was generated from, and a fresh one can
-always be regenerated). Archived rows disappear from every default list,
-Dashboard count, and selector (`listPublishedTemplates`, position/candidate
-pickers) but stay fully reachable — a Candidate's session list and the
-Reports list never hide anything based on Position/Template/Candidate
-archival. No foreign-key `onDelete` behavior was changed: the existing
-`Position → Template` `CASCADE` stays safe because `Template → Session`'s
-own `RESTRICT` already blocks the dangerous path, and the new domain-layer
-guards mean `Candidate → Session`'s `CASCADE` now only ever fires against
-already-verified-empty rows. Confirmation reuses the app's existing
-`window.confirm()` architecture (already established by `ReopenSessionButton`
-and the Templates feature's row actions) rather than introducing a new
-Dialog primitive, with dependency-aware messages computed server-side and
-Delete/Archive buttons rendered conditionally so a click can practically
-only ever succeed.
-
-A dedicated referential-integrity regression suite
-(`lifecycle-referential-integrity.test.ts`) — explicitly called out as
-"critical" in the source task — caught a real bug before it shipped: the originally-planned
-`canDeletePosition`/`canDeleteTemplate` checks trusted a template's
-`status === "locked"` field as a proxy for "has a Session," but that field
-is only set by a second, non-atomic write inside `startInterviewSession`.
-A test that inserted a Session directly reproduced the exact failure this
-phase exists to prevent — the domain check said "safe to delete," and only
-the database's own `FOREIGN KEY constraint failed` actually stopped it, as
-a raw, unfriendly exception. Fixed by replacing both checks with direct
-Session-existence queries (`hasSessionsForTemplate`, `countUsedTemplatesForPosition`)
-shared by the mutation and its detail page, so the two can never diverge
-again. 423 unit/component tests pass (up from 372 after Phase 22);
-`tsc`, lint, and `npm run build` are clean; verified live end-to-end in the
-browser across the full chain (Position → Template → Candidate → Session →
-Decision → Report), including the blocked-delete/dependency-message path,
-the decided-session-archive-only path, clean report deletion, and correct
-Dashboard/Interview-History exclusion of an archived session that remains
-visible on its candidate's own page.
-
-**Phase 25 (Optional Coding Exercises, plan §45) is complete.** An analysis
-pass found coding/practical exercises were never actually a user decision:
-`STAGE_MODULES.technical.codeExercises` was hardcoded `true`, so every
-Technical Interview draft always asked the AI for a coding exercise and
-every First Screening draft never did — there was no way to generate a
-questions-only Technical Interview. Coding exercises are now opt-in per
-template (`interview_templates.includeCodeExercises`, default off, mirroring
-Phase 22's `includeCompensationQuestion` precedent exactly), editable in the
-Scoring Configuration form before "Generate Draft" is ever clicked and gated
-to appear only for the Technical stage; the stage's own module flag becomes
-a ceiling rather than a default, so a First Screening template can never
-produce an exercise regardless of that column's stored value. The AI prompt
-had a latent bug fixed along the way — a previously-unconditional "generate
-hands-on coding/debugging exercises" sentence that could contradict the very
-next, conditional instruction — and the disabled-case guidance now
-explicitly bans coding-challenge patterns and redirects the model toward
-question-based alternatives (architecture discussion, debugging-reasoning
-scenarios, trade-off questions) rather than leaving a competency
-under-assessed. No scoring, completeness, or Live Interview changes were
-needed: questions of any kind are already scored generically with no
-per-type weight/critical flag, and the code-exercise panel already rendered
-purely conditionally on a null `code` field. The Interview Summary screen
-and PDF report each gained a "Coding Exercise: Included / Not Included"
-line, sourced from the template's own recorded decision rather than
-incidental question content, so a reviewer can always tell whether coding
-was actually part of what was evaluated. English/Spanish i18n keys added
-throughout; verified live end-to-end in the browser (checkbox and help text
-render for a Technical template, are correctly absent for a First Screening
-template, and the read-only "Coding Exercise: Not Included" badge reflects
-the default-off state on a freshly created template of either stage).
-
-Phase 12 (BambooHR Integration POC) and Phase 24 (Production Readiness)
-remain open.
-
-## Stack
-
-Next.js (App Router, TypeScript) · Tailwind + shadcn/ui · SQLite via Drizzle
-ORM · Zod + React Hook Form · Vitest + Testing Library (unit/component) ·
-Playwright (E2E, and PDF report generation as of Phase 10) · Claude
-(`@anthropic-ai/sdk`, recommended default) or Gemini (`@google/genai`, free
-tier) behind an `AIProvider` abstraction (`src/services/ai/`), live since
-Phase 5/5.5.
-
-Design tokens (colors, IBM Plex Sans/Mono typography) in
-`src/app/globals.css` are ported directly from the "Calibración QA" artifact
-for visual continuity, including the pass/borderline/fail/provisional/N/A
-status-color semantics used from Phase 8 onward.
-
-## Getting started
-
-```bash
-cp .env.example .env
-npm install
-npx playwright install chromium
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-`npx playwright install chromium` downloads the browser binary Playwright
-needs — required for PDF report generation (Phase 10) and for
-`npm run test:e2e`; skip it and everything else in the app still works,
-but "Generate Report" will fail with a clear error until it's installed.
-
-## Scripts
-
-| Script | Purpose |
-|---|---|
-| `npm run dev` | Start the local dev server |
-| `npm run build` | Production build |
-| `npm run lint` | ESLint |
-| `npm test` | Unit/component tests (Vitest) |
-| `npm run test:watch` | Vitest in watch mode |
-| `npm run test:e2e` | End-to-end tests (Playwright; auto-starts the dev server on port 3100) |
-| `npm run db:generate` | Generate a Drizzle migration from `src/db/schema.ts` |
-| `npm run db:migrate` | Apply pending migrations to the local SQLite file |
-| `npm run db:studio` | Open Drizzle Studio against the local database |
-
-The local SQLite file lives at `.data/dev.sqlite` (gitignored, created
-automatically). See ADR-002 in the implementation plan for why SQLite was
-chosen over IndexedDB/Postgres for the POC.
-
-## Project structure
+## 🏗 Project Structure
 
 ```
 src/
@@ -432,5 +54,204 @@ src/
 e2e/                  # Playwright specs
 ```
 
-See §32 of the implementation plan for the full target structure as later
-phases add to it.
+See §32 of the implementation plan for the full target structure as later phases add to it.
+
+---
+
+## 🧠 Architecture & Design Decisions
+
+### 1️⃣ A Deterministic Scoring Core, Decoupled From AI
+
+The AI never decides PASS/FAIL (ADR-006). `domain/scoring/` (`ScoringEngine`, `CompletenessEngine`, `CriticalRequirementEngine`) is pure, synchronous, AI-agnostic code — it takes rated `QuestionEvaluation`s and a `Competency` model and returns a calculated status. AI only ever produces *content* (competencies, questions, rubrics) for a human to review; it is architecturally incapable of touching the result.
+
+```ts
+export interface Competency {
+  id: string;
+  weight: number;      // integers per template summing to exactly 100
+  critical: boolean;   // a knockout: failing this competency fails the candidate
+}
+```
+
+**Why this matters:** the hiring decision is always explainable, reproducible, and independent of whichever AI provider or prompt version generated the questions.
+
+---
+
+### 2️⃣ A Pluggable `AIProvider` Abstraction
+
+Every AI-assisted touch point (JD analysis, template draft generation, single-question regeneration) sits behind one interface, so a second provider is a new implementation, not a rewrite of any caller.
+
+```ts
+export interface AIProvider {
+  readonly providerName: string;
+  readonly model: string;
+  analyzeJobDescription(input: AnalyzeJobDescriptionInput): Promise<JobAnalysisResult>;
+  generateTemplateDraft(input: GenerateTemplateDraftInput): Promise<TemplateDraft>;
+  regenerateQuestion(input: RegenerateQuestionInput): Promise<TemplateDraftQuestion>;
+}
+```
+
+`ClaudeProvider` (`@anthropic-ai/sdk`, the recommended default — ADR-005: structured-output reliability) and `GeminiProvider` (`@google/genai`, a free-tier alternative for local testing) both implement it behind forced tool-use, and every generation is Zod-validated before it ever touches the database.
+
+---
+
+### 3️⃣ Template Versioning — Lock on Use (ADR-008)
+
+A Template is `draft` (fully editable) → `approved` (published, not yet used) → `locked` (an Interview Session now references this exact version). A Session always points at an immutable, specific version, so editing a template into a new version never rewrites the meaning of a candidate's already-recorded evaluation.
+
+---
+
+### 4️⃣ Per-Stage Configuration as a Ceiling, Not a Branch
+
+Stage-specific behavior (First Screening vs. Technical Interview) is centralized as configuration, not scattered `if (stage === ...)` branches — and a stage's module flag is a *ceiling* on what's possible, never the actual default:
+
+```ts
+export const STAGE_MODULES: Record<InterviewStage, StageModuleConfig> = {
+  technical: { codeExercises: true, supplementaryAssessments: true },
+  screening: { codeExercises: false, supplementaryAssessments: true },
+};
+```
+
+Coding exercises, for example, are opt-in per template (`template.includeCodeExercises`, default off) *within* whatever a stage allows — Technical's `true` only means the module is available; First Screening's `false` is an absolute rule no per-template value can override.
+
+---
+
+### 5️⃣ Cookie-Based i18n, No Client Router
+
+The app is 100% Server Components + Server Actions with no client-side router, so `next-intl`/`react-i18next`'s `[locale]`-URL or Context-provider assumptions don't fit. Instead, the language switch mirrors the existing theme-toggle pattern exactly: a cookie + `resolveLocale()` + a minimal `t(locale, "namespace.key")` lookup against namespaced JSON dictionaries in `src/locales/{en,es}/`, with an English fallback and a dictionary-completeness test keeping both locales in sync. Interview *content* language (`interviewLanguage`) is a fully independent axis from the app's own UI language.
+
+---
+
+### 6️⃣ Domain-Enforced Entity Lifecycle
+
+Position, Template, Candidate, Session, and Report each get a lifecycle policy derived from their real dependencies, not a blanket delete button: hard-delete is only ever allowed when an entity is genuinely dependency-free (verified server-side against the actual referencing rows, not a proxy `status` field), and falls back to Archive/Restore otherwise. A `decided` Session (a real recorded hiring decision) can never be hard-deleted — only archived. A dedicated referential-integrity regression suite asserts that deleting one entity never destroys an unrelated, protected one.
+
+---
+
+## 🧩 Example: Resolving Whether to Generate a Coding Exercise
+
+A small, representative slice of the architecture above — the stage ceiling and the template's own opt-in are ANDed together right where the AI request is built, so a screening template can never produce a coding exercise no matter what:
+
+```ts
+const includeCodeExercises =
+  getStageConfig(stage).modules.codeExercises && template.includeCodeExercises;
+
+const rawDraft = await provider.generateTemplateDraft({
+  positionTitle: position.title,
+  seniority: position.seniority,
+  stage,
+  jobAnalysis,
+  includeCodeExercises,
+  interviewLanguage: template.interviewLanguage,
+});
+```
+
+The end-to-end flow this participates in: **Position + Job Description → Analyze (AI) → Generate Draft (AI, Zod-validated) → human review/edit → Approve → Start Interview Session (locks the template version) → live rating → Decision → PDF Report.**
+
+---
+
+## 🚀 Project Setup
+
+### 1. Clone the repository
+
+```bash
+git clone <your-repo-url>
+cd interview-platform
+```
+
+### 2. Install dependencies
+
+```bash
+npm install
+npx playwright install chromium
+```
+
+`npx playwright install chromium` downloads the browser binary Playwright needs — required for PDF report generation and `npm run test:e2e`. Skip it and everything else in the app still works, but "Generate Report" fails with a clear error until it's installed.
+
+### 3. Configure the environment
+
+```bash
+cp .env.example .env
+```
+
+Set `ANTHROPIC_API_KEY` **or** `GEMINI_API_KEY` to actually call an AI provider for JD analysis / template generation. Without either, those actions surface a clear "not configured" error and everything else — templates, live rating, scoring, PDF reports — keeps working fully offline.
+
+---
+
+## ▶️ Running the App & Tests
+
+```bash
+npm run dev             # start the local dev server → http://localhost:3000
+npm run build            # production build
+npm run lint              # ESLint
+npm test                   # unit/component tests (Vitest)
+npm run test:watch          # Vitest in watch mode
+npm run test:coverage        # Vitest with coverage (@vitest/coverage-v8)
+npm run test:e2e              # end-to-end tests (Playwright; auto-starts the dev server on port 3100)
+npm run db:generate            # generate a Drizzle migration from src/db/schema.ts
+npm run db:migrate               # apply pending migrations to the local SQLite file
+npm run db:studio                 # open Drizzle Studio against the local database
+```
+
+The local SQLite file lives at `.data/dev.sqlite` (gitignored, created automatically). See ADR-002 in the implementation plan for why SQLite was chosen over IndexedDB/Postgres for the POC.
+
+---
+
+## 📈 Scalability & Future Enhancements
+
+Already in place:
+
+- A `Competency`/`Question` domain model with no per-question-type special-casing — adding a new assessment method (a coding exercise today) never requires touching the scoring or completeness engines
+- Pluggable `AIProvider` abstraction (Claude + Gemini today; a third provider is a new implementation, not a rewrite)
+- Draft/approved/locked template versioning so historical evaluations survive template edits
+- Domain-enforced entity lifecycle (archive/delete) protecting finalized hiring decisions from naive deletion
+- Full bilingual (EN/ES) UI and interview content on two independent axes, with a dictionary-completeness test guarding drift
+- 430+ unit/integration tests, including dedicated regression suites for the properties that matter most (referential integrity, decision-lock correctness, stage-ceiling enforcement)
+
+Planned / open (see the implementation plan's Phase 12 and Phase 24):
+
+- BambooHR integration (Phase 12 — deliberately deferred until the core loop was proven)
+- Production readiness: authentication/RBAC, Postgres migration, encrypted storage, a real deployment target, observability (Phase 24)
+- A generalized `PracticalExercise` (`type: CODING | SYSTEM_DESIGN | SQL | ...`) abstraction if a second exercise kind is ever needed — deliberately not built ahead of that actual requirement
+- Additional interview stages (behavioral, leadership, hiring manager, final) — designed for in the stage-config module, not yet built
+
+---
+
+## 🛠 Tech Stack
+
+- Next.js (App Router, TypeScript, `strict: true`)
+- Tailwind CSS + shadcn/ui
+- SQLite via Drizzle ORM
+- Zod + React Hook Form
+- Vitest + Testing Library (unit/component tests)
+- Playwright (E2E tests, and PDF report generation)
+- Claude (`@anthropic-ai/sdk`, recommended default) or Gemini (`@google/genai`, free tier) behind the `AIProvider` abstraction
+- `@fontsource/ibm-plex-sans` / `@fontsource/ibm-plex-mono` — self-hosted typography, zero external font-network dependency
+
+Design tokens (colors, IBM Plex Sans/Mono typography) in `src/app/globals.css` are ported directly from the "Calibración QA" artifact for visual continuity, including its pass/borderline/fail/provisional/N-A status-color semantics.
+
+---
+
+## 💡 What This Project Demonstrates
+
+- Domain-driven design with a scoring core that stays pure and AI-agnostic by construction, not by convention
+- Careful AI-integration boundaries — structured-output validation, provenance records, and an architecture where the model literally cannot decide a hiring outcome
+- Rigorous entity-lifecycle and referential-integrity thinking, verified with dedicated regression suites, not just optimistic happy-path tests
+- Configuration-as-ceiling design (stage rules vs. per-template opt-in) instead of scattered conditional branching
+- Deep i18n handling that correctly separates UI language from domain content language
+- Disciplined, phased delivery — every phase shipped with a written objective, explicit acceptance criteria, and live in-browser verification before being marked complete
+
+This is not just a feature-by-feature build log —
+it is a structured platform built with long-term maintainability, correctness, and safety in mind.
+
+---
+
+## 👨‍💻 Author
+
+**George Luis Fermin Martinez**
+
+Specializing in:
+
+- Full-stack TypeScript/Next.js application architecture
+- Domain-driven design and deterministic business logic
+- AI-assisted product features with disciplined human-in-the-loop boundaries
+- Scalable, testable platform engineering
