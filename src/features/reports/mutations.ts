@@ -94,6 +94,7 @@ export async function generateReport(sessionId: string) {
     overall: result.overall,
     completion: result.completion,
     reason: result.reason,
+    codingExerciseIncluded: stage === "technical" && template.includeCodeExercises,
     competencies: competencies.map((c) => {
       const stat = result.competencyStats.find((s) => s.competencyId === c.id);
       const critical = criticalByCompetencyId.get(c.id);

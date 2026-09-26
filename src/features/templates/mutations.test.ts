@@ -577,6 +577,7 @@ describe("createNewTemplateVersion", () => {
       englishMinLevel: 4,
       includeCompensationQuestion: false,
       includeWorkAuthorizationCheck: false,
+      includeCodeExercises: false,
     });
     await publishTemplate(template.id);
 
@@ -755,6 +756,7 @@ describe("editable-template guard shared by delete/update mutations", () => {
         englishMinLevel: 3,
         includeCompensationQuestion: false,
         includeWorkAuthorizationCheck: false,
+        includeCodeExercises: false,
       })
     ).rejects.toThrow(/no longer editable/);
   });

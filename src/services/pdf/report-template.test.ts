@@ -16,6 +16,7 @@ const baseData: ReportData = {
   overall: 82.4,
   completion: 100,
   reason: "Overall score meets the passing threshold.",
+  codingExerciseIncluded: true,
   competencies: [
     {
       name: "Programming",
@@ -72,6 +73,19 @@ describe("buildReportHtml", () => {
 
     // narrative
     expect(html).toContain("Jordan Rivera was evaluated for");
+  });
+
+  // Plan Phase 25/§45: the report must say whether coding was actually
+  // evaluated, not leave it silently absent — a future reviewer needs to
+  // tell "not evaluated via coding" apart from "evaluated and scored".
+  it("shows the coding exercise as Included when the template had it enabled", () => {
+    const html = buildReportHtml({ ...baseData, codingExerciseIncluded: true });
+    expect(html).toContain("Included");
+  });
+
+  it("shows the coding exercise as Not Included when the template had it disabled", () => {
+    const html = buildReportHtml({ ...baseData, codingExerciseIncluded: false });
+    expect(html).toContain("Not Included");
   });
 
   it("shows the override reason when present", () => {

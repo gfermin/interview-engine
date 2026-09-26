@@ -88,6 +88,8 @@
   "englishMinLevelLabel": "Min. English level (1-5)",
   "includeCompensationQuestionLabel": "Ask about compensation expectations",
   "includeWorkAuthorizationCheckLabel": "Include work authorization check",
+  "includeCodeExercisesLabel": "Include coding exercise",
+  "includeCodeExercisesHelp": "Adds a role- and seniority-appropriate practical coding exercise to the generated interview. When disabled, the interview will contain questions only.",
   "saveScoringButton": "Save Scoring Configuration",
 
   "rawAiOutputLabel": "Raw AI output",
@@ -126,6 +128,9 @@
   "competenciesHeading": "Competencies",
   "weightsPrefix": "Weights: ",
   "noCompetenciesMessage": "No competencies yet — add them manually above, or generate a draft from the Job Analysis.",
+  "codingExerciseStatPrefix": "Coding Exercise: ",
+  "includedLabel": "Included",
+  "notIncludedLabel": "Not Included",
   "generateDraftButton": "Generate Draft (Competencies, Requirements & Questions)",
   "generatingDraftButton": "Generating draft... this can take a minute",
   "tableWeight": "Weight",

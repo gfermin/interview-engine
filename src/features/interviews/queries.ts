@@ -38,6 +38,7 @@ export async function getSessionDetail(sessionId: string) {
       borderlineMin: interviewTemplates.borderlineMin,
       criticalMin: interviewTemplates.criticalMin,
       minCompletion: interviewTemplates.minCompletion,
+      includeCodeExercises: interviewTemplates.includeCodeExercises,
       positionId: positions.id,
       positionTitle: positions.title,
     })

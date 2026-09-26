@@ -62,6 +62,25 @@ describe("buildTemplateDraftPrompt", () => {
   });
 });
 
+// Plan Phase 25/§45: coding exercises are opt-in, not implied by "technical
+// interview" — the false branch must explicitly ban exercises and redirect
+// to question-based alternatives, not just omit a sentence about them.
+describe("buildTemplateDraftPrompt — coding exercise opt-in (plan Phase 25/§45)", () => {
+  it("instructs the model to include hands-on exercises when enabled", () => {
+    const { system } = buildTemplateDraftPrompt({ ...baseDraftInput, includeCodeExercises: true, interviewLanguage: "en" });
+    expect(system).toMatch(/full Technical Interview/);
+    expect(system).toMatch(/including hands-on coding\/debugging exercises where the competency calls for them/);
+  });
+
+  it("explicitly bans coding exercises and points to question-based alternatives when disabled", () => {
+    const { system } = buildTemplateDraftPrompt({ ...baseDraftInput, includeCodeExercises: false, interviewLanguage: "en" });
+    expect(system).not.toMatch(/including hands-on coding\/debugging exercises where the competency calls for them/);
+    expect(system).toMatch(/Do not include `code` or `solution` fields/);
+    expect(system).toMatch(/do not generate coding challenges, take-home exercises, live-coding tasks/);
+    expect(system).toMatch(/architecture\/design discussion, code-reading or debugging-reasoning scenarios/);
+  });
+});
+
 // Plan Phase 22/§43.1/§43.14: First Screening must NOT be "Technical
 // Interview with a shorter sentence" — buildTemplateDraftPrompt dispatches
 // to a wholly distinct builder for the screening stage rather than
@@ -118,5 +137,15 @@ describe("buildRegenerateQuestionPrompt", () => {
   it("instructs Spanish content for interviewLanguage 'es'", () => {
     const { system } = buildRegenerateQuestionPrompt({ ...baseRegenerateInput, interviewLanguage: "es" });
     expect(system).toMatch(/entirely in Spanish/);
+  });
+
+  it("points to a question-based alternative when coding exercises are disabled (plan Phase 25/§45)", () => {
+    const { system } = buildRegenerateQuestionPrompt({
+      ...baseRegenerateInput,
+      includeCodeExercises: false,
+      interviewLanguage: "en",
+    });
+    expect(system).toMatch(/Do not include `code` or `solution` fields/);
+    expect(system).toMatch(/question-based approach/);
   });
 });

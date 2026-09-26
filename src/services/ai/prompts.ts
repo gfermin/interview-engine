@@ -7,8 +7,13 @@ import type { InterviewLanguage } from "@/domain/interviews/interview-language";
 import type { AnalyzeJobDescriptionInput, GenerateTemplateDraftInput, RegenerateQuestionInput } from "./types";
 
 export const JOB_ANALYSIS_PROMPT_VERSION = "job-analysis-v1";
-export const TEMPLATE_DRAFT_PROMPT_VERSION = "template-draft-v1";
-export const REGENERATE_QUESTION_PROMPT_VERSION = "regenerate-question-v1";
+// v2 (plan Phase 25/§45): the includeCodeExercises=false branch went from a
+// bare "don't include code/solution fields" instruction to explicit
+// question-based-alternative guidance, and the previously-unconditional
+// "including hands-on coding/debugging exercises" sentence became
+// conditional — a meaningful wording change, not a typo fix.
+export const TEMPLATE_DRAFT_PROMPT_VERSION = "template-draft-v2";
+export const REGENERATE_QUESTION_PROMPT_VERSION = "regenerate-question-v2";
 // First Screening HR-focused generation (plan Phase 22/§43.14) — a distinct
 // version so AIGenerationRecord.promptVersion correctly distinguishes
 // screening-stage drafts from technical-stage drafts going forward;
@@ -113,9 +118,13 @@ export function buildTemplateDraftPrompt(input: GenerateTemplateDraftInput): {
 } {
   if (input.stage === "screening") return buildScreeningTemplateDraftPrompt(input);
 
+  // Coding exercises are opt-in per template (plan Phase 25/§45), not
+  // implied by "this is a technical interview" — the reviewer decides, and
+  // this instruction is the only thing standing between that decision and
+  // the model defaulting to what a "technical interview" usually implies.
   const codeGuidance = input.includeCodeExercises
-    ? "For competencies where a hands-on coding or debugging exercise is the best way to assess depth, include one via the question's `code`/`solution` fields."
-    : "Do not include `code` or `solution` fields on any question — this stage does not include hands-on coding exercises.";
+    ? "This is a full Technical Interview. Generate deeper, more numerous competencies and questions, including hands-on coding/debugging exercises where the competency calls for them. For competencies where a hands-on coding or debugging exercise is the best way to assess depth, include one via the question's `code`/`solution` fields."
+    : "This is a full Technical Interview conducted entirely through questions — no coding or hands-on exercises. Do not include `code` or `solution` fields on any question, and do not generate coding challenges, take-home exercises, live-coding tasks, algorithm-implementation tasks, or \"write a function...\"-style exercises of any kind. Where a competency would otherwise call for a coding exercise, assess it instead through question-based evaluation: architecture/design discussion, code-reading or debugging-reasoning scenarios, trade-off and troubleshooting questions, and experience-based questions probing how the candidate has actually applied the skill in practice. Use the full interview time for deeper, more numerous questions — more follow-ups, more scenario and debugging-reasoning questions — so every competency still gets adequate assessment depth without a hands-on exercise.";
 
   const system = `${SHARED_SYSTEM_PREAMBLE}
 
@@ -124,8 +133,6 @@ Your task: given a Position, its Role Family and Seniority, an Interview Stage, 
 1. A Competency Model: 3-8 competencies, each with a name, a weight (integers summing to exactly 100), whether it's critical (a knockout: failing this specific competency fails the candidate regardless of overall score — mark critical only for genuinely make-or-break competencies, not everything important), and an Expected Depth description — what "3, Meets Expected Level" looks like for THIS competency at THIS seniority. ${describeSeniority(input.seniority)}
 2. Mandatory Requirements: boolean knockout gates that are NOT scored competencies (e.g. work authorization, a required certification, a minimum years-of-experience bar) — derived from the Job Analysis's mandatory requirements where they're the kind of thing that's demonstrated/not demonstrated rather than scored on a 0-5 scale. It is fine for this list to be empty if nothing in the JD fits this pattern.
 3. For each competency, a brief internal Question Blueprint (coverage topics, question-type mix) followed by 2-4 questions matching that blueprint. Each question needs: the question text, difficulty, importance, expected/strong/acceptable answer guidance, key concepts, red flags, follow-ups, a rubric with one line per 0-5 score anchored to what a response at that score actually looks like, and — when the question clearly exercises a specific requirement from the Job Analysis below — a 'jdRequirementTag' naming that requirement (null if none applies cleanly). For code questions, also give 'altSolutions' describing other valid approaches besides the primary solution.
-
-This is a full Technical Interview. Generate deeper, more numerous competencies and questions, including hands-on coding/debugging exercises where the competency calls for them.
 
 ${codeGuidance}
 
@@ -224,7 +231,7 @@ export function buildRegenerateQuestionPrompt(input: RegenerateQuestionInput): {
 } {
   const codeGuidance = input.includeCodeExercises
     ? "If a hands-on coding or debugging exercise is the best way to assess this competency, include one via the `code`/`solution` fields."
-    : "Do not include `code` or `solution` fields — this stage does not include hands-on coding exercises.";
+    : "Do not include `code` or `solution` fields, and do not propose a coding/implementation task — this template is questions-only. Assess this competency instead through a question-based approach: architecture/design discussion, debugging reasoning, trade-offs, or an experience-based question probing how the candidate has applied this skill.";
 
   const system = `${SHARED_SYSTEM_PREAMBLE}
 

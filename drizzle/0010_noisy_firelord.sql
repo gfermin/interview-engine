@@ -1,0 +1,1 @@
+ALTER TABLE `interview_templates` ADD `include_code_exercises` integer DEFAULT false NOT NULL;

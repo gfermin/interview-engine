@@ -84,6 +84,11 @@ export const scoringConfigFormSchema = z
     // template, which never surfaces these toggles in the UI.
     includeCompensationQuestion: checkbox,
     includeWorkAuthorizationCheck: checkbox,
+    // Technical Interview only (plan Phase 25/§45) — opt-in, off by default;
+    // the mirror-image precedent of the two screening toggles above. A
+    // harmless no-op for a screening template, which never surfaces this
+    // toggle and whose stage ceiling forces it off regardless (ai-actions.ts).
+    includeCodeExercises: checkbox,
   })
   .refine((v) => v.borderlineMin <= v.passThreshold, {
     message: "Borderline minimum must not exceed the pass threshold.",

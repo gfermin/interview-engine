@@ -46,6 +46,11 @@ export interface ReportData {
   overall: number | null;
   completion: number;
   reason: string;
+  /** Whether this interview's template had coding exercises enabled (plan
+   * Phase 25/§45) — the recorded generation decision, not "did any question
+   * happen to have a `code` value," so the report never implies a coding
+   * competency was directly tested when no exercise occurred. */
+  codingExerciseIncluded: boolean;
   competencies: ReportCompetency[];
   mandatoryRequirements: ReportMandatoryRequirement[];
   englishAssessment: { level: number | null; required: boolean; minLevel: number } | null;
@@ -178,6 +183,9 @@ export function buildReportHtml(data: ReportData): string {
     <div class="stat"><dt>${t(lang, "reports.statOverall")}</dt><dd>${pct(data.overall)}</dd></div>
     <div class="stat"><dt>${t(lang, "reports.statCompletion")}</dt><dd>${Math.round(data.completion)}%</dd></div>
     <div class="stat"><dt>${t(lang, "reports.statFinalDecision")}</dt><dd>${data.decision.finalDecision}</dd></div>
+    <div class="stat"><dt>${t(lang, "reports.statCodingExercise")}</dt><dd style="font-size:14px;">${
+    data.codingExerciseIncluded ? t(lang, "reports.includedLabel") : t(lang, "reports.notIncludedLabel")
+  }</dd></div>
   </div>
   <p class="reason">${escapeHtml(data.reason)}</p>
 

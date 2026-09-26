@@ -21,8 +21,10 @@ export interface GenerateTemplateDraftInput {
   stage: InterviewStage;
   jobDescriptionText: string;
   jobAnalysis: JobAnalysisResult;
-  /** Whether to ask for code-exercise questions at all — plan §8/§20:
-   * Screening doesn't code with the candidate, Technical does. */
+  /** Whether to ask for code-exercise questions at all — the caller's
+   * already-resolved value (stage ceiling AND template opt-in, plan Phase
+   * 25/§45): Screening is never true regardless of the template; Technical
+   * is only true when the reviewer explicitly enabled it. */
   includeCodeExercises: boolean;
   /** The template's own interview content language (plan Phase 21/§42) —
    * explicit, never inferred from the JD text. */
