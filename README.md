@@ -230,7 +230,100 @@ bilingual end-to-end, including locale-aware date formatting
 against real data. Business/domain values (status, stage, template status)
 remain intentionally untouched per §32/§33.
 
-Phase 12 (BambooHR Integration POC) and Phase 22 (Production Readiness)
+**Phase 22 (First Screening Generation Redesign, plan §43) is complete.**
+A research pass (recruiter/HR screening best practices, cross-checked
+against independent sources) confirmed the hypothesis behind this phase:
+First Screening and Technical Interview shared one AI generation prompt
+(`buildTemplateDraftPrompt`) with a single stage-differentiating sentence —
+nothing stopped, and nothing actively discouraged, deep architecture/
+debugging/system-design questions from reaching an HR/recruiter
+interviewer with no technical background. First Screening now has its own
+generation instructions (`buildScreeningTemplateDraftPrompt`,
+`services/ai/prompts.ts`) with an explicit HR persona, a banned-question-
+type list (no coding/debugging/system-design/architecture/framework-
+internals questions), and an "evidence tier" pattern for validating claimed
+technical experience at a high level (has-used-professionally → duration →
+current role → project → responsibility) instead of judging correctness.
+A curated core question bank (`src/lib/screening-core-questions.ts` —
+introduction, motivation, availability, candidate questions) is merged into
+every screening draft programmatically, not AI-generated, and competency
+weights are renormalized to sum to 100 after the merge. Two new,
+opt-in-per-template toggles (`includeCompensationQuestion`,
+`includeWorkAuthorizationCheck` — off by default, alongside the existing
+English-assessment config) gate a compensation question and a Work
+Authorization `MandatoryRequirement`, respectively — neither is ever
+generated indiscriminately. Two additive question fields
+(`requiresTechnicalKnowledge`, `technicalTermHelper`) let the AI (or a
+human editor) flag when a question needs jargon explained to a non-
+technical interviewer; `QuestionCard` renders that as an open-by-default
+"What is this?" panel on the live rating screen. A new `RUBRIC_LABELS` map
+in `stage-config.ts` (parallel to the existing `STATUS_LABELS` mechanism)
+gives Screening evidence-based 0-5 labels ("No Evidence" … "Meets
+Screening Expectation" … "Excellent Evidence") instead of Technical's
+depth-based labels ("No Understanding" … "Meets Expected Level" …
+"Excellent") — shown as a hover title on each rate-bar button — without
+changing the underlying `ScoreValue`/`SCORE_TO_PERCENT` scale or the
+`ScoringEngine` in any way. The Summary/report narrative now appends a
+one-line disclaimer for screening sessions ("This reflects First Screening
+evidence only, not a technical validation."). Verified live against the
+real Anthropic API end-to-end: generating a First Screening draft for a
+QA-heavy JD produced zero coding/architecture/debugging questions, correct
+evidence-tier rubrics, `technicalTermHelper` text for both AI-generated
+questions that referenced jargon (QA Engineering; API/performance testing
+and Gitflow), and — with both toggles enabled — the Work Authorization
+gate and compensation question appearing exactly once each, alongside the
+unchanged Technical Interview generation path for the same position.
+
+**Phase 23 (Entity Lifecycle & Deletion Management, plan §44) is complete.**
+An analysis pass found zero delete/archive/restore capability existed for
+Positions, Templates, Candidates, Interview Sessions, or Reports — and that
+`Candidate → InterviewSession` (and its evaluation/decision/report
+children) was an unprotected `CASCADE` at the DB level, meaning a naive
+"Delete Candidate" button could have silently destroyed a finalized hiring
+evaluation. Each entity now has a domain-enforced lifecycle policy instead
+of a blanket delete button: Position/Template/Candidate support hard-delete
+only when genuinely dependency-free (no template ever used by a Session,
+for Position/Template; zero sessions, for Candidate) and Archive otherwise;
+Interview Session allows hard-delete for `in_progress`/`completed` but is
+Archive-only once `decided` (a real hiring decision exists); Report is
+always safely hard-deletable (it has no dependents — deleting it never
+touches the session/decision it was generated from, and a fresh one can
+always be regenerated). Archived rows disappear from every default list,
+Dashboard count, and selector (`listPublishedTemplates`, position/candidate
+pickers) but stay fully reachable — a Candidate's session list and the
+Reports list never hide anything based on Position/Template/Candidate
+archival. No foreign-key `onDelete` behavior was changed: the existing
+`Position → Template` `CASCADE` stays safe because `Template → Session`'s
+own `RESTRICT` already blocks the dangerous path, and the new domain-layer
+guards mean `Candidate → Session`'s `CASCADE` now only ever fires against
+already-verified-empty rows. Confirmation reuses the app's existing
+`window.confirm()` architecture (already established by `ReopenSessionButton`
+and the Templates feature's row actions) rather than introducing a new
+Dialog primitive, with dependency-aware messages computed server-side and
+Delete/Archive buttons rendered conditionally so a click can practically
+only ever succeed.
+
+A dedicated referential-integrity regression suite
+(`lifecycle-referential-integrity.test.ts`) — explicitly called out as
+"critical" in the source task — caught a real bug before it shipped: the originally-planned
+`canDeletePosition`/`canDeleteTemplate` checks trusted a template's
+`status === "locked"` field as a proxy for "has a Session," but that field
+is only set by a second, non-atomic write inside `startInterviewSession`.
+A test that inserted a Session directly reproduced the exact failure this
+phase exists to prevent — the domain check said "safe to delete," and only
+the database's own `FOREIGN KEY constraint failed` actually stopped it, as
+a raw, unfriendly exception. Fixed by replacing both checks with direct
+Session-existence queries (`hasSessionsForTemplate`, `countUsedTemplatesForPosition`)
+shared by the mutation and its detail page, so the two can never diverge
+again. 423 unit/component tests pass (up from 372 after Phase 22);
+`tsc`, lint, and `npm run build` are clean; verified live end-to-end in the
+browser across the full chain (Position → Template → Candidate → Session →
+Decision → Report), including the blocked-delete/dependency-message path,
+the decided-session-archive-only path, clean report deletion, and correct
+Dashboard/Interview-History exclusion of an archived session that remains
+visible on its candidate's own page.
+
+Phase 12 (BambooHR Integration POC) and Phase 24 (Production Readiness)
 remain open.
 
 ## Stack

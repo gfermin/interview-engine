@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { canGenerateReport, canReopenSession, isSessionDecided, isSessionEditable } from "./session-lifecycle";
+import {
+  canDeleteSession,
+  canGenerateReport,
+  canReopenSession,
+  isSessionDecided,
+  isSessionEditable,
+} from "./session-lifecycle";
 
 describe("isSessionEditable", () => {
   it("is editable only while in_progress", () => {
@@ -30,5 +36,19 @@ describe("canReopenSession", () => {
     expect(canReopenSession({ status: "in_progress" })).toBe(false);
     expect(canReopenSession({ status: "completed" })).toBe(true);
     expect(canReopenSession({ status: "decided" })).toBe(true);
+  });
+});
+
+// Plan Phase 23/§44.4/§44.8: a session can be hard-deleted only before a
+// human decision exists. A `decided` session represents a real hiring
+// evaluation and is archive-only, never hard-deleted, regardless of state.
+describe("canDeleteSession", () => {
+  it("allows deleting in_progress or completed sessions", () => {
+    expect(canDeleteSession({ status: "in_progress" })).toBe(true);
+    expect(canDeleteSession({ status: "completed" })).toBe(true);
+  });
+
+  it("refuses to delete a decided session", () => {
+    expect(canDeleteSession({ status: "decided" })).toBe(false);
   });
 });

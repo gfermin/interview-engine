@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { PageContainer } from "@/components/layout/page-container";
@@ -10,6 +11,8 @@ import { INTERVIEW_STAGES, STAGE_LABELS, type InterviewStage } from "@/domain/in
 import { listCandidates } from "@/features/candidates/queries";
 import { listSessions, type SessionListFilters } from "@/features/interviews/queries";
 import { listPositions } from "@/features/positions/queries";
+import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
+import { t } from "@/lib/i18n";
 import {
   Table,
   TableBody,
@@ -37,17 +40,24 @@ export default async function InterviewsHistoryPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  const cookieStore = await cookies();
+  const locale = resolveLocale(cookieStore.get(APP_LOCALE_COOKIE)?.value);
+
   const params = await searchParams;
   const positionId = firstValue(params.positionId);
   const candidateId = firstValue(params.candidateId);
   const stage = firstValue(params.stage) as SessionListFilters["stage"];
   const status = firstValue(params.status) as SessionListFilters["status"];
+  const archived = (firstValue(params.archived) as SessionListFilters["archived"]) ?? "active";
 
-  const hasFilters = Boolean(positionId || candidateId || stage || status);
+  const hasFilters = Boolean(positionId || candidateId || stage || status || archived !== "active");
   const [sessions, positions, candidates] = await Promise.all([
-    listSessions({ positionId, candidateId, stage, status }),
-    listPositions(),
-    listCandidates(),
+    listSessions({ positionId, candidateId, stage, status, archived }),
+    // Plan Phase 23/§44.9: this filter form's own dropdowns should still let
+    // you find a session under an archived Position/Candidate — the session
+    // list itself is what the Archived select above already scopes.
+    listPositions({ archived: "all" }),
+    listCandidates({ archived: "all" }),
   ]);
 
   return (
@@ -112,6 +122,16 @@ export default async function InterviewsHistoryPage({
                       {SESSION_STATUS_LABELS[s]}
                     </option>
                   ))}
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] text-muted-foreground" htmlFor="archived">
+                  {t(locale, "interview.statusFilterLabel")}
+                </label>
+                <Select id="archived" name="archived" defaultValue={archived}>
+                  <option value="active">{t(locale, "interview.filterActiveOption")}</option>
+                  <option value="archived">{t(locale, "interview.filterArchivedOption")}</option>
+                  <option value="all">{t(locale, "interview.filterAllOption")}</option>
                 </Select>
               </div>
               <div className="col-span-2 flex items-end gap-2 sm:col-span-4">
@@ -181,10 +201,15 @@ export default async function InterviewsHistoryPage({
                         </Link>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={SESSION_STATUS_VARIANT[session.status]}>
-                          {SESSION_STATUS_LABELS[session.status]}
-                          {session.reopenCount > 0 ? ` · reopened ${session.reopenCount}×` : ""}
-                        </Badge>
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge variant={SESSION_STATUS_VARIANT[session.status]}>
+                            {SESSION_STATUS_LABELS[session.status]}
+                            {session.reopenCount > 0 ? ` · reopened ${session.reopenCount}×` : ""}
+                          </Badge>
+                          {session.archivedAt ? (
+                            <Badge variant="outline">{t(locale, "interview.archivedBadge")}</Badge>
+                          ) : null}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1.5">

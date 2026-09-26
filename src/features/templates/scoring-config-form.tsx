@@ -19,7 +19,12 @@ interface ScoringConfigFormProps {
     minCompletion: number;
     englishRequired: boolean;
     englishMinLevel: number;
+    includeCompensationQuestion: boolean;
+    includeWorkAuthorizationCheck: boolean;
   };
+  /** Compensation/work-authorization toggles are First Screening only (plan
+   * Phase 22/§43.11) — hidden entirely for a Technical Interview template. */
+  showScreeningLogisticsFields?: boolean;
   locale?: Locale;
 }
 
@@ -30,7 +35,12 @@ const FIELDS: { name: "passThreshold" | "borderlineMin" | "criticalMin" | "minCo
   { name: "minCompletion", labelKey: "templates.minCompletionLabel" },
 ];
 
-export function ScoringConfigForm({ action, defaultValues, locale = "en" }: ScoringConfigFormProps) {
+export function ScoringConfigForm({
+  action,
+  defaultValues,
+  showScreeningLogisticsFields = false,
+  locale = "en",
+}: ScoringConfigFormProps) {
   const [state, formAction, pending] = useActionState<
     FormActionState | undefined,
     FormData
@@ -86,6 +96,29 @@ export function ScoringConfigForm({ action, defaultValues, locale = "en" }: Scor
           ) : null}
         </div>
       </div>
+
+      {showScreeningLogisticsFields ? (
+        <div className="flex flex-wrap items-center gap-4 border-t border-border pt-3">
+          <label className="flex items-center gap-2 text-[12.5px]">
+            <input
+              type="checkbox"
+              name="includeCompensationQuestion"
+              defaultChecked={defaultValues.includeCompensationQuestion}
+              className="size-3.5"
+            />
+            {t(locale, "templates.includeCompensationQuestionLabel")}
+          </label>
+          <label className="flex items-center gap-2 text-[12.5px]">
+            <input
+              type="checkbox"
+              name="includeWorkAuthorizationCheck"
+              defaultChecked={defaultValues.includeWorkAuthorizationCheck}
+              className="size-3.5"
+            />
+            {t(locale, "templates.includeWorkAuthorizationCheckLabel")}
+          </label>
+        </div>
+      ) : null}
 
       <Button type="submit" variant="outline" size="sm" disabled={pending} className="self-start">
         {pending ? t(locale, "templates.savingButton") : t(locale, "templates.saveScoringButton")}

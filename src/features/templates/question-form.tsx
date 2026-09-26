@@ -37,6 +37,8 @@ interface QuestionFormProps {
     solution?: string | null;
     jdRequirementTag?: string | null;
     altSolutions?: string | null;
+    requiresTechnicalKnowledge?: boolean;
+    technicalTermHelper?: string | null;
   };
   submitLabel: string;
   locale?: Locale;
@@ -174,6 +176,29 @@ export function QuestionForm({
             defaultValue={defaultValues?.acceptable ?? ""}
           />
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label className="flex items-center gap-2 text-[12.5px]">
+          <input
+            type="checkbox"
+            name="requiresTechnicalKnowledge"
+            defaultChecked={defaultValues?.requiresTechnicalKnowledge ?? false}
+            className="size-3.5"
+          />
+          {t(locale, "templates.requiresTechnicalKnowledgeCheckboxLabel")}
+        </label>
+        <Label htmlFor="technicalTermHelper">
+          {t(locale, "templates.technicalTermHelperLabel")}{" "}
+          <span className="text-muted-foreground">{t(locale, "templates.optionalTag")}</span>
+        </Label>
+        <Textarea
+          id="technicalTermHelper"
+          name="technicalTermHelper"
+          rows={2}
+          placeholder={t(locale, "templates.technicalTermHelperPlaceholder")}
+          defaultValue={defaultValues?.technicalTermHelper ?? ""}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

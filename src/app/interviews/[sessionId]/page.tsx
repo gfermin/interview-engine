@@ -207,6 +207,7 @@ export default async function LiveInterviewPage({
                             currentValue={currentValue}
                             notes={row?.notes ?? null}
                             editable={editable}
+                            stage={stage}
                             locale={locale}
                           />
                         );

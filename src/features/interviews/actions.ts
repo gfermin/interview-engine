@@ -4,10 +4,13 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { MandatoryRequirementStatus, QuestionScore } from "@/domain/scoring/types";
 import {
+  archiveSession,
+  deleteSession,
   finishRating,
   rateQuestion,
   recordDecision,
   reopenSession,
+  restoreSession,
   updateEnglishAssessment,
   updateMandatoryRequirementStatus,
   updateQuestionNotes,
@@ -107,4 +110,38 @@ export async function reopenSessionAction(sessionId: string) {
   revalidatePath(`/interviews/${sessionId}`);
   revalidatePath(`/interviews/${sessionId}/summary`);
   redirect(`/interviews/${sessionId}`);
+}
+
+/**
+ * Plan Phase 23/§44 — fire-and-forget, matching the Templates feature's own
+ * `deleteCompetencyAction` pattern: the Summary page only ever renders this
+ * button when `canDeleteSession` already holds, so a call here is expected
+ * to succeed; a stale/guarded request is a silent no-op rather than a
+ * crash. The session no longer exists afterward, so this redirects to the
+ * global Interview History list rather than revalidating a page that's
+ * gone.
+ */
+export async function deleteSessionAction(sessionId: string) {
+  try {
+    await deleteSession(sessionId);
+  } catch {
+    // see deleteCompetencyAction's identical note in features/templates/actions.ts
+  }
+  revalidatePath("/interviews");
+  revalidatePath("/candidates");
+  redirect("/interviews");
+}
+
+export async function archiveSessionAction(sessionId: string) {
+  await archiveSession(sessionId);
+  revalidatePath(`/interviews/${sessionId}/summary`);
+  revalidatePath("/interviews");
+  revalidatePath("/candidates");
+}
+
+export async function restoreSessionAction(sessionId: string) {
+  await restoreSession(sessionId);
+  revalidatePath(`/interviews/${sessionId}/summary`);
+  revalidatePath("/interviews");
+  revalidatePath("/candidates");
 }

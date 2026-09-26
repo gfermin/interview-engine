@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { interviewReports } from "@/db/schema";
 import { canGenerateReport } from "@/domain/interviews/session-lifecycle";
@@ -21,6 +22,7 @@ import { getPosition } from "@/features/positions/queries";
 import { getTemplate, listCompetencies, listMandatoryRequirements } from "@/features/templates/queries";
 import { buildReportHtml, type ReportData } from "@/services/pdf/report-template";
 import { renderHtmlToPdf } from "@/services/pdf/render";
+import { getReport } from "./queries";
 
 // Relative to the project root, matching src/db/index.ts's convention for
 // the SQLite file path — Node resolves it against process.cwd(), which is
@@ -131,6 +133,7 @@ export async function generateReport(sessionId: string) {
       completion: result.completion,
       reason: result.reason,
       language: interviewLanguage,
+      stage,
     }),
   };
 
@@ -163,4 +166,29 @@ export async function generateReport(sessionId: string) {
     .returning();
 
   return report;
+}
+
+/**
+ * Deletes a generated report (plan Phase 23/§44.4) — always allowed, no
+ * archive concept needed: an `interview_reports` row has no dependents
+ * (nothing references it back), so removing it never touches the
+ * underlying finalized Session/Decision/evaluations, and a fresh report can
+ * always be regenerated from those (already true today per Phase 11's
+ * "reopen -> re-finalize produces a second report" design). Best-effort
+ * unlinks the PDF file — a missing file (§40.3's existing ENOENT-tolerant
+ * pattern) is not an error, it just means there's nothing left to remove.
+ */
+export async function deleteReport(id: string) {
+  const report = await getReport(id);
+  if (!report) throw new Error("Report not found.");
+
+  await db.delete(interviewReports).where(eq(interviewReports.id, id));
+
+  try {
+    await unlink(report.filePath);
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
+      throw error;
+    }
+  }
 }

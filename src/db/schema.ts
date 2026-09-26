@@ -37,6 +37,14 @@ export const positions = sqliteTable("positions", {
   status: text("status", { enum: ["open", "filled", "closed"] })
     .notNull()
     .default("open"),
+  // Entity lifecycle management (plan Phase 23/§44.7) — null means active.
+  // Deliberately separate from `status` above (an orthogonal, still-unwired
+  // recruiting-workflow field) rather than repurposing it: archiving hides a
+  // Position from default lists/pickers without claiming anything about
+  // whether the role was filled or closed. Hard-delete is only permitted
+  // when none of a Position's templates have ever been used by a Session
+  // (domain/positions/lifecycle.ts); otherwise this is the only removal path.
+  archivedAt: integer("archived_at", { mode: "timestamp" }),
   ...timestamps,
 });
 
@@ -136,6 +144,25 @@ export const interviewTemplates = sqliteTable("interview_templates", {
     .notNull()
     .default(false),
   englishMinLevel: integer("english_min_level").notNull().default(3),
+  // First Screening HR-focused generation (plan Phase 22/§43.11): compensation
+  // and work-authorization questions must be opt-in per template, never
+  // generated indiscriminately — mirrors englishRequired's own configurability
+  // precedent. Meaningful only for the "screening" stage; a technical-stage
+  // template simply never surfaces the toggle in the UI.
+  includeCompensationQuestion: integer("include_compensation_question", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  includeWorkAuthorizationCheck: integer("include_work_authorization_check", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  // Entity lifecycle management (plan Phase 23/§44.7) — distinct from
+  // `status` (draft/approved/locked, which governs editability/versioning,
+  // not visibility). Archiving removes a template from
+  // `listPublishedTemplates()` (the "Start Interview Session" picker) only —
+  // every existing Session/Report referencing it keeps working unchanged.
+  // Hard-delete is only permitted when zero Sessions reference this
+  // template (features/templates/queries.ts's hasSessionsForTemplate).
+  archivedAt: integer("archived_at", { mode: "timestamp" }),
   ...timestamps,
 });
 
@@ -203,6 +230,18 @@ export const questions = sqliteTable("questions", {
   // every existing question predates these columns and simply has `null`).
   jdRequirementTag: text("jd_requirement_tag"),
   altSolutions: text("alt_solutions"),
+  // First Screening HR-focused generation (plan Phase 22/§43.7/§43.12):
+  // `requiresTechnicalKnowledge` flags a question the screening generator
+  // couldn't phrase in an HR-safe way (should be rare — usually a sign the
+  // requirement belongs in Technical Interview instead). `technicalTermHelper`
+  // is a plain-language explainer for unavoidable jargon in the question text
+  // (e.g. "Kubernetes is commonly used to..."), rendered as a collapsible
+  // panel so a non-technical interviewer isn't left to judge correctness.
+  // Both additive/nullable-or-defaulted — no migration risk to existing rows.
+  requiresTechnicalKnowledge: integer("requires_technical_knowledge", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  technicalTermHelper: text("technical_term_helper"),
   sortOrder: integer("sort_order").notNull().default(0),
   ...timestamps,
 });
@@ -248,6 +287,11 @@ export const candidates = sqliteTable("candidates", {
   name: text("name").notNull(),
   email: text("email"),
   notes: text("notes"),
+  // Entity lifecycle management (plan Phase 23/§44.7) — null means active.
+  // Hard-delete is only permitted when the candidate has zero interview
+  // sessions (domain/candidates/lifecycle.ts); otherwise this is the only
+  // removal path, and it never touches their sessions/evaluations/reports.
+  archivedAt: integer("archived_at", { mode: "timestamp" }),
   ...timestamps,
 });
 
@@ -270,6 +314,13 @@ export const interviewSessions = sqliteTable("interview_sessions", {
   // audit trail is a confirmed post-POC item (plan §38).
   reopenedAt: integer("reopened_at", { mode: "timestamp" }),
   reopenCount: integer("reopen_count").notNull().default(0),
+  // Entity lifecycle management (plan Phase 23/§44.7) — null means active.
+  // A `decided` session (a recorded human decision) can only ever be
+  // archived, never hard-deleted, in this policy
+  // (domain/interviews/session-lifecycle.ts's canDeleteSession); archiving
+  // hides it from the global Interview History list and Dashboard, but not
+  // from the candidate's own session list or the Reports list.
+  archivedAt: integer("archived_at", { mode: "timestamp" }),
   ...timestamps,
 });
 

@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { SCORE_TO_PERCENT, type QuestionScore } from "@/domain/scoring/types";
+import type { InterviewStage } from "@/domain/interviews/stage-config";
 import { t, type Locale } from "@/lib/i18n";
 import { difficultyBadgeClass } from "@/lib/question-style";
 import { updateNotesAction } from "./actions";
@@ -22,6 +23,7 @@ interface QuestionCardQuestion {
   solution: string | null;
   jdRequirementTag: string | null;
   altSolutions: string | null;
+  technicalTermHelper: string | null;
 }
 
 function scorePercentLabel(locale: Locale, value: QuestionScore): string {
@@ -46,6 +48,7 @@ export function QuestionCard({
   currentValue,
   notes,
   editable = true,
+  stage = "technical",
   locale = "en",
 }: {
   sessionId: string;
@@ -53,6 +56,7 @@ export function QuestionCard({
   currentValue: QuestionScore;
   notes: string | null;
   editable?: boolean;
+  stage?: InterviewStage;
   locale?: Locale;
 }) {
   const hasReference =
@@ -89,7 +93,12 @@ export function QuestionCard({
         </div>
         <div className="flex flex-col items-end gap-1">
           {editable ? (
-            <RateBar sessionId={sessionId} questionId={question.id} currentValue={currentValue} />
+            <RateBar
+              sessionId={sessionId}
+              questionId={question.id}
+              currentValue={currentValue}
+              stage={stage}
+            />
           ) : (
             <Badge variant="outline" className="font-mono">
               {currentValue === null
@@ -126,6 +135,15 @@ export function QuestionCard({
               </p>
             ) : null}
           </div>
+        </details>
+      ) : null}
+
+      {question.technicalTermHelper ? (
+        <details className="rounded-lg border border-dashed border-border" open>
+          <summary className="cursor-pointer px-3 py-2 text-[11.5px] font-medium text-muted-foreground">
+            {t(locale, "interview.whatIsThisLabel")}
+          </summary>
+          <p className="px-3 pb-3 text-[12px]">{question.technicalTermHelper}</p>
         </details>
       ) : null}
 

@@ -17,7 +17,7 @@ import type {
   ScoringConfigFormValues,
   TemplateFormValues,
 } from "./schemas";
-import { getCompetency, getMandatoryRequirement, getQuestion, getTemplate } from "./queries";
+import { getCompetency, getMandatoryRequirement, getQuestion, getTemplate, hasSessionsForTemplate } from "./queries";
 
 class TemplateNotEditableError extends Error {
   constructor() {
@@ -89,6 +89,46 @@ export async function publishTemplate(templateId: string) {
 }
 
 /**
+ * Deletes a Template (plan Phase 23/§44.4) — allowed only when zero
+ * Sessions reference it ({@link hasSessionsForTemplate}, shared with the
+ * Template detail page so the "can this be deleted" decision can never
+ * diverge between what's displayed and what's enforced).
+ */
+export async function deleteTemplate(templateId: string) {
+  const template = await getTemplate(templateId);
+  if (!template) throw new Error("Template not found.");
+
+  if (await hasSessionsForTemplate(templateId)) {
+    throw new Error(
+      "This template has been used to conduct interviews and cannot be permanently deleted. Archive it instead to preserve that history."
+    );
+  }
+
+  await db.delete(interviewTemplates).where(eq(interviewTemplates.id, templateId));
+}
+
+/** Archives a template (plan Phase 23/§44.4) — removes it from
+ * `listPublishedTemplates()` (the "Start Interview Session" picker) only;
+ * every existing Session/Report referencing it keeps working unchanged. */
+export async function archiveTemplate(templateId: string) {
+  const template = await getTemplate(templateId);
+  if (!template) throw new Error("Template not found.");
+  await db
+    .update(interviewTemplates)
+    .set({ archivedAt: new Date(), updatedAt: new Date() })
+    .where(eq(interviewTemplates.id, templateId));
+}
+
+export async function restoreTemplate(templateId: string) {
+  const template = await getTemplate(templateId);
+  if (!template) throw new Error("Template not found.");
+  await db
+    .update(interviewTemplates)
+    .set({ archivedAt: null, updatedAt: new Date() })
+    .where(eq(interviewTemplates.id, templateId));
+}
+
+/**
  * Forks an approved/locked template into a new draft version (v+1),
  * duplicating its Competencies, MandatoryRequirements, and Questions
  * (plan §22). The source template and its historical Sessions (Phase 7+)
@@ -125,6 +165,8 @@ export async function createNewTemplateVersion(templateId: string) {
       minCompletion: source.minCompletion,
       englishRequired: source.englishRequired,
       englishMinLevel: source.englishMinLevel,
+      includeCompensationQuestion: source.includeCompensationQuestion,
+      includeWorkAuthorizationCheck: source.includeWorkAuthorizationCheck,
     })
     .returning();
 
@@ -174,6 +216,8 @@ export async function createNewTemplateVersion(templateId: string) {
         solution: q.solution,
         jdRequirementTag: q.jdRequirementTag,
         altSolutions: q.altSolutions,
+        requiresTechnicalKnowledge: q.requiresTechnicalKnowledge,
+        technicalTermHelper: q.technicalTermHelper,
         sortOrder: q.sortOrder,
       }))
     );
@@ -401,6 +445,8 @@ export async function applyRegeneratedQuestion(
       solution: options.includeCodeExercises ? regenerated.solution : null,
       jdRequirementTag: regenerated.jdRequirementTag,
       altSolutions: options.includeCodeExercises ? regenerated.altSolutions : null,
+      requiresTechnicalKnowledge: regenerated.requiresTechnicalKnowledge,
+      technicalTermHelper: regenerated.technicalTermHelper,
       updatedAt: new Date(),
     })
     .where(eq(questions.id, id))
@@ -551,6 +597,8 @@ export async function applyGeneratedDraft(
             solution: options.includeCodeExercises ? draftQuestion.solution : null,
             jdRequirementTag: draftQuestion.jdRequirementTag,
             altSolutions: options.includeCodeExercises ? draftQuestion.altSolutions : null,
+            requiresTechnicalKnowledge: draftQuestion.requiresTechnicalKnowledge,
+            technicalTermHelper: draftQuestion.technicalTermHelper,
             sortOrder: questionIndex,
           })
           .run();

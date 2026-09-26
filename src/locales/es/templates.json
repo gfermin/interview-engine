@@ -10,6 +10,7 @@
   "backToTemplateLink": "Volver a la plantilla",
   "notEditableMessage": "Esta versión de la plantilla ya no se puede editar. ",
   "noLabel": "No",
+  "yesLabel": "Sí",
   "criticalLabel": "Crítico",
   "descriptionLabel": "Descripción",
   "positionLabel": "Posición",
@@ -74,6 +75,9 @@
   "solutionLabel": "Solución",
   "altSolutionsLabel": "Soluciones alternativas",
   "altSolutionsPlaceholder": "Otros enfoques válidos además de la solución principal...",
+  "requiresTechnicalKnowledgeCheckboxLabel": "Requiere conocimiento técnico para evaluar (poco común — normalmente pertenece a la Entrevista Técnica)",
+  "technicalTermHelperLabel": "Ayuda de término técnico (para un entrevistador no técnico)",
+  "technicalTermHelperPlaceholder": "p. ej. \"Kubernetes se usa comúnmente para implementar y gestionar aplicaciones en contenedores. Enfócate en el uso profesional, la duración y la responsabilidad — no en la corrección técnica.\"",
   "addQuestionTitle": "Agregar pregunta",
 
   "passThresholdLabel": "Umbral de aprobación (%)",
@@ -82,6 +86,8 @@
   "minCompletionLabel": "Finalización mínima (%)",
   "englishRequiredCheckboxLabel": "Se requiere evaluación de inglés para APROBAR",
   "englishMinLevelLabel": "Nivel mínimo de inglés (1-5)",
+  "includeCompensationQuestionLabel": "Preguntar sobre expectativas salariales",
+  "includeWorkAuthorizationCheckLabel": "Incluir verificación de autorización para trabajar",
   "saveScoringButton": "Guardar configuración de puntuación",
 
   "rawAiOutputLabel": "Salida sin procesar de la IA",
@@ -146,5 +152,20 @@
   "editCompetencyTitle": "Editar competencia",
   "addRequirementTitle": "Agregar requisito obligatorio",
   "editRequirementTitle": "Editar requisito obligatorio",
-  "editQuestionTitle": "Editar pregunta"
+  "editQuestionTitle": "Editar pregunta",
+
+  "statusFilterLabel": "Estado",
+  "filterActiveOption": "Activas",
+  "filterArchivedOption": "Archivadas",
+  "filterAllOption": "Todas",
+  "filterButton": "Filtrar",
+  "clearFilterButton": "Limpiar",
+  "archivedBadge": "Archivada",
+  "archiveTemplateButton": "Archivar",
+  "restoreTemplateButton": "Restaurar",
+  "deleteTemplateButton": "Eliminar",
+  "archiveTemplateConfirm": "¿Archivar esta plantilla? Ya no podrá seleccionarse para nuevas entrevistas, pero las sesiones e informes existentes permanecen completamente intactos.",
+  "deleteTemplateConfirmPrefix": "¿Eliminar permanentemente \"",
+  "deleteTemplateConfirmSuffix": "\"? Esta acción no se puede deshacer.",
+  "cannotDeleteTemplateNote": "Esta plantilla se ha usado para realizar entrevistas y no se puede eliminar permanentemente. Archívala en su lugar para preservar ese historial."
 }

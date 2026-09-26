@@ -4,7 +4,7 @@
 // logic, and Phase 9's canonical `computeFullScoringResult` rather than a
 // second scoring path, per the plan's own "UI and PDF should consume the
 // same canonical result" principle (§34) extended here to the Dashboard.
-import { eq, gte } from "drizzle-orm";
+import { and, eq, gte, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { interviewSessions } from "@/db/schema";
 import type { InterviewStage } from "@/domain/interviews/stage-config";
@@ -43,23 +43,26 @@ export interface DashboardCounts {
  * makes sense under this reading.
  */
 export async function getDashboardCounts(): Promise<DashboardCounts> {
+  // Archived sessions are excluded from every count (plan Phase 23/§44.9) —
+  // an archived session is, by definition, no longer part of active work.
+  const active = isNull(interviewSessions.archivedAt);
   const [today, inProgress, awaitingDecision, completed] = await Promise.all([
     db
       .select({ id: interviewSessions.id })
       .from(interviewSessions)
-      .where(gte(interviewSessions.createdAt, startOfToday())),
+      .where(and(gte(interviewSessions.createdAt, startOfToday()), active)),
     db
       .select({ id: interviewSessions.id })
       .from(interviewSessions)
-      .where(eq(interviewSessions.status, "in_progress")),
+      .where(and(eq(interviewSessions.status, "in_progress"), active)),
     db
       .select({ id: interviewSessions.id })
       .from(interviewSessions)
-      .where(eq(interviewSessions.status, "completed")),
+      .where(and(eq(interviewSessions.status, "completed"), active)),
     db
       .select({ id: interviewSessions.id })
       .from(interviewSessions)
-      .where(eq(interviewSessions.status, "decided")),
+      .where(and(eq(interviewSessions.status, "decided"), active)),
   ]);
 
   return {

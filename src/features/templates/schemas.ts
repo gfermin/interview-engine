@@ -79,6 +79,11 @@ export const scoringConfigFormSchema = z
     // whether it's required for a PASS, and what level clears the bar.
     englishRequired: checkbox,
     englishMinLevel: level1to5().default(3),
+    // First Screening only (plan Phase 22/§43.11) — opt-in, never generated
+    // or scored indiscriminately. Harmless no-ops for a Technical Interview
+    // template, which never surfaces these toggles in the UI.
+    includeCompensationQuestion: checkbox,
+    includeWorkAuthorizationCheck: checkbox,
   })
   .refine((v) => v.borderlineMin <= v.passThreshold, {
     message: "Borderline minimum must not exceed the pass threshold.",
@@ -125,6 +130,11 @@ export const questionFormSchema = z.object({
   // its "other valid approaches" note for code questions.
   jdRequirementTag: optionalText(500),
   altSolutions: optionalText(2000),
+  // First Screening HR-usability fields (plan Phase 22/§43.7/§43.12) —
+  // human-editable the same as any AI-generated field; meaningful mainly
+  // for screening-stage questions but not restricted to them.
+  requiresTechnicalKnowledge: checkbox,
+  technicalTermHelper: optionalText(2000),
 });
 
 export type QuestionFormValues = z.infer<typeof questionFormSchema>;

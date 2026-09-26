@@ -63,6 +63,16 @@ export const DRAFT_QUESTION_JSON_SCHEMA = {
       ...NULLABLE_STRING,
       description: "For code questions only: other valid approaches besides the primary solution.",
     },
+    requiresTechnicalKnowledge: {
+      type: "boolean",
+      description:
+        "True only if no HR-safe phrasing of this question exists — should be rare, and usually means the requirement belongs in a Technical Interview instead of First Screening.",
+    },
+    technicalTermHelper: {
+      ...NULLABLE_STRING,
+      description:
+        "For First Screening only: a short plain-language explainer for any unavoidable technical term in the question, telling the interviewer what to focus on instead of technical correctness. Null if the question has no such term.",
+    },
   },
   required: ["text", "difficulty", "importance", "concepts", "redFlags", "followUps", "rubric"],
 } as const;

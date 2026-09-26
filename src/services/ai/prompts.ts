@@ -9,6 +9,11 @@ import type { AnalyzeJobDescriptionInput, GenerateTemplateDraftInput, Regenerate
 export const JOB_ANALYSIS_PROMPT_VERSION = "job-analysis-v1";
 export const TEMPLATE_DRAFT_PROMPT_VERSION = "template-draft-v1";
 export const REGENERATE_QUESTION_PROMPT_VERSION = "regenerate-question-v1";
+// First Screening HR-focused generation (plan Phase 22/§43.14) — a distinct
+// version so AIGenerationRecord.promptVersion correctly distinguishes
+// screening-stage drafts from technical-stage drafts going forward;
+// existing records keep their original "template-draft-v1" value unchanged.
+export const SCREENING_TEMPLATE_DRAFT_PROMPT_VERSION = "screening-template-draft-v1";
 
 /**
  * Reference table (plan §39.4/§5): what a seniority level's expected
@@ -93,14 +98,20 @@ ${input.jobDescriptionText}
   return { system, user };
 }
 
+/**
+ * Dispatches to the stage-appropriate builder (plan Phase 22/§43.5) — the
+ * single call site both AI providers use stays unchanged; First Screening
+ * gets a wholly distinct set of generation instructions
+ * ({@link buildScreeningTemplateDraftPrompt}), not a stage flag threaded
+ * into one shared prompt (§43.1's finding: a single differentiating
+ * sentence was not enough to keep deep technical questions out of an
+ * HR-conducted interview).
+ */
 export function buildTemplateDraftPrompt(input: GenerateTemplateDraftInput): {
   system: string;
   user: string;
 } {
-  const stageGuidance =
-    input.stage === "screening"
-      ? "This is a First Screening interview — a shorter, earlier-stage conversation. Favor fewer, broader competencies and lean more heavily on mandatory requirements (work authorization, required certifications, minimum experience, logistics) than on deep technical competency scoring. Do not generate hands-on coding exercises."
-      : "This is a full Technical Interview. Generate deeper, more numerous competencies and questions, including hands-on coding/debugging exercises where the competency calls for them.";
+  if (input.stage === "screening") return buildScreeningTemplateDraftPrompt(input);
 
   const codeGuidance = input.includeCodeExercises
     ? "For competencies where a hands-on coding or debugging exercise is the best way to assess depth, include one via the question's `code`/`solution` fields."
@@ -114,7 +125,7 @@ Your task: given a Position, its Role Family and Seniority, an Interview Stage, 
 2. Mandatory Requirements: boolean knockout gates that are NOT scored competencies (e.g. work authorization, a required certification, a minimum years-of-experience bar) — derived from the Job Analysis's mandatory requirements where they're the kind of thing that's demonstrated/not demonstrated rather than scored on a 0-5 scale. It is fine for this list to be empty if nothing in the JD fits this pattern.
 3. For each competency, a brief internal Question Blueprint (coverage topics, question-type mix) followed by 2-4 questions matching that blueprint. Each question needs: the question text, difficulty, importance, expected/strong/acceptable answer guidance, key concepts, red flags, follow-ups, a rubric with one line per 0-5 score anchored to what a response at that score actually looks like, and — when the question clearly exercises a specific requirement from the Job Analysis below — a 'jdRequirementTag' naming that requirement (null if none applies cleanly). For code questions, also give 'altSolutions' describing other valid approaches besides the primary solution.
 
-${stageGuidance}
+This is a full Technical Interview. Generate deeper, more numerous competencies and questions, including hands-on coding/debugging exercises where the competency calls for them.
 
 ${codeGuidance}
 
@@ -137,6 +148,65 @@ Job Analysis:
 - Preferred requirements: ${input.jobAnalysis.preferredRequirements.join("; ") || "(none extracted)"}
 - Optional requirements: ${input.jobAnalysis.optionalRequirements.join("; ") || "(none extracted)"}
 - Notes: ${input.jobAnalysis.notes || "(none)"}`;
+
+  return { system, user };
+}
+
+/**
+ * First Screening's own generation instructions (plan Phase 22/§43.14) —
+ * NOT the technical builder with a stage flag. The audience is an HR/
+ * recruiting professional who may have little or no technical background;
+ * the objective is qualification/alignment evidence, not technical
+ * certification. Curated core questions (introduction, motivation,
+ * availability, candidate questions — §43.13) are NOT requested here; they
+ * are merged in programmatically by the caller
+ * (features/templates/ai-actions.ts, from src/lib/screening-core-questions.ts)
+ * so this prompt only needs to produce role-specific competencies/questions
+ * derived from the JD.
+ */
+function buildScreeningTemplateDraftPrompt(input: GenerateTemplateDraftInput): {
+  system: string;
+  user: string;
+} {
+  const system = `${SHARED_SYSTEM_PREAMBLE}
+
+You are generating a FIRST SCREENING interview intended primarily for an HR/recruiting professional who may have little or no technical expertise in this role's domain (software engineering, QA, DevOps, cloud, data, AI/LLMs, or any other specialized discipline the Job Description describes).
+
+Your objective is NOT to technically certify the candidate. Your objective is to determine whether there is sufficient evidence of relevant experience, role alignment, required qualifications, communication ability, motivation, and seniority indicators to justify progression to a later, deeper technical stage. A human interviewer with no domain expertise must be able to ask every question you generate and judge the response using only the guidance you provide — never their own technical judgment.
+
+DO NOT generate: coding questions, hands-on debugging exercises, system design questions, deep architecture questions, framework-internals trivia, or any question whose evaluation requires specialist technical knowledge the interviewer is not assumed to have. If a Job Analysis requirement seems to demand this kind of question, leave it out of this draft entirely — it belongs in a later Technical Interview stage, not here.
+
+For every Job Analysis requirement that IS appropriate for this stage (a claimed skill, technology, or experience area that can be validated at a high level — "have you used it professionally, for how long, in what context, at what level of responsibility" — without judging technical correctness), generate 1-2 questions following this HIGH-LEVEL EXPERIENCE VALIDATION pattern: has the candidate used it professionally, approximately how long, is it part of their current/recent role, and can they briefly describe a project and their own responsibility on it. Write the question's 'expected'/'strong'/'acceptable' fields as EVIDENCE TIERS the interviewer can recognize without technical judgment — for example: 'expected' describes what "No Evidence" or bare exposure sounds like, 'acceptable' describes "Relevant Experience," and 'strong' describes "Strong Relevant Experience" — not what a technically correct answer contains. The rubric's six lines (one per 0-5 score) must use this same evidence-based framing (e.g. "0 — No Evidence/Does Not Meet" ... "3 — Meets Screening Expectation" ... "5 — Excellent Evidence"), never a technical-correctness framing. Set 'jdRequirementTag' to the specific requirement each question validates.
+
+If a question's text unavoidably references a technical term the interviewer may not know (e.g. Kubernetes, CI/CD, a specific framework), set 'technicalTermHelper' to a short, plain-language explanation of the term plus an explicit reminder that the interviewer should focus on professional usage/duration/responsibility, not technical correctness. Leave 'technicalTermHelper' null when no such term appears. Set 'requiresTechnicalKnowledge' to true only in the rare case where no HR-safe phrasing of a necessary question exists — this should be uncommon, and is itself a signal the requirement is better suited to a later Technical Interview.
+
+Generate 2-5 role-specific competencies (fewer than a full Technical Interview — favor breadth over depth), each with a name drawn from what a recruiter screen actually assesses (e.g. "Relevant Experience", "Required Qualifications", "Seniority Indicators", "Role Alignment" — not engineering competency names like "Architecture" or "APIs"), a weight, whether it's critical (rare at this stage — reserve for a genuinely make-or-break requirement), and an Expected Depth description written for a non-technical reader. ${describeSeniority(input.seniority)} These competencies are IN ADDITION to a standard "Background, Motivation & Communication" competency the platform adds automatically — do not duplicate introduction, motivation, availability, or candidate-questions content; focus entirely on role-specific, JD-derived validation.
+
+Mandatory Requirements: boolean knockout gates (work authorization, a required certification, a required language level, a minimum years-of-experience bar, a required location/work-arrangement) — derived only from Job Analysis requirements that are genuinely hard, verifiable gates, not general preferences. It is fine for this list to be empty. Do not include a compensation or work-authorization gate here — those are added separately by the platform only when explicitly enabled.
+
+Do not include 'code' or 'solution' fields on any question — this stage never includes hands-on coding exercises.
+
+Ground every question in the actual Job Description text; do not generate generic filler unrelated to it, and do not generate the same question with harder wording than a Technical Interview would use for the same topic — if a topic needs that kind of depth, it belongs in Technical Interview, not here.
+
+${languageInstruction(input.interviewLanguage)}`;
+
+  const user = `Position: ${input.positionTitle}
+Role Family: ${input.roleFamily ?? "(not specified)"}
+Seniority: ${input.seniority ?? "(not specified)"}
+Interview Stage: screening (First Screening — HR/recruiter-conducted)
+
+Job Description:
+"""
+${input.jobDescriptionText}
+"""
+
+Job Analysis:
+- Mandatory requirements: ${input.jobAnalysis.mandatoryRequirements.join("; ") || "(none extracted)"}
+- Preferred requirements: ${input.jobAnalysis.preferredRequirements.join("; ") || "(none extracted)"}
+- Optional requirements: ${input.jobAnalysis.optionalRequirements.join("; ") || "(none extracted)"}
+- Notes: ${input.jobAnalysis.notes || "(none)"}
+
+For each requirement above, first decide silently whether it is HR-validatable (a claimed skill/experience you can turn into a high-level evidence question), technical-later (too deep for a non-technical interviewer to evaluate — omit it from this draft), logistical (work arrangement, location — consider a Mandatory Requirement), or language-related (consider noting it, the platform handles language assessment separately) — then generate only from the HR-validatable and genuinely-logistical ones.`;
 
   return { system, user };
 }
