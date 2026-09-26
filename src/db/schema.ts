@@ -37,6 +37,14 @@ export const positions = sqliteTable("positions", {
   status: text("status", { enum: ["open", "filled", "closed"] })
     .notNull()
     .default("open"),
+  // Entity lifecycle management (plan Phase 23/§44.7) — null means active.
+  // Deliberately separate from `status` above (an orthogonal, still-unwired
+  // recruiting-workflow field) rather than repurposing it: archiving hides a
+  // Position from default lists/pickers without claiming anything about
+  // whether the role was filled or closed. Hard-delete is only permitted
+  // when none of a Position's templates have ever been used by a Session
+  // (domain/positions/lifecycle.ts); otherwise this is the only removal path.
+  archivedAt: integer("archived_at", { mode: "timestamp" }),
   ...timestamps,
 });
 
@@ -147,6 +155,14 @@ export const interviewTemplates = sqliteTable("interview_templates", {
   includeWorkAuthorizationCheck: integer("include_work_authorization_check", { mode: "boolean" })
     .notNull()
     .default(false),
+  // Entity lifecycle management (plan Phase 23/§44.7) — distinct from
+  // `status` (draft/approved/locked, which governs editability/versioning,
+  // not visibility). Archiving removes a template from
+  // `listPublishedTemplates()` (the "Start Interview Session" picker) only —
+  // every existing Session/Report referencing it keeps working unchanged.
+  // Hard-delete is only permitted when zero Sessions reference this
+  // template (features/templates/queries.ts's hasSessionsForTemplate).
+  archivedAt: integer("archived_at", { mode: "timestamp" }),
   ...timestamps,
 });
 
@@ -271,6 +287,11 @@ export const candidates = sqliteTable("candidates", {
   name: text("name").notNull(),
   email: text("email"),
   notes: text("notes"),
+  // Entity lifecycle management (plan Phase 23/§44.7) — null means active.
+  // Hard-delete is only permitted when the candidate has zero interview
+  // sessions (domain/candidates/lifecycle.ts); otherwise this is the only
+  // removal path, and it never touches their sessions/evaluations/reports.
+  archivedAt: integer("archived_at", { mode: "timestamp" }),
   ...timestamps,
 });
 
@@ -293,6 +314,13 @@ export const interviewSessions = sqliteTable("interview_sessions", {
   // audit trail is a confirmed post-POC item (plan §38).
   reopenedAt: integer("reopened_at", { mode: "timestamp" }),
   reopenCount: integer("reopen_count").notNull().default(0),
+  // Entity lifecycle management (plan Phase 23/§44.7) — null means active.
+  // A `decided` session (a recorded human decision) can only ever be
+  // archived, never hard-deleted, in this policy
+  // (domain/interviews/session-lifecycle.ts's canDeleteSession); archiving
+  // hides it from the global Interview History list and Dashboard, but not
+  // from the candidate's own session list or the Reports list.
+  archivedAt: integer("archived_at", { mode: "timestamp" }),
   ...timestamps,
 });
 

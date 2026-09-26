@@ -152,5 +152,20 @@
   "editCompetencyTitle": "Edit Competency",
   "addRequirementTitle": "Add Mandatory Requirement",
   "editRequirementTitle": "Edit Mandatory Requirement",
-  "editQuestionTitle": "Edit Question"
+  "editQuestionTitle": "Edit Question",
+
+  "statusFilterLabel": "Status",
+  "filterActiveOption": "Active",
+  "filterArchivedOption": "Archived",
+  "filterAllOption": "All",
+  "filterButton": "Filter",
+  "clearFilterButton": "Clear",
+  "archivedBadge": "Archived",
+  "archiveTemplateButton": "Archive",
+  "restoreTemplateButton": "Restore",
+  "deleteTemplateButton": "Delete",
+  "archiveTemplateConfirm": "Archive this template? It will no longer be selectable for new interviews, but existing sessions and reports remain fully intact.",
+  "deleteTemplateConfirmPrefix": "Permanently delete \"",
+  "deleteTemplateConfirmSuffix": "\"? This cannot be undone.",
+  "cannotDeleteTemplateNote": "This template has been used to conduct interviews and cannot be permanently deleted. Archive it instead to preserve that history."
 }

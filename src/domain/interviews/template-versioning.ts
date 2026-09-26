@@ -95,3 +95,13 @@ export function canStartSession(template: TemplateLike): boolean {
 export function statusAfterSessionCreated(template: TemplateLike): TemplateStatus {
   return template.status === "approved" ? "locked" : template.status;
 }
+
+// No `canDeleteTemplate(template: TemplateLike)` here (plan Phase 23/§44.4
+// originally proposed one, status-based) — a real bug surfaced during
+// testing: `status` only flips to `locked` via a second, non-atomic write
+// in `startInterviewSession` (features/candidates/mutations.ts), so it can
+// lag actual Session existence. The "can this template be deleted" check
+// instead lives as `hasSessionsForTemplate` (features/templates/queries.ts),
+// querying Session existence directly — the same ground truth the DB's own
+// `RESTRICT` on `interview_sessions.template_id` protects — shared by both
+// the mutation and the detail page so they can never diverge.

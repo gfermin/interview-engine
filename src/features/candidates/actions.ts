@@ -2,7 +2,14 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createCandidate, startInterviewSession, updateCandidate } from "./mutations";
+import {
+  archiveCandidate,
+  createCandidate,
+  deleteCandidate,
+  restoreCandidate,
+  startInterviewSession,
+  updateCandidate,
+} from "./mutations";
 import { candidateFormSchema, startSessionFormSchema } from "./schemas";
 
 export interface FormActionState {
@@ -67,4 +74,31 @@ export async function startSessionAction(
   revalidatePath(`/candidates/${candidateId}`);
   revalidatePath("/templates");
   return {};
+}
+
+/** Plan Phase 23/§44 — the Candidate detail page only ever renders this
+ * button when the precondition (`canDeleteCandidate`) already holds, so a
+ * call here is expected to succeed; a stale/guarded request is a silent
+ * no-op, matching the Templates feature's own `deleteCompetencyAction`
+ * pattern. */
+export async function deleteCandidateAction(candidateId: string) {
+  try {
+    await deleteCandidate(candidateId);
+  } catch {
+    // see deleteCompetencyAction's identical note in features/templates/actions.ts
+  }
+  revalidatePath("/candidates");
+  redirect("/candidates");
+}
+
+export async function archiveCandidateAction(candidateId: string) {
+  await archiveCandidate(candidateId);
+  revalidatePath("/candidates");
+  revalidatePath(`/candidates/${candidateId}`);
+}
+
+export async function restoreCandidateAction(candidateId: string) {
+  await restoreCandidate(candidateId);
+  revalidatePath("/candidates");
+  revalidatePath(`/candidates/${candidateId}`);
 }

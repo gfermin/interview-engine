@@ -38,5 +38,22 @@
   "publishedTemplateLabel": "Plantilla publicada",
   "selectTemplatePlaceholder": "Selecciona una Plantilla...",
   "starting": "Iniciando...",
-  "startSessionButton": "Iniciar Sesión de Entrevista"
+  "startSessionButton": "Iniciar Sesión de Entrevista",
+
+  "statusFilterLabel": "Estado",
+  "filterActiveOption": "Activos",
+  "filterArchivedOption": "Archivados",
+  "filterAllOption": "Todos",
+  "filterButton": "Filtrar",
+  "clearFilterButton": "Limpiar",
+  "archivedBadge": "Archivado",
+  "archiveButton": "Archivar",
+  "restoreButton": "Restaurar",
+  "deleteButton": "Eliminar",
+  "archiveConfirm": "¿Archivar este candidato? Se ocultará de las listas activas, pero sus datos se conservan y pueden restaurarse más adelante.",
+  "deleteConfirmPrefix": "¿Eliminar permanentemente \"",
+  "deleteConfirmSuffix": "\"? Esta acción no se puede deshacer.",
+  "cannotDeletePrefix": "Este candidato no se puede eliminar permanentemente porque ",
+  "cannotDeleteSessionSingular": " sesión de entrevista existe para él/ella. Archívalo en su lugar.",
+  "cannotDeleteSessionPlural": " sesiones de entrevista existen para él/ella. Archívalo en su lugar."
 }

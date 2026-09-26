@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import {
   candidates,
@@ -26,6 +26,7 @@ export async function getSessionDetail(sessionId: string) {
     .select({
       id: interviewSessions.id,
       status: interviewSessions.status,
+      archivedAt: interviewSessions.archivedAt,
       candidateId: candidates.id,
       candidateName: candidates.name,
       templateId: interviewTemplates.id,
@@ -111,18 +112,27 @@ export interface SessionListFilters {
   candidateId?: string;
   stage?: "technical" | "screening";
   status?: "in_progress" | "completed" | "decided";
+  /** Plan Phase 23/§44.9 — defaults to "active" so archived sessions never
+   * clutter the global Interview History list or Dashboard. */
+  archived?: "active" | "archived" | "all";
 }
 
 /** The interview history list (plan §11/Phase 11) — every session across
  * every candidate, filterable by position/candidate/stage/status. Filters
  * left `undefined` are simply omitted from the `WHERE` clause rather than
- * matched against, so an empty filter set returns every session. */
+ * matched against, so an empty filter set returns every active session. */
 export function listSessions(filters: SessionListFilters = {}) {
+  const archived = filters.archived ?? "active";
   const conditions = [
     filters.positionId ? eq(positions.id, filters.positionId) : undefined,
     filters.candidateId ? eq(candidates.id, filters.candidateId) : undefined,
     filters.stage ? eq(interviewTemplates.stage, filters.stage) : undefined,
     filters.status ? eq(interviewSessions.status, filters.status) : undefined,
+    archived === "all"
+      ? undefined
+      : archived === "archived"
+        ? isNotNull(interviewSessions.archivedAt)
+        : isNull(interviewSessions.archivedAt),
   ].filter((c) => c !== undefined);
 
   return db
@@ -131,6 +141,7 @@ export function listSessions(filters: SessionListFilters = {}) {
       status: interviewSessions.status,
       createdAt: interviewSessions.createdAt,
       reopenCount: interviewSessions.reopenCount,
+      archivedAt: interviewSessions.archivedAt,
       candidateId: candidates.id,
       candidateName: candidates.name,
       positionId: positions.id,

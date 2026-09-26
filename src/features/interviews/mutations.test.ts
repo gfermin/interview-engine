@@ -14,10 +14,13 @@ import {
 } from "@/db/schema";
 import { createCompetency, createMandatoryRequirement, createQuestion } from "@/features/templates/mutations";
 import {
+  archiveSession,
+  deleteSession,
   finishRating,
   rateQuestion,
   recordDecision,
   reopenSession,
+  restoreSession,
   updateEnglishAssessment,
   updateMandatoryRequirementStatus,
   updateQuestionNotes,
@@ -497,5 +500,80 @@ describe("reopenSession", () => {
 
   it("throws when the session doesn't exist", async () => {
     await expect(reopenSession(randomUUID())).rejects.toThrow(/not found/);
+  });
+});
+
+// Plan Phase 23/§44.4/§44.8 — a session can be hard-deleted only before a
+// human decision exists; a `decided` session is archive-only, never
+// hard-deleted, in this policy.
+describe("deleteSession / archiveSession / restoreSession", () => {
+  it("deletes an in_progress session, cascading its (partial) evaluations", async () => {
+    const fixture = await createFixture();
+    await rateQuestion(fixture.session.id, fixture.question.id, 4);
+
+    await deleteSession(fixture.session.id);
+
+    const reloadedSession = await db.query.interviewSessions.findFirst({
+      where: eq(interviewSessions.id, fixture.session.id),
+    });
+    expect(reloadedSession).toBeUndefined();
+    const reloadedEvaluation = await db.query.questionEvaluations.findFirst({
+      where: eq(questionEvaluations.sessionId, fixture.session.id),
+    });
+    expect(reloadedEvaluation).toBeUndefined();
+  });
+
+  it("deletes a completed session (rated, no decision yet)", async () => {
+    const fixture = await createFixture();
+    await bringSessionToPass(fixture);
+    await finishRating(fixture.session.id);
+
+    await deleteSession(fixture.session.id);
+
+    const reloaded = await db.query.interviewSessions.findFirst({
+      where: eq(interviewSessions.id, fixture.session.id),
+    });
+    expect(reloaded).toBeUndefined();
+  });
+
+  it("refuses to delete a decided session — a real hiring evaluation was recorded", async () => {
+    const fixture = await createFixture();
+    await bringSessionToPass(fixture);
+    await recordDecision(fixture.session.id, { mode: "accept" });
+
+    await expect(deleteSession(fixture.session.id)).rejects.toThrow(/cannot be permanently deleted/);
+
+    // The session and its recorded decision must survive the rejected attempt.
+    const reloadedSession = await db.query.interviewSessions.findFirst({
+      where: eq(interviewSessions.id, fixture.session.id),
+    });
+    expect(reloadedSession).toBeDefined();
+    const decision = await db.query.interviewDecisions.findFirst({
+      where: (t, { eq: eqOp }) => eqOp(t.sessionId, fixture.session.id),
+    });
+    expect(decision?.finalDecision).toBe("PASS");
+  });
+
+  it("archives and restores a session regardless of status, including decided", async () => {
+    const fixture = await createFixture();
+    await bringSessionToPass(fixture);
+    await recordDecision(fixture.session.id, { mode: "accept" });
+
+    await archiveSession(fixture.session.id);
+    const afterArchive = await db.query.interviewSessions.findFirst({
+      where: eq(interviewSessions.id, fixture.session.id),
+    });
+    expect(afterArchive?.archivedAt).not.toBeNull();
+    // Archiving never touches the recorded decision.
+    const decision = await db.query.interviewDecisions.findFirst({
+      where: (t, { eq: eqOp }) => eqOp(t.sessionId, fixture.session.id),
+    });
+    expect(decision?.finalDecision).toBe("PASS");
+
+    await restoreSession(fixture.session.id);
+    const afterRestore = await db.query.interviewSessions.findFirst({
+      where: eq(interviewSessions.id, fixture.session.id),
+    });
+    expect(afterRestore?.archivedAt).toBeNull();
   });
 });

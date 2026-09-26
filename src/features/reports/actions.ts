@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { generateReport } from "./mutations";
+import { deleteReport, generateReport } from "./mutations";
 
 export interface FormActionState {
   error?: string;
@@ -18,4 +18,16 @@ export async function generateReportAction(
   }
   revalidatePath(`/interviews/${sessionId}/summary`);
   return {};
+}
+
+/** Plan Phase 23/§44 — always allowed (no dependency guard needed, see
+ * `deleteReport`), so this follows the same fire-and-forget
+ * `RowActionButton` shape the Templates feature already uses for its own
+ * always-safe row deletes, rather than the `FormActionState` shape. Bound
+ * with both ids so a single row action can revalidate both places a report
+ * is listed. */
+export async function deleteReportAction(reportId: string, sessionId: string) {
+  await deleteReport(reportId);
+  revalidatePath(`/interviews/${sessionId}/summary`);
+  revalidatePath("/reports");
 }

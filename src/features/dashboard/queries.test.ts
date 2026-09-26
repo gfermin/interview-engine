@@ -10,6 +10,7 @@ async function createSessionFixture(
     status?: "in_progress" | "completed" | "decided";
     templateStatus?: "draft" | "approved" | "locked";
     createdAt?: Date;
+    archivedAt?: Date | null;
   } = {}
 ) {
   const [position] = await db
@@ -35,6 +36,7 @@ async function createSessionFixture(
       candidateId: candidate.id,
       templateId: template.id,
       status: overrides.status ?? "in_progress",
+      archivedAt: overrides.archivedAt ?? null,
       ...(overrides.createdAt ? { createdAt: overrides.createdAt } : {}),
     })
     .returning();
@@ -64,6 +66,23 @@ describe("getDashboardCounts", () => {
 
     expect(after.awaitingDecision).toBeGreaterThanOrEqual(before.awaitingDecision + 1);
     expect(after.completed).toBeGreaterThanOrEqual(before.completed + 1);
+  });
+
+});
+
+// Plan Phase 23/§44.9 — an archived session is, by definition, no longer
+// part of active work and must never surface in the Dashboard's recent-
+// sessions list (a per-session existence check, not a count comparison —
+// counts alone can't be asserted race-proof against concurrent fixtures
+// from other test files sharing this same SQLite file, per this suite's
+// own documented convention above).
+describe("getRecentSessions (archived exclusion)", () => {
+  it("excludes an archived session", async () => {
+    const { session } = await createSessionFixture({ archivedAt: new Date() });
+
+    const rows = await getRecentSessions(500);
+
+    expect(rows.some((r) => r.id === session.id)).toBe(false);
   });
 });
 

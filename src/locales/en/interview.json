@@ -97,5 +97,20 @@
   "reportHeading": "Report",
   "reportGenerated": "Generated",
   "downloadLabel": "Download",
-  "reportPendingNote": "A report can be generated once a decision has been recorded above."
+  "reportPendingNote": "A report can be generated once a decision has been recorded above.",
+
+  "statusFilterLabel": "Archived",
+  "filterActiveOption": "Active",
+  "filterArchivedOption": "Archived",
+  "filterAllOption": "All",
+  "archivedBadge": "Archived",
+  "archiveSessionButton": "Archive",
+  "restoreSessionButton": "Restore",
+  "deleteSessionButton": "Delete",
+  "archiveSessionConfirm": "Archive this interview? It will be hidden from the interview history and dashboard, but remains visible on the candidate's page and in Reports.",
+  "deleteSessionConfirmPrefix": "Permanently delete this interview for \"",
+  "deleteSessionConfirmSuffix": "\"? All ratings, notes, and evaluations will be lost. This cannot be undone.",
+  "cannotDeleteSessionNote": "This interview has a recorded decision and cannot be permanently deleted. Archive it instead to preserve the evaluation history.",
+  "deleteReportButton": "Delete report",
+  "deleteReportConfirm": "Delete this report? You can regenerate it later from this interview's finalized result."
 }

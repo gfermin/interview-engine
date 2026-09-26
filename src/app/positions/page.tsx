@@ -3,8 +3,9 @@ import Link from "next/link";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { PageContainer } from "@/components/layout/page-container";
 import { Badge } from "@/components/ui/badge";
-import { ButtonLink } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -13,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { listPositions } from "@/features/positions/queries";
+import { listPositions, type PositionListFilters } from "@/features/positions/queries";
 import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
 import { t } from "@/lib/i18n";
 
@@ -23,11 +24,18 @@ import { t } from "@/lib/i18n";
 // rendering so newly created Positions actually show up.
 export const dynamic = "force-dynamic";
 
-export default async function PositionsPage() {
+export default async function PositionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ archived?: string }>;
+}) {
   const cookieStore = await cookies();
   const locale = resolveLocale(cookieStore.get(APP_LOCALE_COOKIE)?.value);
 
-  const positions = await listPositions();
+  const { archived: archivedParam } = await searchParams;
+  const archived = (archivedParam as PositionListFilters["archived"]) ?? "active";
+
+  const positions = await listPositions({ archived });
 
   return (
     <>
@@ -39,6 +47,31 @@ export default async function PositionsPage() {
           </p>
           <ButtonLink href="/positions/new">{t(locale, "positions.newPositionButton")}</ButtonLink>
         </div>
+
+        <Card>
+          <CardContent className="pt-5">
+            <form className="flex flex-wrap items-end gap-3" method="get">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] text-muted-foreground" htmlFor="archived">
+                  {t(locale, "positions.statusFilterLabel")}
+                </label>
+                <Select id="archived" name="archived" defaultValue={archived} className="w-40">
+                  <option value="active">{t(locale, "positions.filterActiveOption")}</option>
+                  <option value="archived">{t(locale, "positions.filterArchivedOption")}</option>
+                  <option value="all">{t(locale, "positions.filterAllOption")}</option>
+                </Select>
+              </div>
+              <Button type="submit" size="sm">
+                {t(locale, "positions.filterButton")}
+              </Button>
+              {archived !== "active" ? (
+                <ButtonLink size="sm" variant="outline" href="/positions">
+                  {t(locale, "positions.clearFilterButton")}
+                </ButtonLink>
+              ) : null}
+            </form>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardContent className="p-0">
@@ -78,9 +111,14 @@ export default async function PositionsPage() {
                         {position.seniority ?? "—"}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="capitalize">
-                          {position.status}
-                        </Badge>
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge variant="secondary" className="capitalize">
+                            {position.status}
+                          </Badge>
+                          {position.archivedAt ? (
+                            <Badge variant="outline">{t(locale, "positions.archivedBadge")}</Badge>
+                          ) : null}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

@@ -64,6 +64,13 @@
       "when": 1790367011051,
       "tag": "0008_third_power_man",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1790373123341,
+      "tag": "0009_equal_lilandra",
+      "breakpoints": true
     }
   ]
 }

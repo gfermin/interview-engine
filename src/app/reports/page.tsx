@@ -1,7 +1,9 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
+import { Trash2 } from "lucide-react";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { PageContainer } from "@/components/layout/page-container";
+import { RowActionButton } from "@/components/row-action-button";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { INTERVIEW_STAGES, STAGE_LABELS } from "@/domain/interviews/stage-config";
 import { STATUS_TONE, ToneBadge } from "@/features/interviews/status-badge";
+import { deleteReportAction } from "@/features/reports/actions";
 import { listAllReports, type ReportListFilters } from "@/features/reports/queries";
 import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
 import { t } from "@/lib/i18n";
@@ -160,7 +163,7 @@ export default async function ReportsPage({
                         />
                       ) : null}
                     </div>
-                    <div className="flex gap-1.5">
+                    <div className="flex items-center gap-1.5">
                       <ButtonLink
                         size="sm"
                         variant="outline"
@@ -171,6 +174,12 @@ export default async function ReportsPage({
                       <ButtonLink size="sm" href={`/api/reports/${report.id}`}>
                         {t(locale, "reports.pdfButton")}
                       </ButtonLink>
+                      <RowActionButton
+                        action={deleteReportAction.bind(null, report.id, report.sessionId)}
+                        icon={<Trash2 />}
+                        label={t(locale, "reports.deleteButton")}
+                        confirmMessage={t(locale, "reports.deleteConfirm")}
+                      />
                     </div>
                   </div>
                 </CardContent>

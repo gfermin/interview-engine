@@ -1,8 +1,10 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArchiveRestore, Archive as ArchiveIcon, Trash2 } from "lucide-react";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { PageContainer } from "@/components/layout/page-container";
+import { LifecycleActionButton } from "@/components/lifecycle-action-button";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,9 +16,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { canDeleteCandidate } from "@/domain/candidates/lifecycle";
 import { SESSION_STATUS_LABELS } from "@/domain/interviews/session-lifecycle";
 import { STAGE_LABELS, type InterviewStage } from "@/domain/interviews/stage-config";
-import { startSessionAction } from "@/features/candidates/actions";
+import {
+  archiveCandidateAction,
+  deleteCandidateAction,
+  restoreCandidateAction,
+  startSessionAction,
+} from "@/features/candidates/actions";
 import { getCandidate, listSessionsForCandidate } from "@/features/candidates/queries";
 import { StartSessionForm } from "@/features/candidates/start-session-form";
 import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
@@ -49,6 +57,8 @@ export default async function CandidateDetailPage({
   ]);
 
   const boundStartSession = startSessionAction.bind(null, id);
+  const isArchived = Boolean(candidate.archivedAt);
+  const deleteCheck = canDeleteCandidate(sessions.length);
 
   return (
     <>
@@ -66,11 +76,57 @@ export default async function CandidateDetailPage({
                   {candidate.notes}
                 </p>
               ) : null}
+              {isArchived ? (
+                <Badge variant="outline" className="mt-2">
+                  {t(locale, "candidates.archivedBadge")}
+                </Badge>
+              ) : null}
             </div>
-            <ButtonLink variant="outline" size="sm" href={`/candidates/${candidate.id}/edit`}>
-              {t(locale, "candidates.editButton")}
-            </ButtonLink>
+            <div className="flex flex-wrap items-start gap-2">
+              <ButtonLink variant="outline" size="sm" href={`/candidates/${candidate.id}/edit`}>
+                {t(locale, "candidates.editButton")}
+              </ButtonLink>
+              {isArchived ? (
+                <LifecycleActionButton
+                  action={restoreCandidateAction.bind(null, candidate.id)}
+                  label={t(locale, "candidates.restoreButton")}
+                  icon={<ArchiveRestore />}
+                />
+              ) : (
+                <>
+                  <LifecycleActionButton
+                    action={archiveCandidateAction.bind(null, candidate.id)}
+                    label={t(locale, "candidates.archiveButton")}
+                    icon={<ArchiveIcon />}
+                    confirmMessage={t(locale, "candidates.archiveConfirm")}
+                  />
+                  {deleteCheck.allowed ? (
+                    <LifecycleActionButton
+                      action={deleteCandidateAction.bind(null, candidate.id)}
+                      label={t(locale, "candidates.deleteButton")}
+                      icon={<Trash2 />}
+                      variant="destructive"
+                      confirmMessage={`${t(locale, "candidates.deleteConfirmPrefix")}${candidate.name}${t(locale, "candidates.deleteConfirmSuffix")}`}
+                    />
+                  ) : null}
+                </>
+              )}
+            </div>
           </CardHeader>
+          {!isArchived && !deleteCheck.allowed ? (
+            <CardContent className="pt-0">
+              <p className="text-[11.5px] text-muted-foreground">
+                {t(locale, "candidates.cannotDeletePrefix")}
+                {sessions.length}
+                {t(
+                  locale,
+                  sessions.length === 1
+                    ? "candidates.cannotDeleteSessionSingular"
+                    : "candidates.cannotDeleteSessionPlural"
+                )}
+              </p>
+            </CardContent>
+          ) : null}
         </Card>
 
         <Card>
@@ -132,9 +188,14 @@ export default async function CandidateDetailPage({
                         </Link>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={SESSION_STATUS_VARIANT[session.status]}>
-                          {SESSION_STATUS_LABELS[session.status]}
-                        </Badge>
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge variant={SESSION_STATUS_VARIANT[session.status]}>
+                            {SESSION_STATUS_LABELS[session.status]}
+                          </Badge>
+                          {session.archivedAt ? (
+                            <Badge variant="outline">{t(locale, "candidates.archivedBadge")}</Badge>
+                          ) : null}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1.5">

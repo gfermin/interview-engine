@@ -152,5 +152,20 @@
   "editCompetencyTitle": "Editar competencia",
   "addRequirementTitle": "Agregar requisito obligatorio",
   "editRequirementTitle": "Editar requisito obligatorio",
-  "editQuestionTitle": "Editar pregunta"
+  "editQuestionTitle": "Editar pregunta",
+
+  "statusFilterLabel": "Estado",
+  "filterActiveOption": "Activas",
+  "filterArchivedOption": "Archivadas",
+  "filterAllOption": "Todas",
+  "filterButton": "Filtrar",
+  "clearFilterButton": "Limpiar",
+  "archivedBadge": "Archivada",
+  "archiveTemplateButton": "Archivar",
+  "restoreTemplateButton": "Restaurar",
+  "deleteTemplateButton": "Eliminar",
+  "archiveTemplateConfirm": "¿Archivar esta plantilla? Ya no podrá seleccionarse para nuevas entrevistas, pero las sesiones e informes existentes permanecen completamente intactos.",
+  "deleteTemplateConfirmPrefix": "¿Eliminar permanentemente \"",
+  "deleteTemplateConfirmSuffix": "\"? Esta acción no se puede deshacer.",
+  "cannotDeleteTemplateNote": "Esta plantilla se ha usado para realizar entrevistas y no se puede eliminar permanentemente. Archívala en su lugar para preservar ese historial."
 }

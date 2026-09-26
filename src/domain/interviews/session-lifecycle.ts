@@ -55,3 +55,14 @@ export function canGenerateReport(session: SessionLike): boolean {
 export function canReopenSession(session: SessionLike): boolean {
   return !isSessionEditable(session);
 }
+
+/**
+ * Entity lifecycle management (plan Phase 23/§44.4/§44.8) — a session can be
+ * hard-deleted only before a human decision exists (`in_progress` or
+ * `completed`). A `decided` session represents a real hiring evaluation and
+ * is archive-only in this policy — never hard-deleted, regardless of how
+ * old or unwanted it is.
+ */
+export function canDeleteSession(session: SessionLike): boolean {
+  return !isSessionDecided(session);
+}

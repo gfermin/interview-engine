@@ -34,5 +34,22 @@
   "jobDescriptionLabel": "Job Description",
   "rawTextPlaceholder": "Paste the full Job Description text here...",
   "updateJobDescriptionButton": "Update Job Description",
-  "saveJobDescriptionButton": "Save Job Description"
+  "saveJobDescriptionButton": "Save Job Description",
+
+  "statusFilterLabel": "Status",
+  "filterActiveOption": "Active",
+  "filterArchivedOption": "Archived",
+  "filterAllOption": "All",
+  "filterButton": "Filter",
+  "clearFilterButton": "Clear",
+  "archivedBadge": "Archived",
+  "archiveButton": "Archive",
+  "restoreButton": "Restore",
+  "deleteButton": "Delete",
+  "archiveConfirm": "Archive this position? It will be hidden from active lists, but its data is preserved and it can be restored later.",
+  "deleteConfirmPrefix": "Permanently delete \"",
+  "deleteConfirmSuffix": "\"? This cannot be undone.",
+  "cannotDeletePrefix": "This position cannot be permanently deleted because ",
+  "cannotDeleteTemplateSingular": " of its templates has been used to conduct interviews. Archive it instead.",
+  "cannotDeleteTemplatePlural": " of its templates have been used to conduct interviews. Archive it instead."
 }

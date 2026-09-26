@@ -34,5 +34,22 @@
   "jobDescriptionLabel": "Descripción de Puesto",
   "rawTextPlaceholder": "Pega aquí el texto completo de la Descripción de Puesto...",
   "updateJobDescriptionButton": "Actualizar Descripción de Puesto",
-  "saveJobDescriptionButton": "Guardar Descripción de Puesto"
+  "saveJobDescriptionButton": "Guardar Descripción de Puesto",
+
+  "statusFilterLabel": "Estado",
+  "filterActiveOption": "Activas",
+  "filterArchivedOption": "Archivadas",
+  "filterAllOption": "Todas",
+  "filterButton": "Filtrar",
+  "clearFilterButton": "Limpiar",
+  "archivedBadge": "Archivada",
+  "archiveButton": "Archivar",
+  "restoreButton": "Restaurar",
+  "deleteButton": "Eliminar",
+  "archiveConfirm": "¿Archivar esta posición? Se ocultará de las listas activas, pero sus datos se conservan y puede restaurarse más adelante.",
+  "deleteConfirmPrefix": "¿Eliminar permanentemente \"",
+  "deleteConfirmSuffix": "\"? Esta acción no se puede deshacer.",
+  "cannotDeletePrefix": "Esta posición no se puede eliminar permanentemente porque ",
+  "cannotDeleteTemplateSingular": " de sus plantillas se ha usado para realizar entrevistas. Archívala en su lugar.",
+  "cannotDeleteTemplatePlural": " de sus plantillas se han usado para realizar entrevistas. Archívala en su lugar."
 }

@@ -1,17 +1,31 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { PageContainer } from "@/components/layout/page-container";
+import { LifecycleActionButton } from "@/components/lifecycle-action-button";
+import { RowActionButton } from "@/components/row-action-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { canGenerateReport, canReopenSession, isSessionDecided } from "@/domain/interviews/session-lifecycle";
+import {
+  canDeleteSession,
+  canGenerateReport,
+  canReopenSession,
+  isSessionDecided,
+} from "@/domain/interviews/session-lifecycle";
 import { canRecordDecision } from "@/domain/interviews/decision";
 import type { InterviewLanguage } from "@/domain/interviews/interview-language";
 import { buildNarrative } from "@/domain/interviews/narrative";
 import { categorizeCompetencies } from "@/domain/interviews/result-categories";
 import { getStageConfig, statusLabelFor, type InterviewStage } from "@/domain/interviews/stage-config";
 import type { MandatoryRequirementStatus } from "@/domain/scoring/types";
-import { recordDecisionAction, reopenSessionAction } from "@/features/interviews/actions";
+import {
+  archiveSessionAction,
+  deleteSessionAction,
+  recordDecisionAction,
+  reopenSessionAction,
+  restoreSessionAction,
+} from "@/features/interviews/actions";
 import { CompetencyDashboard, type CompetencyDashboardEntry } from "@/features/interviews/competency-dashboard";
 import { DecisionForm } from "@/features/interviews/decision-form";
 import { EnglishAssessmentControl } from "@/features/interviews/english-assessment-control";
@@ -28,7 +42,7 @@ import {
 import { ReopenSessionButton } from "@/features/interviews/reopen-session-button";
 import { computeFullScoringResult } from "@/features/interviews/scoring";
 import { getPosition } from "@/features/positions/queries";
-import { generateReportAction } from "@/features/reports/actions";
+import { deleteReportAction, generateReportAction } from "@/features/reports/actions";
 import { GenerateReportButton } from "@/features/reports/generate-report-button";
 import { listReportsForSession } from "@/features/reports/queries";
 import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
@@ -66,6 +80,8 @@ export default async function InterviewSummaryPage({
 
   const stage = session.stage as InterviewStage;
   const stageConfig = getStageConfig(stage);
+  const isArchived = Boolean(session.archivedAt);
+  const deleteCheck = canDeleteSession(session);
 
   const [
     result,
@@ -196,12 +212,49 @@ export default async function InterviewSummaryPage({
                 <Badge variant="outline" className="font-mono">
                   v{session.templateVersion}
                 </Badge>
+                {isArchived ? (
+                  <Badge variant="outline">{t(locale, "interview.archivedBadge")}</Badge>
+                ) : null}
               </div>
             </div>
-            {canReopenSession(session) ? (
-              <ReopenSessionButton action={reopenSessionAction.bind(null, sessionId)} locale={locale} />
-            ) : null}
+            <div className="flex flex-wrap items-start gap-2">
+              {canReopenSession(session) ? (
+                <ReopenSessionButton action={reopenSessionAction.bind(null, sessionId)} locale={locale} />
+              ) : null}
+              {isArchived ? (
+                <LifecycleActionButton
+                  action={restoreSessionAction.bind(null, sessionId)}
+                  label={t(locale, "interview.restoreSessionButton")}
+                  icon={<ArchiveRestore />}
+                />
+              ) : (
+                <>
+                  <LifecycleActionButton
+                    action={archiveSessionAction.bind(null, sessionId)}
+                    label={t(locale, "interview.archiveSessionButton")}
+                    icon={<Archive />}
+                    confirmMessage={t(locale, "interview.archiveSessionConfirm")}
+                  />
+                  {deleteCheck ? (
+                    <LifecycleActionButton
+                      action={deleteSessionAction.bind(null, sessionId)}
+                      label={t(locale, "interview.deleteSessionButton")}
+                      icon={<Trash2 />}
+                      variant="destructive"
+                      confirmMessage={`${t(locale, "interview.deleteSessionConfirmPrefix")}${session.candidateName}${t(locale, "interview.deleteSessionConfirmSuffix")}`}
+                    />
+                  ) : null}
+                </>
+              )}
+            </div>
           </CardHeader>
+          {!isArchived && !deleteCheck ? (
+            <CardContent className="pt-0">
+              <p className="text-[11.5px] text-muted-foreground">
+                {t(locale, "interview.cannotDeleteSessionNote")}
+              </p>
+            </CardContent>
+          ) : null}
         </Card>
 
         <Card>
@@ -441,12 +494,20 @@ export default async function InterviewSummaryPage({
                         <span className="font-mono">{Math.round(report.fileSize / 1024)} KB</span>)
                       </span>
                     </div>
-                    <a
-                      href={`/api/reports/${report.id}`}
-                      className="font-medium text-primary hover:underline"
-                    >
-                      {t(locale, "interview.downloadLabel")}
-                    </a>
+                    <div className="flex items-center gap-1">
+                      <a
+                        href={`/api/reports/${report.id}`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {t(locale, "interview.downloadLabel")}
+                      </a>
+                      <RowActionButton
+                        action={deleteReportAction.bind(null, report.id, sessionId)}
+                        icon={<Trash2 />}
+                        label={t(locale, "interview.deleteReportButton")}
+                        confirmMessage={t(locale, "interview.deleteReportConfirm")}
+                      />
+                    </div>
                   </li>
                 ))}
               </ul>

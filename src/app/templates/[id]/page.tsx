@@ -1,9 +1,10 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Archive, ArchiveRestore, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { PageContainer } from "@/components/layout/page-container";
+import { LifecycleActionButton } from "@/components/lifecycle-action-button";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,14 +23,17 @@ import { isTemplateEditable } from "@/domain/interviews/template-versioning";
 import { difficultyBadgeClass } from "@/lib/question-style";
 import { getJobDescription, getPosition } from "@/features/positions/queries";
 import {
+  archiveTemplateAction,
   createNewVersionAction,
   deleteCompetencyAction,
   deleteMandatoryRequirementAction,
   deleteQuestionAction,
+  deleteTemplateAction,
   moveCompetencyAction,
   moveMandatoryRequirementAction,
   moveQuestionAction,
   publishTemplateAction,
+  restoreTemplateAction,
   updateScoringConfigAction,
 } from "@/features/templates/actions";
 import { AIActionButton, RegenerateQuestionButton } from "@/features/templates/ai-components";
@@ -42,6 +46,7 @@ import {
   getLatestJobAnalysis,
   getLatestTemplateDraftBlueprint,
   getTemplate,
+  hasSessionsForTemplate,
   listCompetencies,
   listMandatoryRequirements,
   listQuestions,
@@ -72,7 +77,7 @@ export default async function TemplateDetailPage({
   if (!template) notFound();
 
   const stage = template.stage as InterviewStage;
-  const [position, competencies, mandatoryRequirements, questions, jobDescription, blueprints] =
+  const [position, competencies, mandatoryRequirements, questions, jobDescription, blueprints, hasSessions] =
     await Promise.all([
       getPosition(template.positionId),
       listCompetencies(id),
@@ -80,6 +85,7 @@ export default async function TemplateDetailPage({
       listQuestions(id),
       template.jobDescriptionId ? getJobDescription(template.jobDescriptionId) : null,
       getLatestTemplateDraftBlueprint(id),
+      hasSessionsForTemplate(id),
     ]);
   const jobAnalysis = template.jobDescriptionId
     ? await getLatestJobAnalysis(template.jobDescriptionId)
@@ -87,6 +93,8 @@ export default async function TemplateDetailPage({
   const blueprintByCompetencyName = new Map((blueprints ?? []).map((b) => [b.competencyName, b]));
 
   const editable = isTemplateEditable(template);
+  const isArchived = Boolean(template.archivedAt);
+  const deleteCheck = !hasSessions;
   const stageConfig = getStageConfig(stage);
   const weightSum = competencies.reduce((sum, c) => sum + c.weight, 0);
   const questionsByCompetency = new Map<string, typeof questions>();
@@ -126,6 +134,9 @@ export default async function TemplateDetailPage({
                 <Badge variant={STATUS_VARIANT[template.status]} className="capitalize">
                   {template.status}
                 </Badge>
+                {isArchived ? (
+                  <Badge variant="outline">{t(locale, "templates.archivedBadge")}</Badge>
+                ) : null}
               </div>
               {!editable ? (
                 <p className="mt-2 max-w-md text-[11px] text-muted-foreground">
@@ -134,12 +145,42 @@ export default async function TemplateDetailPage({
                     : t(locale, "templates.editableNoteLocked")}
                 </p>
               ) : null}
+              {!isArchived && !deleteCheck ? (
+                <p className="mt-2 max-w-md text-[11px] text-muted-foreground">
+                  {t(locale, "templates.cannotDeleteTemplateNote")}
+                </p>
+              ) : null}
             </div>
-            <div>
+            <div className="flex flex-wrap items-start gap-2">
               {editable ? (
                 <PublishButton action={publishTemplateAction.bind(null, template.id)} locale={locale} />
               ) : (
                 <NewVersionButton action={createNewVersionAction.bind(null, template.id)} locale={locale} />
+              )}
+              {isArchived ? (
+                <LifecycleActionButton
+                  action={restoreTemplateAction.bind(null, template.id)}
+                  label={t(locale, "templates.restoreTemplateButton")}
+                  icon={<ArchiveRestore />}
+                />
+              ) : (
+                <>
+                  <LifecycleActionButton
+                    action={archiveTemplateAction.bind(null, template.id)}
+                    label={t(locale, "templates.archiveTemplateButton")}
+                    icon={<Archive />}
+                    confirmMessage={t(locale, "templates.archiveTemplateConfirm")}
+                  />
+                  {deleteCheck ? (
+                    <LifecycleActionButton
+                      action={deleteTemplateAction.bind(null, template.id)}
+                      label={t(locale, "templates.deleteTemplateButton")}
+                      icon={<Trash2 />}
+                      variant="destructive"
+                      confirmMessage={`${t(locale, "templates.deleteTemplateConfirmPrefix")}${template.name}${t(locale, "templates.deleteTemplateConfirmSuffix")}`}
+                    />
+                  ) : null}
+                </>
               )}
             </div>
           </CardHeader>

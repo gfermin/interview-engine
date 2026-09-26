@@ -38,5 +38,22 @@
   "publishedTemplateLabel": "Published template",
   "selectTemplatePlaceholder": "Select a Template...",
   "starting": "Starting...",
-  "startSessionButton": "Start Interview Session"
+  "startSessionButton": "Start Interview Session",
+
+  "statusFilterLabel": "Status",
+  "filterActiveOption": "Active",
+  "filterArchivedOption": "Archived",
+  "filterAllOption": "All",
+  "filterButton": "Filter",
+  "clearFilterButton": "Clear",
+  "archivedBadge": "Archived",
+  "archiveButton": "Archive",
+  "restoreButton": "Restore",
+  "deleteButton": "Delete",
+  "archiveConfirm": "Archive this candidate? They will be hidden from active lists, but their data is preserved and can be restored later.",
+  "deleteConfirmPrefix": "Permanently delete \"",
+  "deleteConfirmSuffix": "\"? This cannot be undone.",
+  "cannotDeletePrefix": "This candidate cannot be permanently deleted because ",
+  "cannotDeleteSessionSingular": " interview session exists for them. Archive instead.",
+  "cannotDeleteSessionPlural": " interview sessions exist for them. Archive instead."
 }

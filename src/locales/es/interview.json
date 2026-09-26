@@ -97,5 +97,20 @@
   "reportHeading": "Reporte",
   "reportGenerated": "Generado",
   "downloadLabel": "Descargar",
-  "reportPendingNote": "Se puede generar un reporte una vez que se haya registrado una decisión arriba."
+  "reportPendingNote": "Se puede generar un reporte una vez que se haya registrado una decisión arriba.",
+
+  "statusFilterLabel": "Archivado",
+  "filterActiveOption": "Activas",
+  "filterArchivedOption": "Archivadas",
+  "filterAllOption": "Todas",
+  "archivedBadge": "Archivada",
+  "archiveSessionButton": "Archivar",
+  "restoreSessionButton": "Restaurar",
+  "deleteSessionButton": "Eliminar",
+  "archiveSessionConfirm": "¿Archivar esta entrevista? Se ocultará del historial de entrevistas y del panel, pero seguirá visible en la página del candidato y en Reportes.",
+  "deleteSessionConfirmPrefix": "¿Eliminar permanentemente esta entrevista de \"",
+  "deleteSessionConfirmSuffix": "\"? Se perderán todas las calificaciones, notas y evaluaciones. Esta acción no se puede deshacer.",
+  "cannotDeleteSessionNote": "Esta entrevista tiene una decisión registrada y no se puede eliminar permanentemente. Archívala en su lugar para preservar el historial de evaluación.",
+  "deleteReportButton": "Eliminar reporte",
+  "deleteReportConfirm": "¿Eliminar este reporte? Puedes regenerarlo más adelante a partir del resultado finalizado de esta entrevista."
 }
