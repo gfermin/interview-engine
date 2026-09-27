@@ -7,22 +7,24 @@ import { Label } from "@/components/ui/label";
 import { t, type Locale } from "@/lib/i18n";
 import type { FormActionState } from "./actions";
 
+export interface ScoringConfigFormValues {
+  passThreshold: number;
+  borderlineMin: number;
+  criticalMin: number;
+  minCompletion: number;
+  englishRequired: boolean;
+  englishMinLevel: number;
+  includeCompensationQuestion: boolean;
+  includeWorkAuthorizationCheck: boolean;
+  includeCodeExercises: boolean;
+}
+
 interface ScoringConfigFormProps {
   action: (
     prevState: FormActionState | undefined,
     formData: FormData
   ) => Promise<FormActionState | undefined>;
-  defaultValues: {
-    passThreshold: number;
-    borderlineMin: number;
-    criticalMin: number;
-    minCompletion: number;
-    englishRequired: boolean;
-    englishMinLevel: number;
-    includeCompensationQuestion: boolean;
-    includeWorkAuthorizationCheck: boolean;
-    includeCodeExercises: boolean;
-  };
+  defaultValues: ScoringConfigFormValues;
   /** Compensation/work-authorization toggles are First Screening only (plan
    * Phase 22/§43.11) — hidden entirely for a Technical Interview template. */
   showScreeningLogisticsFields?: boolean;

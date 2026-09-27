@@ -216,7 +216,6 @@ export default async function InterviewSummaryPage({
         />
 
         <SummaryDecisionSection
-          sessionId={sessionId}
           stage={stage}
           status={result.status}
           reason={result.reason}

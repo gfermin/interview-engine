@@ -3,7 +3,6 @@ import { Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { LifecycleActionButton } from "@/components/lifecycle-action-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { InterviewStage } from "@/domain/interviews/stage-config";
 import { t, type Locale } from "@/lib/i18n";
 import { ReopenSessionButton } from "./reopen-session-button";
 

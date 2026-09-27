@@ -11,7 +11,6 @@ import { ToneBadge } from "./status-badge";
  * of the Summary page's monolithic body. A pure markup/prop split, no
  * behavior change. */
 export function SummaryDecisionSection({
-  sessionId,
   stage,
   status,
   reason,
@@ -20,7 +19,6 @@ export function SummaryDecisionSection({
   recordDecisionAction,
   locale,
 }: {
-  sessionId: string;
   stage: InterviewStage;
   status: InterviewStatus;
   reason: string;
