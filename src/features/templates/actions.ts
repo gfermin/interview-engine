@@ -2,7 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { type FormActionState, parseFormOrError } from "@/lib/form-action-state";
+import { t } from "@/lib/i18n";
 import { getActiveJobDescription } from "@/features/positions/queries";
+import { getRequestLocale } from "@/features/settings/locale";
 import {
   archiveTemplate,
   createCompetency,
@@ -32,10 +35,7 @@ import {
   templateFormSchema,
 } from "./schemas";
 
-export interface FormActionState {
-  error?: string;
-  fieldErrors?: Record<string, string[] | undefined>;
-}
+export type { FormActionState };
 
 function revalidateTemplate(templateId: string) {
   revalidatePath(`/templates/${templateId}`);
@@ -46,13 +46,8 @@ export async function createTemplateAction(
   _prevState: FormActionState | undefined,
   formData: FormData
 ): Promise<FormActionState | undefined> {
-  const parsed = templateFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    return {
-      error: "Please fix the errors below.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
+  const parsed = parseFormOrError(templateFormSchema, formData, await getRequestLocale());
+  if (parsed.error) return parsed.error;
 
   const activeJobDescription = await getActiveJobDescription(parsed.data.positionId);
   const template = await createTemplate({
@@ -70,7 +65,7 @@ export async function publishTemplateAction(
   try {
     await publishTemplate(templateId);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not publish." };
+    return { error: error instanceof Error ? error.message : t(await getRequestLocale(), "common.couldNotPublish") };
   }
   revalidateTemplate(templateId);
   return {};
@@ -113,17 +108,13 @@ export async function updateScoringConfigAction(
   _prevState: FormActionState | undefined,
   formData: FormData
 ): Promise<FormActionState | undefined> {
-  const parsed = scoringConfigFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    return {
-      error: "Please fix the errors below.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
+  const locale = await getRequestLocale();
+  const parsed = parseFormOrError(scoringConfigFormSchema, formData, locale);
+  if (parsed.error) return parsed.error;
   try {
     await updateScoringConfig(templateId, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not save." };
+    return { error: error instanceof Error ? error.message : t(locale, "common.couldNotSave") };
   }
   revalidateTemplate(templateId);
   return {};
@@ -138,17 +129,13 @@ export async function createCompetencyAction(
   _prevState: FormActionState | undefined,
   formData: FormData
 ): Promise<FormActionState | undefined> {
-  const parsed = competencyFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    return {
-      error: "Please fix the errors below.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
+  const locale = await getRequestLocale();
+  const parsed = parseFormOrError(competencyFormSchema, formData, locale);
+  if (parsed.error) return parsed.error;
   try {
     await createCompetency(templateId, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not save." };
+    return { error: error instanceof Error ? error.message : t(locale, "common.couldNotSave") };
   }
   revalidateTemplate(templateId);
   redirect(`/templates/${templateId}`);
@@ -160,17 +147,13 @@ export async function updateCompetencyAction(
   _prevState: FormActionState | undefined,
   formData: FormData
 ): Promise<FormActionState | undefined> {
-  const parsed = competencyFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    return {
-      error: "Please fix the errors below.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
+  const locale = await getRequestLocale();
+  const parsed = parseFormOrError(competencyFormSchema, formData, locale);
+  if (parsed.error) return parsed.error;
   try {
     await updateCompetency(competencyId, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not save." };
+    return { error: error instanceof Error ? error.message : t(locale, "common.couldNotSave") };
   }
   revalidateTemplate(templateId);
   redirect(`/templates/${templateId}`);
@@ -210,17 +193,13 @@ export async function createMandatoryRequirementAction(
   _prevState: FormActionState | undefined,
   formData: FormData
 ): Promise<FormActionState | undefined> {
-  const parsed = mandatoryRequirementFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    return {
-      error: "Please fix the errors below.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
+  const locale = await getRequestLocale();
+  const parsed = parseFormOrError(mandatoryRequirementFormSchema, formData, locale);
+  if (parsed.error) return parsed.error;
   try {
     await createMandatoryRequirement(templateId, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not save." };
+    return { error: error instanceof Error ? error.message : t(locale, "common.couldNotSave") };
   }
   revalidateTemplate(templateId);
   redirect(`/templates/${templateId}`);
@@ -232,17 +211,13 @@ export async function updateMandatoryRequirementAction(
   _prevState: FormActionState | undefined,
   formData: FormData
 ): Promise<FormActionState | undefined> {
-  const parsed = mandatoryRequirementFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    return {
-      error: "Please fix the errors below.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
+  const locale = await getRequestLocale();
+  const parsed = parseFormOrError(mandatoryRequirementFormSchema, formData, locale);
+  if (parsed.error) return parsed.error;
   try {
     await updateMandatoryRequirement(requirementId, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not save." };
+    return { error: error instanceof Error ? error.message : t(locale, "common.couldNotSave") };
   }
   revalidateTemplate(templateId);
   redirect(`/templates/${templateId}`);
@@ -284,17 +259,13 @@ export async function createQuestionAction(
   _prevState: FormActionState | undefined,
   formData: FormData
 ): Promise<FormActionState | undefined> {
-  const parsed = questionFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    return {
-      error: "Please fix the errors below.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
+  const locale = await getRequestLocale();
+  const parsed = parseFormOrError(questionFormSchema, formData, locale);
+  if (parsed.error) return parsed.error;
   try {
     await createQuestion(templateId, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not save." };
+    return { error: error instanceof Error ? error.message : t(locale, "common.couldNotSave") };
   }
   revalidateTemplate(templateId);
   redirect(`/templates/${templateId}`);
@@ -306,17 +277,13 @@ export async function updateQuestionAction(
   _prevState: FormActionState | undefined,
   formData: FormData
 ): Promise<FormActionState | undefined> {
-  const parsed = questionFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    return {
-      error: "Please fix the errors below.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
+  const locale = await getRequestLocale();
+  const parsed = parseFormOrError(questionFormSchema, formData, locale);
+  if (parsed.error) return parsed.error;
   try {
     await updateQuestion(questionId, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not save." };
+    return { error: error instanceof Error ? error.message : t(locale, "common.couldNotSave") };
   }
   revalidateTemplate(templateId);
   redirect(`/templates/${templateId}`);

@@ -21,6 +21,7 @@
   "noTemplatesMessage": "Aún no hay plantillas.",
   "createFirstLink": "Crea la primera",
   "noTemplatesSuffix": ".",
+  "emptyFilteredMessage": "Ninguna plantilla coincide con estos filtros.",
   "tableName": "Nombre",
   "tableStage": "Etapa",
   "tableVersion": "Versión",

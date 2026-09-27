@@ -5,6 +5,7 @@
   "emptyPrefix": "No candidates yet. ",
   "emptyLinkText": "Add the first one",
   "emptySuffix": ".",
+  "emptyFilteredMessage": "No candidates match these filters.",
   "tableName": "Name",
   "tableEmail": "Email",
   "newCandidatePageTitle": "New Candidate",

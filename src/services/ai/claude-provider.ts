@@ -31,6 +31,7 @@ import {
   type GenerateTemplateDraftInput,
   type RegenerateQuestionInput,
 } from "./types";
+import { withAIRetry } from "./retry";
 
 const JOB_ANALYSIS_TOOL: Anthropic.Tool = {
   name: JOB_ANALYSIS_FUNCTION_NAME,
@@ -123,14 +124,16 @@ export class ClaudeProvider implements AIProvider {
     user: string,
     tool: Anthropic.Tool
   ): Promise<unknown> {
-    const response = await this.client.messages.create({
-      model: this.model,
-      max_tokens: 8192,
-      system,
-      messages: [{ role: "user", content: user }],
-      tools: [tool],
-      tool_choice: { type: "tool", name: tool.name },
-    });
+    const response = await withAIRetry(() =>
+      this.client.messages.create({
+        model: this.model,
+        max_tokens: 8192,
+        system,
+        messages: [{ role: "user", content: user }],
+        tools: [tool],
+        tool_choice: { type: "tool", name: tool.name },
+      })
+    );
 
     const toolUse = response.content.find(
       (block): block is Anthropic.ToolUseBlock => block.type === "tool_use"

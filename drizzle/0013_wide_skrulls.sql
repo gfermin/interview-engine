@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `job_descriptions_one_active_per_position_idx` ON `job_descriptions` (`position_id`) WHERE "job_descriptions"."status" = 'active';

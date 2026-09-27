@@ -15,6 +15,11 @@ export interface TemplateListFilters {
   /** Plan Phase 23/§44.9 — defaults to "active" so archived Templates never
    * clutter the default Templates list. */
   archived?: "active" | "archived" | "all";
+  /** Plan Phase 31/AUDIT-018 — optional and unbounded by default (a
+   * negative SQLite LIMIT means "no limit"); makes the query layer
+   * pagination-capable without requiring the UI to pass either yet. */
+  limit?: number;
+  offset?: number;
 }
 
 export function listTemplates(filters: TemplateListFilters = {}) {
@@ -41,7 +46,9 @@ export function listTemplates(filters: TemplateListFilters = {}) {
     .from(interviewTemplates)
     .innerJoin(positions, eq(interviewTemplates.positionId, positions.id))
     .where(archivedCondition)
-    .orderBy(desc(interviewTemplates.createdAt));
+    .orderBy(desc(interviewTemplates.createdAt))
+    .limit(filters.limit ?? -1)
+    .offset(filters.offset ?? 0);
 }
 
 export function getTemplate(id: string) {
@@ -90,7 +97,13 @@ export function listPublishedTemplates() {
     })
     .from(interviewTemplates)
     .innerJoin(positions, eq(interviewTemplates.positionId, positions.id))
-    .where(and(ne(interviewTemplates.status, "draft"), isNull(interviewTemplates.archivedAt)))
+    .where(
+      and(
+        ne(interviewTemplates.status, "draft"),
+        isNull(interviewTemplates.archivedAt),
+        isNull(positions.archivedAt),
+      ),
+    )
     .orderBy(desc(interviewTemplates.createdAt));
 }
 
@@ -111,7 +124,13 @@ export function listDraftTemplates() {
     })
     .from(interviewTemplates)
     .innerJoin(positions, eq(interviewTemplates.positionId, positions.id))
-    .where(and(eq(interviewTemplates.status, "draft"), isNull(interviewTemplates.archivedAt)))
+    .where(
+      and(
+        eq(interviewTemplates.status, "draft"),
+        isNull(interviewTemplates.archivedAt),
+        isNull(positions.archivedAt),
+      ),
+    )
     .orderBy(desc(interviewTemplates.createdAt));
 }
 

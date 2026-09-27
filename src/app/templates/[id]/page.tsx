@@ -20,6 +20,7 @@ import {
 import { INTERVIEW_LANGUAGE_LABELS, type InterviewLanguage } from "@/domain/interviews/interview-language";
 import { getStageConfig, type InterviewStage } from "@/domain/interviews/stage-config";
 import { isTemplateEditable } from "@/domain/interviews/template-versioning";
+import { isPositionFieldMismatched } from "@/domain/positions/mismatch";
 import { difficultyBadgeClass } from "@/lib/question-style";
 import { getJobDescription, getPosition } from "@/features/positions/queries";
 import {
@@ -104,8 +105,8 @@ export default async function TemplateDetailPage({
     questionsByCompetency.set(q.competencyId, list);
   }
 
-  const roleFamilyMismatch = mismatches(position?.roleFamily ?? null, jobAnalysis?.detectedRoleFamily ?? null);
-  const seniorityMismatch = mismatches(position?.seniority ?? null, jobAnalysis?.detectedSeniority ?? null);
+  const roleFamilyMismatch = isPositionFieldMismatched(position?.roleFamily ?? null, jobAnalysis?.detectedRoleFamily ?? null);
+  const seniorityMismatch = isPositionFieldMismatched(position?.seniority ?? null, jobAnalysis?.detectedSeniority ?? null);
 
   return (
     <>
@@ -641,13 +642,6 @@ export default async function TemplateDetailPage({
       </PageContainer>
     </>
   );
-}
-
-/** Non-blocking mismatch check (plan §39.3) — the system never overrides
- * the human's selection, it only flags a divergence for review. */
-function mismatches(selected: string | null, detected: string | null): boolean {
-  if (!selected || !detected) return false;
-  return selected.trim().toLowerCase() !== detected.trim().toLowerCase();
 }
 
 function ConfigStat({

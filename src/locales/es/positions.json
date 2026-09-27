@@ -5,6 +5,7 @@
   "emptyPrefix": "Aún no hay posiciones. ",
   "emptyLinkText": "Crea la primera",
   "emptySuffix": ".",
+  "emptyFilteredMessage": "Ninguna posición coincide con estos filtros.",
   "tableTitle": "Título",
   "tableRoleFamily": "Familia de rol",
   "tableSeniority": "Seniority",

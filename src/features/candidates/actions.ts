@@ -2,6 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { type FormActionState, parseFormOrError } from "@/lib/form-action-state";
+import { t } from "@/lib/i18n";
+import { getRequestLocale } from "@/features/settings/locale";
 import {
   archiveCandidate,
   createCandidate,
@@ -12,22 +15,14 @@ import {
 } from "./mutations";
 import { candidateFormSchema, startSessionFormSchema } from "./schemas";
 
-export interface FormActionState {
-  error?: string;
-  fieldErrors?: Record<string, string[] | undefined>;
-}
+export type { FormActionState };
 
 export async function createCandidateAction(
   _prevState: FormActionState | undefined,
   formData: FormData
 ): Promise<FormActionState | undefined> {
-  const parsed = candidateFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    return {
-      error: "Please fix the errors below.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
+  const parsed = parseFormOrError(candidateFormSchema, formData, await getRequestLocale());
+  if (parsed.error) return parsed.error;
 
   const candidate = await createCandidate(parsed.data);
   revalidatePath("/candidates");
@@ -39,13 +34,8 @@ export async function updateCandidateAction(
   _prevState: FormActionState | undefined,
   formData: FormData
 ): Promise<FormActionState | undefined> {
-  const parsed = candidateFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    return {
-      error: "Please fix the errors below.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
+  const parsed = parseFormOrError(candidateFormSchema, formData, await getRequestLocale());
+  if (parsed.error) return parsed.error;
 
   await updateCandidate(candidateId, parsed.data);
   revalidatePath("/candidates");
@@ -58,18 +48,14 @@ export async function startSessionAction(
   _prevState: FormActionState | undefined,
   formData: FormData
 ): Promise<FormActionState | undefined> {
-  const parsed = startSessionFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    return {
-      error: "Please fix the errors below.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
+  const locale = await getRequestLocale();
+  const parsed = parseFormOrError(startSessionFormSchema, formData, locale);
+  if (parsed.error) return parsed.error;
 
   try {
     await startInterviewSession(candidateId, parsed.data.templateId);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not start the session." };
+    return { error: error instanceof Error ? error.message : t(locale, "common.couldNotStartSession") };
   }
   revalidatePath(`/candidates/${candidateId}`);
   revalidatePath("/templates");
@@ -78,14 +64,21 @@ export async function startSessionAction(
 
 /** Plan Phase 23/§44 — the Candidate detail page only ever renders this
  * button when the precondition (`canDeleteCandidate`) already holds, so a
- * call here is expected to succeed; a stale/guarded request is a silent
- * no-op, matching the Templates feature's own `deleteCompetencyAction`
- * pattern. */
+ * call here is expected to succeed. Plan Phase 34/L-16 — a stale/guarded
+ * request (a TOCTOU race: a Session got created for this candidate between
+ * the button rendering and the click landing) is no longer a silent no-op
+ * that redirects away as if it had succeeded — it instead returns to the
+ * Candidate's own page, whose existing "cannot be permanently deleted" note
+ * (driven by the same precondition check) then renders automatically on the
+ * next request. The candidate no longer exists after an actual success, so
+ * that path still redirects to the Candidates list. */
 export async function deleteCandidateAction(candidateId: string) {
   try {
     await deleteCandidate(candidateId);
   } catch {
-    // see deleteCompetencyAction's identical note in features/templates/actions.ts
+    revalidatePath(`/candidates/${candidateId}`);
+    redirect(`/candidates/${candidateId}`);
+    return;
   }
   revalidatePath("/candidates");
   redirect("/candidates");

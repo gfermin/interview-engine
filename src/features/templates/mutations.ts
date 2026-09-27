@@ -167,6 +167,7 @@ export async function createNewTemplateVersion(templateId: string) {
       englishMinLevel: source.englishMinLevel,
       includeCompensationQuestion: source.includeCompensationQuestion,
       includeWorkAuthorizationCheck: source.includeWorkAuthorizationCheck,
+      includeCodeExercises: source.includeCodeExercises,
     })
     .returning();
 

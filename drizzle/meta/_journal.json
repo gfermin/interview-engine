@@ -78,6 +78,34 @@
       "when": 1790382542432,
       "tag": "0010_noisy_firelord",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1790464990331,
+      "tag": "0011_spicy_skin",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1790466270102,
+      "tag": "0012_loose_toro",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1790466421689,
+      "tag": "0013_wide_skrulls",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1790487052906,
+      "tag": "0014_lucky_genesis",
+      "breakpoints": true
     }
   ]
 }

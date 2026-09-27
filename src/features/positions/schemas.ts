@@ -15,7 +15,7 @@ const optionalText = (max: number) =>
     .transform((v) => (v ? v : null));
 
 export const positionFormSchema = z.object({
-  title: z.string().trim().min(1, "Title is required").max(200),
+  title: z.string().trim().min(1, "validation.title.required").max(200),
   department: optionalText(200),
   roleFamily: optionalText(200),
   seniority: optionalText(100),
@@ -31,8 +31,8 @@ export const jobDescriptionFormSchema = z.object({
   rawText: z
     .string()
     .trim()
-    .min(20, "Paste the full Job Description text (at least 20 characters).")
-    .max(20000, "Job Description text must be 20,000 characters or fewer."),
+    .min(20, "validation.jobDescription.tooShort")
+    .max(20000, "validation.jobDescription.tooLong"),
 });
 
 export type JobDescriptionFormValues = z.infer<typeof jobDescriptionFormSchema>;

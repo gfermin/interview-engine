@@ -24,6 +24,10 @@ interface QuestionCardQuestion {
   jdRequirementTag: string | null;
   altSolutions: string | null;
   technicalTermHelper: string | null;
+  /** Plan Phase 27/AUDIT-012 — a question the screening generator couldn't
+   * phrase in an HR-safe way (see db/schema.ts's comment on the column).
+   * Optional so existing callers/tests predating this flag keep working. */
+  requiresTechnicalKnowledge?: boolean;
 }
 
 function scorePercentLabel(locale: Locale, value: QuestionScore): string {
@@ -89,6 +93,11 @@ export function QuestionCard({
                 {question.jdRequirementTag}
               </Badge>
             ) : null}
+            {question.requiresTechnicalKnowledge ? (
+              <Badge variant="outline" className="border-borderline-border bg-borderline-bg text-borderline">
+                {"⚠"} {t(locale, "interview.requiresTechnicalKnowledgeBadge")}
+              </Badge>
+            ) : null}
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
@@ -98,6 +107,7 @@ export function QuestionCard({
               questionId={question.id}
               currentValue={currentValue}
               stage={stage}
+              locale={locale}
             />
           ) : (
             <Badge variant="outline" className="font-mono">

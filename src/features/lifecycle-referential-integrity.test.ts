@@ -190,25 +190,35 @@ describe("lifecycle operations never leak across unrelated chains", () => {
     expect(decision?.finalDecision).toBe("PASS");
   });
 
-  it("deleting a Report never touches the finalized Session/Decision it was generated from, or an unrelated report", async () => {
-    const chain = await createDecidedChain();
-    const report = await generateReport(chain.session.id);
-    const unrelatedChain = await createDecidedChain();
-    const unrelatedReport = await generateReport(unrelatedChain.session.id);
+  it(
+    "deleting a Report never touches the finalized Session/Decision it was generated from, or an unrelated report",
+    async () => {
+      const chain = await createDecidedChain();
+      const report = await generateReport(chain.session.id);
+      const unrelatedChain = await createDecidedChain();
+      const unrelatedReport = await generateReport(unrelatedChain.session.id);
 
-    await deleteReport(report.id);
+      await deleteReport(report.id);
 
-    const reloadedSession = await db.query.interviewSessions.findFirst({
-      where: (s, { eq }) => eq(s.id, chain.session.id),
-    });
-    const decision = await db.query.interviewDecisions.findFirst({
-      where: (d, { eq }) => eq(d.sessionId, chain.session.id),
-    });
-    const reloadedUnrelatedReport = await db.query.interviewReports.findFirst({
-      where: (r, { eq }) => eq(r.id, unrelatedReport.id),
-    });
-    expect(reloadedSession).toBeDefined();
-    expect(decision?.finalDecision).toBe("PASS");
-    expect(reloadedUnrelatedReport).toBeDefined();
-  });
+      const reloadedSession = await db.query.interviewSessions.findFirst({
+        where: (s, { eq }) => eq(s.id, chain.session.id),
+      });
+      const decision = await db.query.interviewDecisions.findFirst({
+        where: (d, { eq }) => eq(d.sessionId, chain.session.id),
+      });
+      const reloadedUnrelatedReport = await db.query.interviewReports.findFirst({
+        where: (r, { eq }) => eq(r.id, unrelatedReport.id),
+      });
+      expect(reloadedSession).toBeDefined();
+      expect(decision?.finalDecision).toBe("PASS");
+      expect(reloadedUnrelatedReport).toBeDefined();
+    },
+    // Plan Phase 32/L-18 — this test calls generateReport() twice, each of
+    // which can cold-launch a Playwright Chromium instance; that alone can
+    // legitimately exceed Vitest's 5000ms default, independent of any real
+    // regression, and gets worse under the CPU contention of a full-suite
+    // run (many other test files launching Chromium around the same time).
+    // A test-configuration fix, not a product-code change.
+    30000
+  );
 });

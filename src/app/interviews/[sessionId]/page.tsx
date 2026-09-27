@@ -112,6 +112,9 @@ export default async function LiveInterviewPage({
                 <Badge variant="outline" className="font-mono">
                   v{session.templateVersion}
                 </Badge>
+                <Badge variant="outline" className="font-mono">
+                  {session.createdAt.toLocaleDateString(locale)}
+                </Badge>
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">

@@ -13,7 +13,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { db } from "@/db";
 import { positions } from "@/db/schema";
 import { createTemplate, publishTemplate } from "@/features/templates/mutations";
-import { createCandidateAction, startSessionAction } from "./actions";
+import { createCandidateAction, deleteCandidateAction, startSessionAction } from "./actions";
 
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -102,5 +102,43 @@ describe("startSessionAction", () => {
 
     expect(result?.error).toBeUndefined();
     expect(revalidatePath).toHaveBeenCalledWith(`/candidates/${candidate.id}`);
+  });
+});
+
+describe("deleteCandidateAction", () => {
+  it("deletes and redirects to the list on success", async () => {
+    const { createCandidate } = await import("./mutations");
+    const candidate = await createCandidate({ name: `Test Candidate ${randomUUID()}`, email: null, notes: null });
+
+    await deleteCandidateAction(candidate.id);
+
+    expect(revalidatePath).toHaveBeenCalledWith("/candidates");
+    expect(redirect).toHaveBeenCalledWith("/candidates");
+  });
+
+  // AUDIT gap L-16/Phase 34 — a stale request (the button rendered when
+  // deletion was allowed, but an interview Session got started for this
+  // candidate before the click landed) used to be a silent no-op that
+  // still redirected to the list as if it had succeeded. It must now
+  // redirect back to the candidate's own page instead, where the
+  // precondition check renders its existing "cannot be deleted" note.
+  it("redirects back to the candidate's own page, not the list, when delete is blocked", async () => {
+    const { createCandidate, startInterviewSession } = await import("./mutations");
+    const { createCompetency } = await import("@/features/templates/mutations");
+    const candidate = await createCandidate({ name: `Test Candidate ${randomUUID()}`, email: null, notes: null });
+    const [position] = await db
+      .insert(positions)
+      .values({ title: `Test Position ${randomUUID()}` })
+      .returning();
+    const template = await createTemplate({ positionId: position.id, stage: "technical", name: "T", interviewLanguage: "en" });
+    await createCompetency(template.id, { name: "x", weight: 100, critical: false, expectedDepth: null });
+    await publishTemplate(template.id);
+    await startInterviewSession(candidate.id, template.id);
+
+    await deleteCandidateAction(candidate.id);
+
+    expect(revalidatePath).toHaveBeenCalledWith(`/candidates/${candidate.id}`);
+    expect(redirect).toHaveBeenCalledWith(`/candidates/${candidate.id}`);
+    expect(redirect).not.toHaveBeenCalledWith("/candidates");
   });
 });

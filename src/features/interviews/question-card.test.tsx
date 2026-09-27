@@ -49,6 +49,34 @@ describe("QuestionCard", () => {
     expect(screen.getByText("unrated")).toBeInTheDocument();
   });
 
+  // AUDIT-012/Phase 27 — requiresTechnicalKnowledge was generated/stored but
+  // never rendered anywhere in the Live Interview UI.
+  it("shows a warning badge when requiresTechnicalKnowledge is true", () => {
+    render(
+      <QuestionCard
+        sessionId="s1"
+        question={{ ...BASE_QUESTION, requiresTechnicalKnowledge: true }}
+        currentValue={null}
+        notes={null}
+        editable={false}
+      />
+    );
+    expect(screen.getByText(/Needs technical judgment/i)).toBeInTheDocument();
+  });
+
+  it("does not show the warning badge when requiresTechnicalKnowledge is false", () => {
+    render(
+      <QuestionCard
+        sessionId="s1"
+        question={{ ...BASE_QUESTION, requiresTechnicalKnowledge: false }}
+        currentValue={null}
+        notes={null}
+        editable={false}
+      />
+    );
+    expect(screen.queryByText(/Needs technical judgment/i)).not.toBeInTheDocument();
+  });
+
   it("renders Expected Answer, Scoring Guide, and Follow-Ups in that order, matching the artifact", () => {
     render(
       <QuestionCard
