@@ -15,6 +15,7 @@ import { deleteReportAction } from "@/features/reports/actions";
 import { listAllReports, type ReportListFilters } from "@/features/reports/queries";
 import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
 import { t } from "@/lib/i18n";
+import { formatPercent } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -120,6 +121,13 @@ export default async function ReportsPage({
             </Card>
           )
         ) : (
+          // Plan Phase 33/AUDIT-022/L-09 — deliberately a Card-per-item list,
+          // not the shared `Table` pattern the other four list pages use:
+          // each row here carries a score chip, two status badges, a
+          // generated-date/size line, and three actions — richer per-row
+          // content than a table row comfortably holds without wrapping
+          // awkwardly. Confirmed intentional; don't "fix" this to match the
+          // other pages without re-checking this reasoning first.
           <div className="flex flex-col gap-3">
             {reports.map((report) => (
               <Card key={report.id}>
@@ -148,7 +156,7 @@ export default async function ReportsPage({
                   <div className="flex flex-col items-end gap-2">
                     <div className="flex flex-wrap items-center justify-end gap-1.5">
                       <span className="font-mono text-[12.5px]">
-                        {report.overall !== null ? `${Math.round(report.overall)}%` : "—"}
+                        {formatPercent(report.overall)}
                       </span>
                       {report.calculatedStatus && report.statusLabel ? (
                         <ToneBadge

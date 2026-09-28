@@ -1,20 +1,23 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { db } from "@/db";
 import { candidates, interviewSessions, interviewTemplates, positions } from "@/db/schema";
-import { listSessions } from "./queries";
+import { getSessionDetail, listSessions } from "./queries";
 
 async function createSessionFixture(
   overrides: {
     stage?: "technical" | "screening";
     status?: "in_progress" | "completed" | "decided";
     archivedAt?: Date | null;
+    candidateArchivedAt?: Date | null;
+    positionArchivedAt?: Date | null;
   } = {}
 ) {
   const [position] = await db
     .insert(positions)
-    .values({ title: `Position ${randomUUID()}` })
+    .values({ title: `Position ${randomUUID()}`, archivedAt: overrides.positionArchivedAt ?? null })
     .returning();
   const [template] = await db
     .insert(interviewTemplates)
@@ -22,7 +25,7 @@ async function createSessionFixture(
     .returning();
   const [candidate] = await db
     .insert(candidates)
-    .values({ name: `Candidate ${randomUUID()}` })
+    .values({ name: `Candidate ${randomUUID()}`, archivedAt: overrides.candidateArchivedAt ?? null })
     .returning();
   const [session] = await db
     .insert(interviewSessions)
@@ -140,5 +143,51 @@ describe("listSessions", () => {
       expect(ids).toContain(active.session.id);
       expect(ids).toContain(archived.session.id);
     });
+  });
+
+  // AUDIT-008/Phase 26 — a session whose own archivedAt is still null must
+  // nonetheless disappear once its Candidate or Position is archived.
+  describe("archival leakage through parent entities", () => {
+    it("excludes a session whose Candidate is archived", async () => {
+      const orphaned = await createSessionFixture({ candidateArchivedAt: new Date() });
+      const active = await createSessionFixture();
+
+      const ids = (await listSessions()).map((r) => r.id);
+
+      expect(ids).toContain(active.session.id);
+      expect(ids).not.toContain(orphaned.session.id);
+    });
+
+    it("excludes a session whose Position is archived", async () => {
+      const orphaned = await createSessionFixture({ positionArchivedAt: new Date() });
+      const active = await createSessionFixture();
+
+      const ids = (await listSessions()).map((r) => r.id);
+
+      expect(ids).toContain(active.session.id);
+      expect(ids).not.toContain(orphaned.session.id);
+    });
+
+    it("a restored Candidate makes its session reappear", async () => {
+      const { session, candidate } = await createSessionFixture({ candidateArchivedAt: new Date() });
+      expect((await listSessions()).map((r) => r.id)).not.toContain(session.id);
+
+      await db.update(candidates).set({ archivedAt: null }).where(eq(candidates.id, candidate.id));
+
+      expect((await listSessions()).map((r) => r.id)).toContain(session.id);
+    });
+  });
+});
+
+// AUDIT-011/Phase 27 — the live-interview/summary headers need the
+// session's own creation date; getSessionDetail didn't select it at all.
+describe("getSessionDetail", () => {
+  it("includes the session's own createdAt", async () => {
+    const { session } = await createSessionFixture();
+
+    const detail = await getSessionDetail(session.id);
+
+    expect(detail?.createdAt).toBeInstanceOf(Date);
+    expect(detail?.createdAt.getTime()).toBe(session.createdAt.getTime());
   });
 });

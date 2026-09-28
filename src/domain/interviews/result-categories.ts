@@ -27,7 +27,7 @@ export interface ResultCategories {
   concerns: CategorizedCompetency[];
 }
 
-const STRENGTH_MIN = 80;
+export const STRENGTH_MIN = 80;
 
 export function categorizeCompetencies(
   competencies: CompetencyPercent[],

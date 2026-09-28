@@ -19,11 +19,11 @@ const optionalEmail = z
   .optional()
   .transform((v) => (v ? v : null))
   .refine((v) => v === null || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), {
-    message: "Enter a valid email address.",
+    message: "validation.email.invalid",
   });
 
 export const candidateFormSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(200),
+  name: z.string().trim().min(1, "validation.name.required").max(200),
   email: optionalEmail,
   notes: optionalText(2000),
 });
@@ -31,7 +31,7 @@ export const candidateFormSchema = z.object({
 export type CandidateFormValues = z.infer<typeof candidateFormSchema>;
 
 export const startSessionFormSchema = z.object({
-  templateId: z.string().trim().min(1, "Select a published template."),
+  templateId: z.string().trim().min(1, "validation.template.selectPublished"),
 });
 
 export type StartSessionFormValues = z.infer<typeof startSessionFormSchema>;

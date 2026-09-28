@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import { candidates, interviewSessions, interviewTemplates, positions } from "@/db/schema";
 import { getAttentionItems, getDashboardCounts, getRecentSessions } from "./queries";
@@ -140,5 +140,84 @@ describe("getAttentionItems", () => {
     expect(items.some((item) => item.kind === "stale_in_progress" && item.href.includes(fresh.session.id))).toBe(
       false
     );
+  });
+
+  // AUDIT-009/Phase 31 — the "Awaiting Decision" list must never grow
+  // unbounded; a shared-DB-safe assertion (>=31 concurrent completed
+  // sessions from OTHER test files can only push the true count up, never
+  // down, so "<= 30" only ever fails if the cap itself is missing).
+  it("caps the awaiting-decision list rather than returning every completed session", async () => {
+    const position = (await db.insert(positions).values({ title: `Position ${randomUUID()}` }).returning())[0];
+    const template = (
+      await db
+        .insert(interviewTemplates)
+        .values({ positionId: position.id, stage: "technical", name: "Test Template" })
+        .returning()
+    )[0];
+    for (let i = 0; i < 32; i++) {
+      const [candidate] = await db.insert(candidates).values({ name: `Candidate ${randomUUID()}` }).returning();
+      await db.insert(interviewSessions).values({
+        candidateId: candidate.id,
+        templateId: template.id,
+        status: "completed",
+      });
+    }
+
+    const items = await getAttentionItems();
+
+    expect(items.filter((item) => item.kind === "awaiting_decision").length).toBeLessThanOrEqual(30);
+  });
+});
+
+// AUDIT-009/Phase 31 — the per-session scoring computations must run
+// concurrently, not one at a time (a real N+1-shaped latency risk as the
+// "completed, awaiting decision" list grows). Fully mocked (no real DB
+// rows) so this is deterministic and independent of any other test's or
+// worker's data in the shared test.sqlite file.
+describe("getAttentionItems concurrency", () => {
+  it("computes scores for every awaiting-decision session in parallel, not sequentially", async () => {
+    vi.resetModules();
+    const computeFullScoringResultMock = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      return { status: "NOT_EVALUATED", overall: null } as never;
+    });
+    vi.doMock("@/features/interviews/scoring", () => ({
+      computeFullScoringResult: computeFullScoringResultMock,
+    }));
+    const fakeSessions = [1, 2, 3].map((n) => ({
+      id: `fake-session-${n}`,
+      templateId: `fake-template-${n}`,
+      candidateName: `Fake Candidate ${n}`,
+      positionTitle: "Fake Position",
+      status: "completed" as const,
+      createdAt: new Date(),
+    }));
+    vi.doMock("@/features/interviews/queries", () => ({
+      listSessions: vi.fn((filters?: { status?: string }) => {
+        const rows = filters?.status === "completed" ? fakeSessions : [];
+        return Object.assign(Promise.resolve(rows), { limit: () => Promise.resolve(rows) });
+      }),
+    }));
+    vi.doMock("@/features/templates/queries", () => ({
+      listDraftTemplates: vi.fn(async () => []),
+      listPublishedTemplates: vi.fn(async () => []),
+    }));
+
+    const { getAttentionItems: getAttentionItemsWithMock } = await import("./queries");
+
+    const start = Date.now();
+    const items = await getAttentionItemsWithMock();
+    const elapsedMs = Date.now() - start;
+
+    expect(items.filter((item) => item.kind === "awaiting_decision")).toHaveLength(3);
+    expect(computeFullScoringResultMock).toHaveBeenCalledTimes(3);
+    // A sequential loop over 3 sessions at 30ms each would take >=90ms;
+    // parallel execution stays well under that.
+    expect(elapsedMs).toBeLessThan(90);
+
+    vi.doUnmock("@/features/interviews/scoring");
+    vi.doUnmock("@/features/interviews/queries");
+    vi.doUnmock("@/features/templates/queries");
+    vi.resetModules();
   });
 });

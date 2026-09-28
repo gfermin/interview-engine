@@ -73,4 +73,28 @@ describe("CompetencyDashboard", () => {
     render(<CompetencyDashboard entries={[entry({ critical: false })]} />);
     expect(screen.queryByText("Critical")).not.toBeInTheDocument();
   });
+
+  // AUDIT-022/Phase 33 (L-08) — non-critical competency status must carry a
+  // text label, not rely on color alone.
+  describe("text label alongside the color coding", () => {
+    it("labels a high percent as a Strength", () => {
+      render(<CompetencyDashboard entries={[entry({ percent: 85, criticalMin: 50 })]} />);
+      expect(screen.getByText("Strength")).toBeInTheDocument();
+    });
+
+    it("labels a mid percent as Borderline", () => {
+      render(<CompetencyDashboard entries={[entry({ percent: 60, criticalMin: 50 })]} />);
+      expect(screen.getByText("Borderline")).toBeInTheDocument();
+    });
+
+    it("labels a percent below the critical minimum as a Concern", () => {
+      render(<CompetencyDashboard entries={[entry({ percent: 40, criticalMin: 50 })]} />);
+      expect(screen.getByText("Concern")).toBeInTheDocument();
+    });
+
+    it("labels a null percent with the no-evidence text, not Strength/Borderline/Concern", () => {
+      render(<CompetencyDashboard entries={[entry({ percent: null })]} />);
+      expect(screen.getByText("No evidence yet")).toBeInTheDocument();
+    });
+  });
 });

@@ -48,6 +48,26 @@ const SENIORITY_EXPECTATIONS: Record<string, string> = {
     "Evaluated on cross-team/org strategy and leadership; technical depth matters less than judgment and influence.",
 };
 
+// Plan Phase 32/L-13 research spike — evaluated and deliberately rejected: a
+// `ROLE_FAMILY_EXPECTATIONS`-style lookup analogous to
+// {@link SENIORITY_EXPECTATIONS} above. Seniority and Role Family are not
+// analogous axes:
+// - Seniority is a closed, ordered, domain-independent ladder (~10 rungs
+//   from entry to director) that describes DEPTH — how deeply the SAME
+//   topic should be probed. A finite lookup table is a good fit.
+// - Role Family is open-ended and domain-specific (Software Engineering,
+//   Product Management, DevOps, Data Science, Sales Engineering, Legal,
+//   Finance, ... — an effectively unbounded set) and determines WHICH
+//   topics/competencies apply at all, not how deep to go on a given one.
+//   A lookup table here would need constant upkeep and, worse, would
+//   actively work against this module's own repeated instruction to
+//   "ground everything in the actual Job Description text; do not generate
+//   generic filler unrelated to it" — a generic per-role-family template is
+//   exactly the generic filler that instruction exists to prevent.
+// The current JD-text-plus-model-judgment approach is therefore the right
+// design here, not a gap to close. Revisit only if a future need emerges
+// for a small, genuinely closed subset of role families (unlikely given
+// the above), not as a blanket mapping.
 const LANGUAGE_NAMES: Record<InterviewLanguage, string> = { en: "English", es: "Spanish" };
 
 /**

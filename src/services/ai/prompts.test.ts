@@ -149,3 +149,54 @@ describe("buildRegenerateQuestionPrompt", () => {
     expect(system).toMatch(/question-based approach/);
   });
 });
+
+// AUDIT-003/Phase 32 — describeSeniority reads as correctly implemented on
+// static inspection, but nothing proved it: a regression that silently
+// no-op'd it (e.g. always returning the generic fallback) would have passed
+// every existing test. Tested through the public builders that actually
+// embed it in the constructed prompt, not by exporting the private helper —
+// this verifies what actually reaches the model, at all three call sites.
+describe("seniority differentiation reaches the constructed prompt (plan Phase 32/AUDIT-003)", () => {
+  it("buildTemplateDraftPrompt (technical) genuinely differs between Junior and Senior", () => {
+    const junior = buildTemplateDraftPrompt({ ...baseDraftInput, seniority: "Junior", interviewLanguage: "en" });
+    const senior = buildTemplateDraftPrompt({ ...baseDraftInput, seniority: "Senior", interviewLanguage: "en" });
+
+    expect(junior.system).toMatch(/Applies known patterns correctly with some guidance/);
+    expect(senior.system).toMatch(/Explains WHY, not just HOW; architecture-level trade-offs/);
+    expect(junior.system).not.toBe(senior.system);
+  });
+
+  it("buildTemplateDraftPrompt (screening) genuinely differs between Junior and Senior", () => {
+    const screeningInput = { ...baseDraftInput, stage: "screening" as const, includeCodeExercises: false };
+    const junior = buildTemplateDraftPrompt({ ...screeningInput, seniority: "Junior", interviewLanguage: "en" });
+    const senior = buildTemplateDraftPrompt({ ...screeningInput, seniority: "Senior", interviewLanguage: "en" });
+
+    expect(junior.system).toMatch(/Applies known patterns correctly with some guidance/);
+    expect(senior.system).toMatch(/Explains WHY, not just HOW; architecture-level trade-offs/);
+    expect(junior.system).not.toBe(senior.system);
+  });
+
+  it("buildRegenerateQuestionPrompt genuinely differs between Junior and Senior", () => {
+    const junior = buildRegenerateQuestionPrompt({ ...baseRegenerateInput, seniority: "Junior", interviewLanguage: "en" });
+    const senior = buildRegenerateQuestionPrompt({ ...baseRegenerateInput, seniority: "Senior", interviewLanguage: "en" });
+
+    expect(junior.system).toMatch(/Applies known patterns correctly with some guidance/);
+    expect(senior.system).toMatch(/Explains WHY, not just HOW; architecture-level trade-offs/);
+    expect(junior.system).not.toBe(senior.system);
+  });
+
+  it("falls back to a generic mid-level calibration when no seniority is provided", () => {
+    const { system } = buildTemplateDraftPrompt({ ...baseDraftInput, seniority: null, interviewLanguage: "en" });
+    expect(system).toMatch(/No specific seniority was provided — calibrate for a generalist, mid-level bar\./);
+  });
+
+  it("still echoes an unrecognized seniority string, generic guidance instead of silently ignoring it", () => {
+    const { system } = buildTemplateDraftPrompt({
+      ...baseDraftInput,
+      seniority: "Rockstar Ninja",
+      interviewLanguage: "en",
+    });
+    expect(system).toMatch(/Requested seniority: "Rockstar Ninja"/);
+    expect(system).toMatch(/Calibrate depth to what this specific level implies, using the title as your best signal\./);
+  });
+});

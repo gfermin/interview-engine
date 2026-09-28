@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { stat } from "node:fs/promises";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { db } from "@/db";
 import { candidates, interviewSessions, interviewTemplates, positions } from "@/db/schema";
 import { createCompetency, createMandatoryRequirement, createQuestion } from "@/features/templates/mutations";
@@ -11,6 +12,7 @@ import {
   reopenSession,
   updateMandatoryRequirementStatus,
 } from "@/features/interviews/mutations";
+import * as reportTemplate from "@/services/pdf/report-template";
 import { deleteReport, generateReport } from "./mutations";
 import { getReport, listReportsForSession } from "./queries";
 
@@ -166,6 +168,46 @@ describe("generateReport", () => {
     });
     expect(finalDecision?.finalDecision).toBe("FAIL");
   }, 30000);
+
+  // AUDIT-006/AUDIT-019/Phase 29 — generateReport must build its ReportData
+  // from the decision-time snapshot (overall/completion/reason persisted by
+  // recordDecision), not from a fresh computeFullScoringResult() call —
+  // proven directly by mutating the underlying evaluation data (bypassing
+  // the app's own guards, the way a future unrelated bug could) and
+  // asserting the produced report still matches the ORIGINAL decision, not
+  // whatever a live recompute against the mutated data would now give.
+  it("builds ReportData from the decision snapshot, not a live recompute, even if evaluations changed underneath it", async () => {
+    const { session, question } = await createDecidedSessionFixture();
+    const decisionRow = await db.query.interviewDecisions.findFirst({
+      where: (t, { eq: eqOp }) => eqOp(t.sessionId, session.id),
+    });
+
+    // Bypasses rateQuestion's session-lock guard entirely — simulating data
+    // that has diverged from the decision snapshot by some means other than
+    // the normal reopen-and-rerate flow this codebase's guards prevent.
+    await db
+      .update(interviewSessions)
+      .set({ status: "in_progress" })
+      .where(eq(interviewSessions.id, session.id));
+    await rateQuestion(session.id, question.id, 0); // would drag overall to 0% if ever recomputed live
+    await db
+      .update(interviewSessions)
+      .set({ status: "decided" })
+      .where(eq(interviewSessions.id, session.id));
+
+    const buildReportHtmlSpy = vi.spyOn(reportTemplate, "buildReportHtml");
+
+    await generateReport(session.id);
+
+    expect(buildReportHtmlSpy).toHaveBeenCalledTimes(1);
+    const reportData = buildReportHtmlSpy.mock.calls[0][0];
+    expect(reportData.overall).toBe(decisionRow!.overall);
+    expect(reportData.completion).toBe(decisionRow!.completion);
+    expect(reportData.reason).toBe(decisionRow!.calculatedReason);
+    expect(reportData.overall).not.toBe(0);
+
+    buildReportHtmlSpy.mockRestore();
+  }, 20000);
 });
 
 // Plan Phase 23/§44.4 — a report row has no dependents; deleting it must

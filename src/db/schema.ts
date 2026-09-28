@@ -4,7 +4,7 @@
 // added in the phases that actually use them (5, 9, 10, 12).
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
-import { integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { check, index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 const id = () =>
   text("id")
@@ -48,18 +48,35 @@ export const positions = sqliteTable("positions", {
   ...timestamps,
 });
 
-export const jobDescriptions = sqliteTable("job_descriptions", {
-  id: id(),
-  positionId: text("position_id")
-    .notNull()
-    .references(() => positions.id, { onDelete: "cascade" }),
-  version: integer("version").notNull().default(1),
-  rawText: text("raw_text").notNull(),
-  status: text("status", { enum: ["draft", "active", "superseded"] })
-    .notNull()
-    .default("draft"),
-  ...timestamps,
-});
+export const jobDescriptions = sqliteTable(
+  "job_descriptions",
+  {
+    id: id(),
+    positionId: text("position_id")
+      .notNull()
+      .references(() => positions.id, { onDelete: "cascade" }),
+    version: integer("version").notNull().default(1),
+    rawText: text("raw_text").notNull(),
+    status: text("status", { enum: ["draft", "active", "superseded"] })
+      .notNull()
+      .default("draft"),
+    ...timestamps,
+  },
+  (table) => [
+    // Plan Phase 31/AUDIT-016 — every plain FK column gets a supporting
+    // index; SQLite doesn't create one automatically the way it does for a
+    // PRIMARY KEY. Purely additive, no behavior change.
+    index("job_descriptions_position_id_idx").on(table.positionId),
+    // Plan Phase 31/AUDIT-017 — a DB-level backstop (on top of
+    // saveJobDescription's transaction) against ever having two "active"
+    // Job Descriptions for the same Position: a partial unique index only
+    // enforces uniqueness among rows where status='active', so `draft`/
+    // `superseded` history rows are unaffected.
+    uniqueIndex("job_descriptions_one_active_per_position_idx")
+      .on(table.positionId)
+      .where(sql`${table.status} = 'active'`),
+  ]
+);
 
 // ---------------------------------------------------------------------------
 // Job Analysis (Phase 5) — AI-extracted structure from a JobDescription
@@ -105,7 +122,9 @@ export const jobAnalyses = sqliteTable("job_analyses", {
  * change here, not a schema or engine change. */
 export const INTERVIEW_STAGES = ["technical", "screening"] as const;
 
-export const interviewTemplates = sqliteTable("interview_templates", {
+export const interviewTemplates = sqliteTable(
+  "interview_templates",
+  {
   id: id(),
   positionId: text("position_id")
     .notNull()
@@ -125,8 +144,10 @@ export const interviewTemplates = sqliteTable("interview_templates", {
     .notNull()
     .default("en"),
   version: integer("version").notNull().default(1),
-  // draft: editable. approved: published, not yet used. locked: a Session
-  // references this exact version — further edits must create a new version.
+  // draft: editable. approved: published and NOT editable (not yet used by
+  // a Session, but still requires a new version to change). locked: a
+  // Session references this exact version — further edits must create a
+  // new version. See isTemplateEditable, which only returns true for "draft".
   status: text("status", { enum: ["draft", "approved", "locked"] })
     .notNull()
     .default("draft"),
@@ -175,41 +196,56 @@ export const interviewTemplates = sqliteTable("interview_templates", {
   // template (features/templates/queries.ts's hasSessionsForTemplate).
   archivedAt: integer("archived_at", { mode: "timestamp" }),
   ...timestamps,
-});
+  },
+  (table) => [
+    index("interview_templates_position_id_idx").on(table.positionId),
+    index("interview_templates_job_description_id_idx").on(table.jobDescriptionId),
+  ]
+);
 
-export const competencies = sqliteTable("competencies", {
-  id: id(),
-  templateId: text("template_id")
-    .notNull()
-    .references(() => interviewTemplates.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  weight: integer("weight").notNull(),
-  critical: integer("critical", { mode: "boolean" }).notNull().default(false),
-  // Seniority-relative description of what "3 - Meets Expected Level" looks
-  // like for this competency (plan §39.4) — read by the UI/report, never by
-  // ScoringEngine, which stays unaware of seniority entirely (§39.7).
-  expectedDepth: text("expected_depth"),
-  sortOrder: integer("sort_order").notNull().default(0),
-  ...timestamps,
-});
+export const competencies = sqliteTable(
+  "competencies",
+  {
+    id: id(),
+    templateId: text("template_id")
+      .notNull()
+      .references(() => interviewTemplates.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    weight: integer("weight").notNull(),
+    critical: integer("critical", { mode: "boolean" }).notNull().default(false),
+    // Seniority-relative description of what "3 - Meets Expected Level" looks
+    // like for this competency (plan §39.4) — read by the UI/report, never by
+    // ScoringEngine, which stays unaware of seniority entirely (§39.7).
+    expectedDepth: text("expected_depth"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    ...timestamps,
+  },
+  (table) => [index("competencies_template_id_idx").on(table.templateId)]
+);
 
 /** Boolean knockout gates, NOT scored competencies — plan §4.3/§19. This is
  * the mechanism the original "Calibración QA" master prompt specified
  * ("a mandatory JD requirement is clearly not demonstrated" as an
  * independent AUTOMATIC FAIL condition) but the shipped artifact never
  * implemented, folding everything into competency scoring instead. */
-export const mandatoryRequirements = sqliteTable("mandatory_requirements", {
-  id: id(),
-  templateId: text("template_id")
-    .notNull()
-    .references(() => interviewTemplates.id, { onDelete: "cascade" }),
-  label: text("label").notNull(),
-  description: text("description"),
-  sortOrder: integer("sort_order").notNull().default(0),
-  ...timestamps,
-});
+export const mandatoryRequirements = sqliteTable(
+  "mandatory_requirements",
+  {
+    id: id(),
+    templateId: text("template_id")
+      .notNull()
+      .references(() => interviewTemplates.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    description: text("description"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    ...timestamps,
+  },
+  (table) => [index("mandatory_requirements_template_id_idx").on(table.templateId)]
+);
 
-export const questions = sqliteTable("questions", {
+export const questions = sqliteTable(
+  "questions",
+  {
   id: id(),
   templateId: text("template_id")
     .notNull()
@@ -255,7 +291,12 @@ export const questions = sqliteTable("questions", {
   technicalTermHelper: text("technical_term_helper"),
   sortOrder: integer("sort_order").notNull().default(0),
   ...timestamps,
-});
+  },
+  (table) => [
+    index("questions_template_id_idx").on(table.templateId),
+    index("questions_competency_id_idx").on(table.competencyId),
+  ]
+);
 
 // ---------------------------------------------------------------------------
 // AI Generation Record (Phase 5) — provenance of AI-generated content
@@ -266,28 +307,35 @@ export const questions = sqliteTable("questions", {
 // reviewer sees the raw output and retries, nothing unvalidated persists).
 // ---------------------------------------------------------------------------
 
-export const aiGenerationRecords = sqliteTable("ai_generation_records", {
-  id: id(),
-  // "question_regeneration" added Phase 6 (§39 of the plan's addendum
-  // pattern applies here too — additive, no migration needed: this column
-  // is a plain TEXT with no DB-level CHECK constraint, so widening the enum
-  // is a type-only change).
-  kind: text("kind", { enum: ["job_analysis", "template_draft", "question_regeneration"] }).notNull(),
-  jobDescriptionId: text("job_description_id").references(() => jobDescriptions.id, {
-    onDelete: "set null",
-  }),
-  templateId: text("template_id").references(() => interviewTemplates.id, {
-    onDelete: "set null",
-  }),
-  provider: text("provider").notNull(),
-  model: text("model").notNull(),
-  promptVersion: text("prompt_version").notNull(),
-  // The Question Blueprint (coverage/difficulty/type distribution per
-  // competency — plan §39.6) that constrained a "template_draft" generation.
-  // Null for "job_analysis" records, which have no blueprint step.
-  blueprint: text("blueprint", { mode: "json" }),
-  ...timestamps,
-});
+export const aiGenerationRecords = sqliteTable(
+  "ai_generation_records",
+  {
+    id: id(),
+    // "question_regeneration" added Phase 6 (§39 of the plan's addendum
+    // pattern applies here too — additive, no migration needed: this column
+    // is a plain TEXT with no DB-level CHECK constraint, so widening the enum
+    // is a type-only change).
+    kind: text("kind", { enum: ["job_analysis", "template_draft", "question_regeneration"] }).notNull(),
+    jobDescriptionId: text("job_description_id").references(() => jobDescriptions.id, {
+      onDelete: "set null",
+    }),
+    templateId: text("template_id").references(() => interviewTemplates.id, {
+      onDelete: "set null",
+    }),
+    provider: text("provider").notNull(),
+    model: text("model").notNull(),
+    promptVersion: text("prompt_version").notNull(),
+    // The Question Blueprint (coverage/difficulty/type distribution per
+    // competency — plan §39.6) that constrained a "template_draft" generation.
+    // Null for "job_analysis" records, which have no blueprint step.
+    blueprint: text("blueprint", { mode: "json" }),
+    ...timestamps,
+  },
+  (table) => [
+    index("ai_generation_records_job_description_id_idx").on(table.jobDescriptionId),
+    index("ai_generation_records_template_id_idx").on(table.templateId),
+  ]
+);
 
 // ---------------------------------------------------------------------------
 // Candidate & Interview Session (Phases 7-9)
@@ -306,7 +354,9 @@ export const candidates = sqliteTable("candidates", {
   ...timestamps,
 });
 
-export const interviewSessions = sqliteTable("interview_sessions", {
+export const interviewSessions = sqliteTable(
+  "interview_sessions",
+  {
   id: id(),
   candidateId: text("candidate_id")
     .notNull()
@@ -333,7 +383,12 @@ export const interviewSessions = sqliteTable("interview_sessions", {
   // from the candidate's own session list or the Reports list.
   archivedAt: integer("archived_at", { mode: "timestamp" }),
   ...timestamps,
-});
+  },
+  (table) => [
+    index("interview_sessions_candidate_id_idx").on(table.candidateId),
+    index("interview_sessions_template_id_idx").on(table.templateId),
+  ]
+);
 
 export const questionEvaluations = sqliteTable(
   "question_evaluations",
@@ -444,20 +499,53 @@ export const competencyEvaluations = sqliteTable(
  * `mode`/`finalDecision`/`reason` are the interviewer's decision. In the
  * POC this row is overwritten on "Cambiar decisión" with no history kept,
  * matching the artifact's own behavior — a full audit trail is post-POC. */
-export const interviewDecisions = sqliteTable("interview_decisions", {
-  id: id(),
-  sessionId: text("session_id")
-    .notNull()
-    .references(() => interviewSessions.id, { onDelete: "cascade" })
-    .unique(),
-  calculatedStatus: text("calculated_status").notNull(),
-  calculatedReason: text("calculated_reason").notNull(),
-  calculatedRecommendation: text("calculated_recommendation"),
-  mode: text("mode", { enum: ["accept", "override", "forced_call"] }),
-  finalDecision: text("final_decision", { enum: ["PASS", "FAIL"] }),
-  reason: text("reason"),
-  ...timestamps,
-});
+export const interviewDecisions = sqliteTable(
+  "interview_decisions",
+  {
+    id: id(),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => interviewSessions.id, { onDelete: "cascade" })
+      .unique(),
+    // `{ enum: [...] }` only narrows the TypeScript type — SQLite has no
+    // native enum, so it adds no DB-level constraint on its own. The CHECK
+    // constraints below (plan Phase 34/L-02) are what actually enforce this
+    // at the database layer, so a bug bypassing the application layer
+    // (a raw SQL script, a future migration, a bad backfill) can't silently
+    // write a value the rest of the app doesn't recognize.
+    calculatedStatus: text("calculated_status", {
+      enum: ["NOT_EVALUATED", "PROVISIONAL", "FAIL", "BORDERLINE", "PASS"],
+    }).notNull(),
+    // Free-text explanation (ScoringEngine's own generated narrative), not
+    // an enum — deliberately has no CHECK constraint.
+    calculatedReason: text("calculated_reason").notNull(),
+    calculatedRecommendation: text("calculated_recommendation", {
+      enum: ["PASS", "FAIL", "REVIEW_REQUIRED"],
+    }),
+    // Plan Phase 29/AUDIT-005/AUDIT-006 — the decision-time scoring snapshot.
+    // Nullable only because it's an additive column on a table that may
+    // already have rows (every NEW decision always sets both); Reports Hub
+    // and PDF generation read these instead of recomputing live, so a report
+    // can never show a score that contradicts the decision recorded next to
+    // it, even if a later unrelated change altered how scoring is computed.
+    overall: real("overall"),
+    completion: real("completion"),
+    mode: text("mode", { enum: ["accept", "override", "forced_call"] }),
+    finalDecision: text("final_decision", { enum: ["PASS", "FAIL"] }),
+    reason: text("reason"),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      "interview_decisions_calculated_status_check",
+      sql`${table.calculatedStatus} IN ('NOT_EVALUATED', 'PROVISIONAL', 'FAIL', 'BORDERLINE', 'PASS')`
+    ),
+    check(
+      "interview_decisions_calculated_recommendation_check",
+      sql`${table.calculatedRecommendation} IS NULL OR ${table.calculatedRecommendation} IN ('PASS', 'FAIL', 'REVIEW_REQUIRED')`
+    ),
+  ]
+);
 
 // ---------------------------------------------------------------------------
 // Interview Report (Phase 10) — an immutable PDF snapshot of a finalized
@@ -467,24 +555,28 @@ export const interviewDecisions = sqliteTable("interview_decisions", {
 // first, so history stays honest about what changed and when.
 // ---------------------------------------------------------------------------
 
-export const interviewReports = sqliteTable("interview_reports", {
-  id: id(),
-  sessionId: text("session_id")
-    .notNull()
-    .references(() => interviewSessions.id, { onDelete: "cascade" }),
-  // Relative to the project root (e.g. ".data/reports/<id>.pdf"), not an
-  // absolute path — the PDF bytes themselves live on disk, gitignored
-  // alongside the SQLite file, not as a DB blob (plan §26: local-only
-  // storage, nothing that needs a real object store for a single-user POC).
-  filePath: text("file_path").notNull(),
-  fileSize: integer("file_size").notNull(),
-  // Presentation-only naming metadata (plan Phase 18/§42, §7 identity-vs-name)
-  // — computed once at generation time via domain/reports/naming.ts and
-  // stored so the Reports list/download filename stay stable even if the
-  // candidate is later renamed. Nullable: the handful of reports generated
-  // before this column existed simply fall back to a live-computed value at
-  // read time (features/reports/queries.ts) rather than needing a backfill.
-  displayName: text("display_name"),
-  fileName: text("file_name"),
-  ...timestamps,
-});
+export const interviewReports = sqliteTable(
+  "interview_reports",
+  {
+    id: id(),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => interviewSessions.id, { onDelete: "cascade" }),
+    // Relative to the project root (e.g. ".data/reports/<id>.pdf"), not an
+    // absolute path — the PDF bytes themselves live on disk, gitignored
+    // alongside the SQLite file, not as a DB blob (plan §26: local-only
+    // storage, nothing that needs a real object store for a single-user POC).
+    filePath: text("file_path").notNull(),
+    fileSize: integer("file_size").notNull(),
+    // Presentation-only naming metadata (plan Phase 18/§42, §7 identity-vs-name)
+    // — computed once at generation time via domain/reports/naming.ts and
+    // stored so the Reports list/download filename stay stable even if the
+    // candidate is later renamed. Nullable: the handful of reports generated
+    // before this column existed simply fall back to a live-computed value at
+    // read time (features/reports/queries.ts) rather than needing a backfill.
+    displayName: text("display_name"),
+    fileName: text("file_name"),
+    ...timestamps,
+  },
+  (table) => [index("interview_reports_session_id_idx").on(table.sessionId)]
+);

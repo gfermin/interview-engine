@@ -43,6 +43,38 @@ describe("GeminiProvider model fallback", () => {
   });
 });
 
+// AUDIT-015/Phase 30 — see the identical note in claude-provider.test.ts.
+describe("GeminiProvider retry behavior", () => {
+  it("recovers from a single transient network error", async () => {
+    generateContentMock
+      .mockRejectedValueOnce(Object.assign(new Error("network blip"), { status: undefined }))
+      .mockResolvedValueOnce(
+        functionCallResponse("submit_job_analysis", {
+          detectedRoleFamily: "Software Engineering",
+          detectedSeniority: "Mid-Level",
+          mandatoryRequirements: [],
+          preferredRequirements: [],
+          optionalRequirements: [],
+          notes: "",
+        })
+      );
+
+    const provider = new GeminiProvider({ apiKey: "test-key" });
+    const result = await provider.analyzeJobDescription(baseInput);
+
+    expect(result.detectedSeniority).toBe("Mid-Level");
+    expect(generateContentMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a 401 — fails immediately", async () => {
+    generateContentMock.mockRejectedValueOnce(Object.assign(new Error("Unauthorized"), { status: 401 }));
+
+    const provider = new GeminiProvider({ apiKey: "test-key" });
+    await expect(provider.analyzeJobDescription(baseInput)).rejects.toThrow(/Unauthorized/);
+    expect(generateContentMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("GeminiProvider.analyzeJobDescription", () => {
   it("parses and returns a valid function-call response", async () => {
     generateContentMock.mockResolvedValueOnce(

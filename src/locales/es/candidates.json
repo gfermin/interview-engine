@@ -5,6 +5,7 @@
   "emptyPrefix": "Aún no hay candidatos. ",
   "emptyLinkText": "Agrega el primero",
   "emptySuffix": ".",
+  "emptyFilteredMessage": "Ningún candidato coincide con estos filtros.",
   "tableName": "Nombre",
   "tableEmail": "Correo electrónico",
   "newCandidatePageTitle": "Nuevo Candidato",

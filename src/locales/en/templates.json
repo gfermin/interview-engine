@@ -21,6 +21,7 @@
   "noTemplatesMessage": "No templates yet.",
   "createFirstLink": "Create the first one",
   "noTemplatesSuffix": ".",
+  "emptyFilteredMessage": "No templates match these filters.",
   "tableName": "Name",
   "tableStage": "Stage",
   "tableVersion": "Version",

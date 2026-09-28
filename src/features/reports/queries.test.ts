@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { db } from "@/db";
 import {
@@ -10,6 +11,8 @@ import {
   interviewTemplates,
   positions,
 } from "@/db/schema";
+import { createCompetency, createQuestion } from "@/features/templates/mutations";
+import { rateQuestion, recordDecision, reopenSession } from "@/features/interviews/mutations";
 import { listAllReports } from "./queries";
 
 async function createReportFixture(overrides: {
@@ -162,5 +165,102 @@ describe("listAllReports", () => {
     expect(entry?.calculatedStatus).toBe("PASS");
     expect(entry?.finalDecision).toBe("PASS");
     expect(entry?.statusLabel).toBe("Pass");
+  });
+
+  // AUDIT-005/AUDIT-006/Phase 29 — `overall` must come from the decision's
+  // own persisted snapshot, not a live recompute, so it can never visually
+  // contradict the decision badge shown on the same row.
+  it("reads overall from the decision row's persisted snapshot, not a recompute", async () => {
+    const fixture = await createReportFixture();
+    await db
+      .update(interviewDecisions)
+      .set({ overall: 87.5 })
+      .where(eq(interviewDecisions.sessionId, fixture.session.id));
+
+    const results = await listAllReports();
+    const entry = results.find((r) => r.id === fixture.report.id);
+
+    expect(entry?.overall).toBe(87.5);
+  });
+
+  it("a decision recorded before the overall/completion columns existed reports overall as null, not an error", async () => {
+    const fixture = await createReportFixture();
+    // Simulates a pre-migration row: overall/completion are nullable and
+    // default to null on any row that predates this column's existence.
+
+    const results = await listAllReports();
+    const entry = results.find((r) => r.id === fixture.report.id);
+
+    expect(entry?.overall).toBeNull();
+  });
+
+  it("still shows the last-decided overall after a Reopen changes a rating without a new decision being recorded", async () => {
+    const [position] = await db
+      .insert(positions)
+      .values({ title: `Position ${randomUUID()}` })
+      .returning();
+    const [template] = await db
+      .insert(interviewTemplates)
+      .values({ positionId: position.id, stage: "technical", name: "Test Template" })
+      .returning();
+    const competency = await createCompetency(template.id, {
+      name: "Programming",
+      weight: 100,
+      critical: false,
+      expectedDepth: null,
+    });
+    const question = await createQuestion(template.id, {
+      competencyId: competency.id,
+      text: "Explain a design pattern.",
+      difficulty: "medium",
+      importance: "core",
+      expected: null,
+      strong: null,
+      acceptable: null,
+      concepts: [],
+      redFlags: [],
+      followUps: [],
+      rubric: [],
+      code: null,
+      solution: null,
+      jdRequirementTag: null,
+      altSolutions: null,
+      requiresTechnicalKnowledge: false,
+      technicalTermHelper: null,
+    });
+    const [candidate] = await db
+      .insert(candidates)
+      .values({ name: `Candidate ${randomUUID()}` })
+      .returning();
+    const [session] = await db
+      .insert(interviewSessions)
+      .values({ candidateId: candidate.id, templateId: template.id })
+      .returning();
+
+    await rateQuestion(session.id, question.id, 5);
+    await recordDecision(session.id, { mode: "accept" });
+    const decidedResults = await listAllReports();
+    // No report row exists yet for this session — listAllReports only
+    // shows sessions with a generated InterviewReport — so insert one
+    // directly, matching createReportFixture's shape.
+    const reportId = randomUUID();
+    await db.insert(interviewReports).values({
+      id: reportId,
+      sessionId: session.id,
+      filePath: `.data/reports/${reportId}.pdf`,
+      fileSize: 1024,
+      displayName: `Fixture Display Name ${randomUUID()}`,
+      fileName: `${reportId}.pdf`,
+    });
+    const beforeDrift = (await listAllReports()).find((r) => r.id === reportId);
+    expect(decidedResults).toBeDefined();
+
+    await reopenSession(session.id);
+    await rateQuestion(session.id, question.id, 0); // drift: was 5, now 0 — no re-decide follows
+
+    const afterDrift = (await listAllReports()).find((r) => r.id === reportId);
+
+    expect(afterDrift?.overall).toBe(beforeDrift?.overall);
+    expect(afterDrift?.calculatedStatus).toBe(beforeDrift?.calculatedStatus);
   });
 });

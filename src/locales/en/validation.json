@@ -1,0 +1,48 @@
+{
+  "name.required": "Name is required",
+  "title.required": "Title is required",
+  "label.required": "Label is required",
+  "questionText.required": "Question text is required",
+  "email.invalid": "Enter a valid email address.",
+  "template.selectPublished": "Select a published template.",
+  "position.select": "Select a Position.",
+  "stage.invalid": "Select a valid interview stage.",
+  "interviewLanguage.invalid": "Select an interview language.",
+  "competency.select": "Select a competency.",
+  "jobDescription.tooShort": "Paste the full Job Description text (at least 20 characters).",
+  "jobDescription.tooLong": "Job Description text must be 20,000 characters or fewer.",
+  "scoringConfig.borderlineExceedsPass": "Borderline minimum must not exceed the pass threshold.",
+
+  "lines.maxLineLength": "Each line must be 500 characters or fewer.",
+  "lines.maxLines": "30 lines maximum.",
+
+  "level.enterANumber": "Enter a level from 1 to 5.",
+  "level.notWhole": "Enter a whole number from 1 to 5.",
+  "level.min1": "Level must be at least 1.",
+  "level.max5": "Level must be at most 5.",
+
+  "percent.passThreshold.notANumber": "Pass threshold must be a number.",
+  "percent.passThreshold.notWhole": "Pass threshold must be a whole number.",
+  "percent.passThreshold.min0": "Pass threshold must be at least 0.",
+  "percent.passThreshold.max100": "Pass threshold must be at most 100.",
+
+  "percent.borderlineMin.notANumber": "Borderline minimum must be a number.",
+  "percent.borderlineMin.notWhole": "Borderline minimum must be a whole number.",
+  "percent.borderlineMin.min0": "Borderline minimum must be at least 0.",
+  "percent.borderlineMin.max100": "Borderline minimum must be at most 100.",
+
+  "percent.criticalMin.notANumber": "Critical minimum must be a number.",
+  "percent.criticalMin.notWhole": "Critical minimum must be a whole number.",
+  "percent.criticalMin.min0": "Critical minimum must be at least 0.",
+  "percent.criticalMin.max100": "Critical minimum must be at most 100.",
+
+  "percent.minCompletion.notANumber": "Minimum completion must be a number.",
+  "percent.minCompletion.notWhole": "Minimum completion must be a whole number.",
+  "percent.minCompletion.min0": "Minimum completion must be at least 0.",
+  "percent.minCompletion.max100": "Minimum completion must be at most 100.",
+
+  "percent.weight.notANumber": "Weight must be a number.",
+  "percent.weight.notWhole": "Weight must be a whole number.",
+  "percent.weight.min0": "Weight must be at least 0.",
+  "percent.weight.max100": "Weight must be at most 100."
+}

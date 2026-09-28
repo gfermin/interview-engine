@@ -9,6 +9,7 @@ import type { DecisionMode, FinalDecision } from "@/domain/interviews/decision";
 import type { InterviewLanguage } from "@/domain/interviews/interview-language";
 import type { MandatoryRequirementStatus } from "@/domain/scoring/types";
 import { t } from "@/lib/i18n";
+import { formatPercent as pct } from "@/lib/utils";
 
 export interface ReportCompetency {
   name: string;
@@ -74,10 +75,6 @@ function escapeHtml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-function pct(value: number | null): string {
-  return value !== null ? `${Math.round(value)}%` : "—";
 }
 
 function mandatoryStatusLabel(language: InterviewLanguage, status: MandatoryRequirementStatus): string {
@@ -181,7 +178,7 @@ export function buildReportHtml(data: ReportData): string {
 
   <div class="stat-grid">
     <div class="stat"><dt>${t(lang, "reports.statOverall")}</dt><dd>${pct(data.overall)}</dd></div>
-    <div class="stat"><dt>${t(lang, "reports.statCompletion")}</dt><dd>${Math.round(data.completion)}%</dd></div>
+    <div class="stat"><dt>${t(lang, "reports.statCompletion")}</dt><dd>${pct(data.completion)}</dd></div>
     <div class="stat"><dt>${t(lang, "reports.statFinalDecision")}</dt><dd>${data.decision.finalDecision}</dd></div>
     <div class="stat"><dt>${t(lang, "reports.statCodingExercise")}</dt><dd style="font-size:14px;">${
     data.codingExerciseIncluded ? t(lang, "reports.includedLabel") : t(lang, "reports.notIncludedLabel")

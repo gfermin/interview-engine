@@ -26,6 +26,7 @@ export async function getSessionDetail(sessionId: string) {
     .select({
       id: interviewSessions.id,
       status: interviewSessions.status,
+      createdAt: interviewSessions.createdAt,
       archivedAt: interviewSessions.archivedAt,
       candidateId: candidates.id,
       candidateName: candidates.name,
@@ -116,6 +117,14 @@ export interface SessionListFilters {
   /** Plan Phase 23/§44.9 — defaults to "active" so archived sessions never
    * clutter the global Interview History list or Dashboard. */
   archived?: "active" | "archived" | "all";
+  /** Plan Phase 31/AUDIT-018 — optional and unbounded by default (a
+   * negative SQLite LIMIT means "no limit"); makes the query layer
+   * pagination-capable without requiring the UI to pass either yet. A
+   * caller that instead chains `.limit()` directly onto this function's
+   * returned builder (e.g. getRecentSessions/getAttentionItems) still
+   * works — that later call simply overrides this one. */
+  limit?: number;
+  offset?: number;
 }
 
 /** The interview history list (plan §11/Phase 11) — every session across
@@ -134,6 +143,11 @@ export function listSessions(filters: SessionListFilters = {}) {
       : archived === "archived"
         ? isNotNull(interviewSessions.archivedAt)
         : isNull(interviewSessions.archivedAt),
+    // Plan Phase 26/AUDIT-008 — a session whose Candidate or Position was
+    // separately archived must not keep surfacing here even though the
+    // session's own archivedAt is still null.
+    isNull(candidates.archivedAt),
+    isNull(positions.archivedAt),
   ].filter((c) => c !== undefined);
 
   return db
@@ -157,5 +171,7 @@ export function listSessions(filters: SessionListFilters = {}) {
     .innerJoin(interviewTemplates, eq(interviewSessions.templateId, interviewTemplates.id))
     .innerJoin(positions, eq(interviewTemplates.positionId, positions.id))
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(interviewSessions.createdAt));
+    .orderBy(desc(interviewSessions.createdAt))
+    .limit(filters.limit ?? -1)
+    .offset(filters.offset ?? 0);
 }

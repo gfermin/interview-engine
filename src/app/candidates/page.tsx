@@ -35,6 +35,7 @@ export default async function CandidatesPage({
   const archived = (archivedParam as CandidateListFilters["archived"]) ?? "active";
 
   const candidates = await listCandidates({ archived });
+  const hasFilters = archived !== "active";
 
   return (
     <>
@@ -75,13 +76,22 @@ export default async function CandidatesPage({
         <Card>
           <CardContent className="p-0">
             {candidates.length === 0 ? (
-              <p className="p-6 text-sm text-muted-foreground">
-                {t(locale, "candidates.emptyPrefix")}
-                <Link href="/candidates/new" className="underline">
-                  {t(locale, "candidates.emptyLinkText")}
-                </Link>
-                {t(locale, "candidates.emptySuffix")}
-              </p>
+              hasFilters ? (
+                <div className="flex flex-col gap-3 p-6">
+                  <p className="text-sm text-muted-foreground">{t(locale, "candidates.emptyFilteredMessage")}</p>
+                  <ButtonLink size="sm" variant="outline" href="/candidates" className="self-start">
+                    {t(locale, "candidates.clearFilterButton")}
+                  </ButtonLink>
+                </div>
+              ) : (
+                <p className="p-6 text-sm text-muted-foreground">
+                  {t(locale, "candidates.emptyPrefix")}
+                  <Link href="/candidates/new" className="underline">
+                    {t(locale, "candidates.emptyLinkText")}
+                  </Link>
+                  {t(locale, "candidates.emptySuffix")}
+                </p>
+              )
             ) : (
               <Table>
                 <TableHeader>

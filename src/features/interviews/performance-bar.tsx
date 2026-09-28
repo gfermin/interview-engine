@@ -5,6 +5,7 @@
 // plus a marker at the live overall score. `computeMarkerPosition` is
 // exported separately so its boundary behavior (clamping, the
 // not-yet-evaluated state) is unit-testable without rendering.
+import { formatPercent } from "@/lib/utils";
 
 export interface MarkerPosition {
   /** Percent from the left edge, already clamped into the visible track. */
@@ -32,7 +33,7 @@ export function PerformanceBar({
   const failWidth = Math.max(0, Math.min(100, borderlineMin));
   const borderlineWidth = Math.max(0, Math.min(100 - failWidth, passThreshold - borderlineMin));
   const passWidth = Math.max(0, 100 - failWidth - borderlineWidth);
-  const label = overall === null ? "—" : `${Math.round(overall)}%`;
+  const label = formatPercent(overall);
 
   return (
     <div

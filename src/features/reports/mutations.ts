@@ -75,7 +75,22 @@ export async function generateReport(sessionId: string) {
 
   const mrStatusByRequirementId = new Map(mrEvaluations.map((row) => [row.requirementId, row.status]));
   const criticalByCompetencyId = new Map(result.criticalCompetencyStatus.map((c) => [c.competencyId, c]));
-  const statusLabel = stageConfig.statusLabels[result.status];
+  // Plan Phase 29/AUDIT-005/AUDIT-006 — the top-level score/status/reason
+  // read from the decision-time snapshot `recordDecision` persisted, not
+  // from a fresh recompute here. `result` (computeFullScoringResult) is
+  // still needed for the per-competency breakdown below (no persisted
+  // equivalent exists for that), but the report's headline numbers must
+  // match the decision actually recorded, not merely "whatever the
+  // evaluations happen to compute to right now" — those two are only
+  // guaranteed identical because a decided session's ratings are locked,
+  // which is exactly the fragile-but-currently-true invariant this removes
+  // the dependency on. `?? result.X` only matters for a decision recorded
+  // before this column existed (a pre-migration row with `overall`/
+  // `completion` still null).
+  const overall = decisionRow.overall ?? result.overall;
+  const completion = decisionRow.completion ?? result.completion;
+  const reason = decisionRow.calculatedReason;
+  const statusLabel = stageConfig.statusLabels[decisionRow.calculatedStatus as typeof result.status];
 
   const interviewLanguage = sessionDetail.interviewLanguage as InterviewLanguage;
 
@@ -91,9 +106,9 @@ export async function generateReport(sessionId: string) {
     templateName: sessionDetail.templateName,
     templateVersion: sessionDetail.templateVersion,
     statusLabel,
-    overall: result.overall,
-    completion: result.completion,
-    reason: result.reason,
+    overall,
+    completion,
+    reason,
     codingExerciseIncluded: stage === "technical" && template.includeCodeExercises,
     competencies: competencies.map((c) => {
       const stat = result.competencyStats.find((s) => s.competencyId === c.id);
@@ -130,9 +145,9 @@ export async function generateReport(sessionId: string) {
       positionTitle: sessionDetail.positionTitle,
       seniority: position?.seniority ?? null,
       statusLabel,
-      overall: result.overall,
-      completion: result.completion,
-      reason: result.reason,
+      overall,
+      completion,
+      reason,
       language: interviewLanguage,
       stage,
     }),

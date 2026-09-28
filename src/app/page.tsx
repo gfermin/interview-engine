@@ -22,6 +22,7 @@ import {
 } from "@/features/dashboard/queries";
 import { APP_LOCALE_COOKIE, resolveLocale } from "@/features/settings/locale";
 import { t } from "@/lib/i18n";
+import { formatPercent } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -135,7 +136,7 @@ export default async function DashboardPage() {
                       <TableCell>{session.positionTitle}</TableCell>
                       <TableCell>{STAGE_LABELS[session.stage]}</TableCell>
                       <TableCell className="font-mono">
-                        {session.overall !== null ? `${Math.round(session.overall)}%` : "—"}
+                        {formatPercent(session.overall)}
                       </TableCell>
                       <TableCell>{statusLabelFor(session.stage, session.calculatedStatus)}</TableCell>
                       <TableCell className="font-mono">{session.createdAt.toLocaleDateString()}</TableCell>

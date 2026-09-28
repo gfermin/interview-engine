@@ -62,22 +62,19 @@ export default async function InterviewsHistoryPage({
 
   return (
     <>
-      <AppTopbar title="Interview History" />
+      <AppTopbar title={t(locale, "interview.historyPageTitle")} locale={locale} />
       <PageContainer width="wide">
-        <p className="text-[12.5px] text-muted-foreground">
-          Every Interview Session across every candidate (plan §11/Phase 11). Reopen a
-          finished session from its Rate or Summary screen to make further changes.
-        </p>
+        <p className="text-[12.5px] text-muted-foreground">{t(locale, "interview.historyPageDescription")}</p>
 
         <Card>
           <CardContent className="pt-5">
             <form className="grid grid-cols-2 gap-3 sm:grid-cols-4" method="get">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] text-muted-foreground" htmlFor="positionId">
-                  Position
+                  {t(locale, "interview.historyFilterPositionLabel")}
                 </label>
                 <Select id="positionId" name="positionId" defaultValue={positionId ?? ""}>
-                  <option value="">All positions</option>
+                  <option value="">{t(locale, "interview.historyAllPositionsOption")}</option>
                   {positions.map((position) => (
                     <option key={position.id} value={position.id}>
                       {position.title}
@@ -87,10 +84,10 @@ export default async function InterviewsHistoryPage({
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] text-muted-foreground" htmlFor="candidateId">
-                  Candidate
+                  {t(locale, "interview.historyFilterCandidateLabel")}
                 </label>
                 <Select id="candidateId" name="candidateId" defaultValue={candidateId ?? ""}>
-                  <option value="">All candidates</option>
+                  <option value="">{t(locale, "interview.historyAllCandidatesOption")}</option>
                   {candidates.map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
                       {candidate.name}
@@ -100,10 +97,10 @@ export default async function InterviewsHistoryPage({
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] text-muted-foreground" htmlFor="stage">
-                  Stage
+                  {t(locale, "interview.historyFilterStageLabel")}
                 </label>
                 <Select id="stage" name="stage" defaultValue={stage ?? ""}>
-                  <option value="">All stages</option>
+                  <option value="">{t(locale, "interview.historyAllStagesOption")}</option>
                   {INTERVIEW_STAGES.map((s) => (
                     <option key={s} value={s}>
                       {STAGE_LABELS[s]}
@@ -113,10 +110,10 @@ export default async function InterviewsHistoryPage({
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] text-muted-foreground" htmlFor="status">
-                  Status
+                  {t(locale, "interview.historyFilterStatusLabel")}
                 </label>
                 <Select id="status" name="status" defaultValue={status ?? ""}>
-                  <option value="">All statuses</option>
+                  <option value="">{t(locale, "interview.historyAllStatusesOption")}</option>
                   {SESSION_STATUSES.map((s) => (
                     <option key={s} value={s}>
                       {SESSION_STATUS_LABELS[s]}
@@ -136,11 +133,11 @@ export default async function InterviewsHistoryPage({
               </div>
               <div className="col-span-2 flex items-end gap-2 sm:col-span-4">
                 <Button type="submit" size="sm">
-                  Filter
+                  {t(locale, "interview.historyFilterButton")}
                 </Button>
                 {hasFilters ? (
                   <ButtonLink size="sm" variant="outline" href="/interviews">
-                    Clear
+                    {t(locale, "interview.historyClearButton")}
                   </ButtonLink>
                 ) : null}
               </div>
@@ -153,14 +150,14 @@ export default async function InterviewsHistoryPage({
             {sessions.length === 0 ? (
               <p className="p-6 text-sm text-muted-foreground">
                 {hasFilters ? (
-                  "No interview sessions match these filters."
+                  t(locale, "interview.historyEmptyFilteredMessage")
                 ) : (
                   <>
-                    No interviews yet — start one from a{" "}
+                    {t(locale, "interview.historyEmptyPrefix")}
                     <Link href="/candidates" className="underline">
-                      candidate&apos;s page
+                      {t(locale, "interview.historyEmptyLinkText")}
                     </Link>
-                    .
+                    {t(locale, "interview.historyEmptySuffix")}
                   </>
                 )}
               </p>
@@ -168,12 +165,12 @@ export default async function InterviewsHistoryPage({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Candidate</TableHead>
-                    <TableHead>Position</TableHead>
-                    <TableHead>Stage</TableHead>
-                    <TableHead>Template</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
+                    <TableHead>{t(locale, "interview.historyTableCandidate")}</TableHead>
+                    <TableHead>{t(locale, "interview.historyTablePosition")}</TableHead>
+                    <TableHead>{t(locale, "interview.historyTableStage")}</TableHead>
+                    <TableHead>{t(locale, "interview.historyTableTemplate")}</TableHead>
+                    <TableHead>{t(locale, "interview.historyTableStatus")}</TableHead>
+                    <TableHead className="text-right">{t(locale, "interview.historyTableAction")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -204,7 +201,9 @@ export default async function InterviewsHistoryPage({
                         <div className="flex flex-wrap gap-1.5">
                           <Badge variant={SESSION_STATUS_VARIANT[session.status]}>
                             {SESSION_STATUS_LABELS[session.status]}
-                            {session.reopenCount > 0 ? ` · reopened ${session.reopenCount}×` : ""}
+                            {session.reopenCount > 0
+                              ? ` · ${t(locale, "interview.historyReopenedLabel")} ${session.reopenCount}×`
+                              : ""}
                           </Badge>
                           {session.archivedAt ? (
                             <Badge variant="outline">{t(locale, "interview.archivedBadge")}</Badge>
@@ -214,14 +213,14 @@ export default async function InterviewsHistoryPage({
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1.5">
                           <ButtonLink size="sm" variant="outline" href={`/interviews/${session.id}`}>
-                            Rate
+                            {t(locale, "interview.historyRateButton")}
                           </ButtonLink>
                           <ButtonLink
                             size="sm"
                             variant="outline"
                             href={`/interviews/${session.id}/summary`}
                           >
-                            Summary
+                            {t(locale, "interview.historySummaryButton")}
                           </ButtonLink>
                         </div>
                       </TableCell>

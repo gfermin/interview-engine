@@ -1,5 +1,7 @@
 import { Badge } from "@/components/ui/badge";
+import { STRENGTH_MIN } from "@/domain/interviews/result-categories";
 import { t, type Locale } from "@/lib/i18n";
+import { formatPercent } from "@/lib/utils";
 
 export interface CompetencyDashboardEntry {
   competencyId: string;
@@ -37,13 +39,21 @@ export function CompetencyDashboard({
 
 function CompetencyCard({ entry, locale }: { entry: CompetencyDashboardEntry; locale: Locale }) {
   const failing = entry.critical && entry.criticalHasEvidence && !entry.criticalMeets;
-  const pctLabel = entry.percent === null ? "—" : `${Math.round(entry.percent)}%`;
+  const pctLabel = formatPercent(entry.percent);
+  const textLabel =
+    entry.percent === null
+      ? t(locale, "interview.noEvidenceYet")
+      : failing || entry.percent < entry.criticalMin
+        ? t(locale, "interview.competencyConcernLabel")
+        : entry.percent >= STRENGTH_MIN
+          ? t(locale, "interview.competencyStrengthLabel")
+          : t(locale, "interview.competencyBorderlineLabel");
   const colorClass =
     entry.percent === null
       ? "text-na"
       : failing
         ? "text-fail"
-        : entry.percent >= 80
+        : entry.percent >= STRENGTH_MIN
           ? "text-pass"
           : entry.percent >= entry.criticalMin
             ? "text-borderline"
@@ -53,7 +63,7 @@ function CompetencyCard({ entry, locale }: { entry: CompetencyDashboardEntry; lo
       ? "bg-na"
       : failing
         ? "bg-fail"
-        : entry.percent >= 80
+        : entry.percent >= STRENGTH_MIN
           ? "bg-pass"
           : entry.percent >= entry.criticalMin
             ? "bg-borderline"
@@ -73,7 +83,10 @@ function CompetencyCard({ entry, locale }: { entry: CompetencyDashboardEntry; lo
           </Badge>
         ) : null}
       </div>
-      <div className={`font-mono text-[22px] font-bold ${colorClass}`}>{pctLabel}</div>
+      <div className="flex items-baseline gap-2">
+        <span className={`font-mono text-[22px] font-bold ${colorClass}`}>{pctLabel}</span>
+        <span className={`text-[10.5px] font-semibold tracking-wide uppercase ${colorClass}`}>{textLabel}</span>
+      </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-surface-3">
         <div className={`h-full ${fillClass}`} style={{ width: `${entry.percent ?? 0}%` }} />
       </div>

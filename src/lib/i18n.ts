@@ -31,6 +31,8 @@ import candidates_en from "@/locales/en/candidates.json";
 import candidates_es from "@/locales/es/candidates.json";
 import positions_en from "@/locales/en/positions.json";
 import positions_es from "@/locales/es/positions.json";
+import validation_en from "@/locales/en/validation.json";
+import validation_es from "@/locales/es/validation.json";
 
 export type Locale = "en" | "es";
 
@@ -49,6 +51,7 @@ const DICTIONARIES: Record<Locale, Record<string, NamespaceDictionary>> = {
     templates: templates_en,
     candidates: candidates_en,
     positions: positions_en,
+    validation: validation_en,
   },
   es: {
     common: common_es,
@@ -60,6 +63,7 @@ const DICTIONARIES: Record<Locale, Record<string, NamespaceDictionary>> = {
     templates: templates_es,
     candidates: candidates_es,
     positions: positions_es,
+    validation: validation_es,
   },
 };
 

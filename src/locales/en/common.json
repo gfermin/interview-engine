@@ -3,5 +3,11 @@
   "appTagline": "Universal Assessment Engine",
   "pocBadge": "POC",
   "languageEnglish": "English",
-  "languageSpanish": "Español"
+  "languageSpanish": "Español",
+  "pleaseFixErrors": "Please fix the errors below.",
+  "couldNotSave": "Could not save.",
+  "couldNotPublish": "Could not publish.",
+  "couldNotStartSession": "Could not start the session.",
+  "couldNotRecordDecision": "Could not record the decision.",
+  "couldNotGenerateReport": "Could not generate the report."
 }

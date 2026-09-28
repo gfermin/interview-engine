@@ -6,6 +6,11 @@ export interface CandidateListFilters {
   /** Plan Phase 23/§44.9 — defaults to "active" so archived Candidates
    * never clutter the default list or Dashboard. */
   archived?: "active" | "archived" | "all";
+  /** Plan Phase 31/AUDIT-018 — optional and unbounded by default; makes the
+   * query layer pagination-capable without requiring the UI to pass either
+   * yet (no page-size controls exist on this list today). */
+  limit?: number;
+  offset?: number;
 }
 
 export function listCandidates(filters: CandidateListFilters = {}) {
@@ -18,6 +23,8 @@ export function listCandidates(filters: CandidateListFilters = {}) {
           ? isNotNull(candidates.archivedAt)
           : isNull(candidates.archivedAt),
     orderBy: [desc(candidates.createdAt)],
+    limit: filters.limit,
+    offset: filters.offset,
   });
 }
 

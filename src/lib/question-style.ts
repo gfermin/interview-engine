@@ -1,15 +1,21 @@
+import { TONE_CLASSES } from "./tone-style";
+
 // The artifact's `.mchip.diff-*` difficulty color-coding, shared between
 // every place a question's difficulty is displayed (the live-rating
 // QuestionCard and the template builder's question list) so the two never
 // drift out of sync with each other or with the artifact's own mapping.
-// A value outside this map (shouldn't happen given the AI/form schemas both
+// Maps onto the same shared pass/borderline/fail tone classes `ToneBadge`
+// uses (plan Phase 34/L-10 — this used to duplicate those class strings
+// verbatim instead of reusing them, an easy-to-miss drift risk). A value
+// outside this map (shouldn't happen given the AI/form schemas both
 // restrict to easy/medium/hard) falls back to a neutral border.
-const DIFFICULTY_CLASSES: Record<string, string> = {
-  easy: "border-pass-border bg-pass-bg text-pass",
-  medium: "border-borderline-border bg-borderline-bg text-borderline",
-  hard: "border-fail-border bg-fail-bg text-fail",
+const DIFFICULTY_TONE: Record<string, keyof typeof TONE_CLASSES> = {
+  easy: "pass",
+  medium: "borderline",
+  hard: "fail",
 };
 
 export function difficultyBadgeClass(difficulty: string): string {
-  return DIFFICULTY_CLASSES[difficulty.toLowerCase()] ?? "border-border";
+  const tone = DIFFICULTY_TONE[difficulty.toLowerCase()];
+  return tone ? TONE_CLASSES[tone] : "border-border";
 }
