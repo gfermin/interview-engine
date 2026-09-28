@@ -31,6 +31,7 @@ import {
   type GenerateTemplateDraftInput,
   type RegenerateQuestionInput,
 } from "./types";
+import { withAIRetry } from "./retry";
 
 const JOB_ANALYSIS_DECLARATION: FunctionDeclaration = {
   name: JOB_ANALYSIS_FUNCTION_NAME,
@@ -130,20 +131,22 @@ export class GeminiProvider implements AIProvider {
     user: string,
     declaration: FunctionDeclaration
   ): Promise<unknown> {
-    const response = await this.client.models.generateContent({
-      model: this.model,
-      contents: user,
-      config: {
-        systemInstruction: system,
-        toolConfig: {
-          functionCallingConfig: {
-            mode: FunctionCallingConfigMode.ANY,
-            allowedFunctionNames: [declaration.name!],
+    const response = await withAIRetry(() =>
+      this.client.models.generateContent({
+        model: this.model,
+        contents: user,
+        config: {
+          systemInstruction: system,
+          toolConfig: {
+            functionCallingConfig: {
+              mode: FunctionCallingConfigMode.ANY,
+              allowedFunctionNames: [declaration.name!],
+            },
           },
+          tools: [{ functionDeclarations: [declaration] }],
         },
-        tools: [{ functionDeclarations: [declaration] }],
-      },
-    });
+      })
+    );
 
     const call = response.functionCalls?.find((c) => c.name === declaration.name);
     if (!call) {

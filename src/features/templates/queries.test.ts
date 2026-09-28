@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { db } from "@/db";
 import { interviewTemplates, positions } from "@/db/schema";
@@ -9,11 +10,15 @@ import { createCompetency, publishTemplate } from "./mutations";
 import { hasSessionsForTemplate, listDraftTemplates, listPublishedTemplates, listTemplates } from "./queries";
 
 async function createTemplateFixture(
-  overrides: { status?: "draft" | "approved"; archivedAt?: Date | null } = {}
+  overrides: {
+    status?: "draft" | "approved";
+    archivedAt?: Date | null;
+    positionArchivedAt?: Date | null;
+  } = {}
 ) {
   const [position] = await db
     .insert(positions)
-    .values({ title: `Position ${randomUUID()}` })
+    .values({ title: `Position ${randomUUID()}`, archivedAt: overrides.positionArchivedAt ?? null })
     .returning();
   const [template] = await db
     .insert(interviewTemplates)
@@ -68,6 +73,23 @@ describe("listPublishedTemplates", () => {
     expect(ids).toContain(active!.id);
     expect(ids).not.toContain(archived!.id);
   });
+
+  // AUDIT-007/Phase 26 — archiving a Position must also hide its (still
+  // active) published Templates from the Dashboard, not just templates
+  // archived directly.
+  it("excludes a template whose Position is archived, even though the template itself isn't", async () => {
+    const orphaned = await createTemplateFixture({ status: "approved", positionArchivedAt: new Date() });
+    const active = await createTemplateFixture({ status: "approved" });
+
+    const ids = (await listPublishedTemplates()).map((t) => t.id);
+
+    expect(ids).toContain(active!.id);
+    expect(ids).not.toContain(orphaned!.id);
+
+    await db.update(positions).set({ archivedAt: null }).where(eq(positions.id, orphaned!.positionId));
+    const idsAfterRestore = (await listPublishedTemplates()).map((t) => t.id);
+    expect(idsAfterRestore).toContain(orphaned!.id);
+  });
 });
 
 describe("listDraftTemplates", () => {
@@ -79,6 +101,17 @@ describe("listDraftTemplates", () => {
 
     expect(ids).toContain(active!.id);
     expect(ids).not.toContain(archived!.id);
+  });
+
+  // AUDIT-007/Phase 26 — same leak as listPublishedTemplates, for drafts.
+  it("excludes a draft whose Position is archived, even though the draft itself isn't", async () => {
+    const orphaned = await createTemplateFixture({ positionArchivedAt: new Date() });
+    const active = await createTemplateFixture();
+
+    const ids = (await listDraftTemplates()).map((t) => t.id);
+
+    expect(ids).toContain(active!.id);
+    expect(ids).not.toContain(orphaned!.id);
   });
 });
 

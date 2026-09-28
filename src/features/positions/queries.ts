@@ -7,6 +7,9 @@ export interface PositionListFilters {
    * clutter the default list or any picker (Template/Candidate creation)
    * built on this same query. */
   archived?: "active" | "archived" | "all";
+  /** Plan Phase 31/AUDIT-018 — see the identical note in candidates/queries.ts. */
+  limit?: number;
+  offset?: number;
 }
 
 export function listPositions(filters: PositionListFilters = {}) {
@@ -19,6 +22,8 @@ export function listPositions(filters: PositionListFilters = {}) {
           ? isNotNull(positions.archivedAt)
           : isNull(positions.archivedAt),
     orderBy: [desc(positions.createdAt)],
+    limit: filters.limit,
+    offset: filters.offset,
   });
 }
 

@@ -39,6 +39,7 @@ export default async function TemplatesPage({
   const archived = (archivedParam as TemplateListFilters["archived"]) ?? "active";
 
   const templates = await listTemplates({ archived });
+  const hasFilters = archived !== "active";
 
   return (
     <>
@@ -79,13 +80,22 @@ export default async function TemplatesPage({
         <Card>
           <CardContent className="p-0">
             {templates.length === 0 ? (
-              <p className="p-6 text-sm text-muted-foreground">
-                {t(locale, "templates.noTemplatesMessage")}{" "}
-                <Link href="/templates/new" className="underline">
-                  {t(locale, "templates.createFirstLink")}
-                </Link>
-                {t(locale, "templates.noTemplatesSuffix")}
-              </p>
+              hasFilters ? (
+                <div className="flex flex-col gap-3 p-6">
+                  <p className="text-sm text-muted-foreground">{t(locale, "templates.emptyFilteredMessage")}</p>
+                  <ButtonLink size="sm" variant="outline" href="/templates" className="self-start">
+                    {t(locale, "templates.clearFilterButton")}
+                  </ButtonLink>
+                </div>
+              ) : (
+                <p className="p-6 text-sm text-muted-foreground">
+                  {t(locale, "templates.noTemplatesMessage")}{" "}
+                  <Link href="/templates/new" className="underline">
+                    {t(locale, "templates.createFirstLink")}
+                  </Link>
+                  {t(locale, "templates.noTemplatesSuffix")}
+                </p>
+              )
             ) : (
               <Table>
                 <TableHeader>

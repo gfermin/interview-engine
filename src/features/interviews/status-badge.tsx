@@ -1,20 +1,13 @@
 import { Badge } from "@/components/ui/badge";
 import type { InterviewStatus } from "@/domain/scoring/types";
+import { TONE_CLASSES, type BadgeTone } from "@/lib/tone-style";
 
 // The artifact's `.badge`/`.badge-*` pattern (plan Phase 14/§41): a colored
 // dot + label, using the pass/borderline/fail/provisional/na CSS tokens that
 // have existed in globals.css since Phase 8 but had no consumer until now —
 // color is always paired with the text label itself, never used alone
 // (plan §37 accessibility requirement).
-export type BadgeTone = "pass" | "borderline" | "fail" | "provisional" | "na";
-
-const TONE_CLASSES: Record<BadgeTone, string> = {
-  pass: "border-pass-border bg-pass-bg text-pass",
-  borderline: "border-borderline-border bg-borderline-bg text-borderline",
-  fail: "border-fail-border bg-fail-bg text-fail",
-  provisional: "border-provisional-border bg-provisional-bg text-provisional",
-  na: "border-na-border bg-na-bg text-na",
-};
+export type { BadgeTone };
 
 /** The shared primitive — any status-like concept in the app (calculated
  * interview status, a Mandatory Requirement's met/not-met/unknown, etc.)

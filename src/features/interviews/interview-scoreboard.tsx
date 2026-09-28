@@ -1,5 +1,6 @@
 import type { InterviewStatus } from "@/domain/scoring/types";
 import { t, type Locale } from "@/lib/i18n";
+import { formatPercent } from "@/lib/utils";
 import { PerformanceBar } from "./performance-bar";
 import { StatusBadge } from "./status-badge";
 
@@ -45,11 +46,8 @@ export function InterviewScoreboard({
           <p className="text-[11.5px] text-muted-foreground">{subtitle}</p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          <ScoreChip
-            label={t(locale, "interview.chipOverall")}
-            value={overall !== null ? `${Math.round(overall)}%` : "—"}
-          />
-          <ScoreChip label={t(locale, "interview.chipCompletion")} value={`${Math.round(completion)}%`} />
+          <ScoreChip label={t(locale, "interview.chipOverall")} value={formatPercent(overall)} />
+          <ScoreChip label={t(locale, "interview.chipCompletion")} value={formatPercent(completion)} />
           <ScoreChip label={t(locale, "interview.chipCritical")} value={`${criticalMet}/${criticalTotal}`} />
           {englishLevel !== undefined ? (
             <ScoreChip

@@ -75,4 +75,33 @@ describe("saveJobDescription", () => {
     const active = await getActiveJobDescription(position.id);
     expect(active?.id).toBe(second.id);
   });
+
+  // AUDIT-017/Phase 31 — the read-then-write is now wrapped in a
+  // transaction; two "concurrent" calls for a brand-new Position must never
+  // both observe "no active JD yet" and each create their own active row.
+  it("two concurrent saveJobDescription calls for a new Position never produce two active rows", async () => {
+    const position = await createTestPosition();
+
+    await Promise.all([
+      saveJobDescription(position.id, "First concurrent write."),
+      saveJobDescription(position.id, "Second concurrent write."),
+    ]);
+
+    const activeRows = await db.query.jobDescriptions.findMany({
+      where: (jd, { and, eq: eqOp }) => and(eqOp(jd.positionId, position.id), eqOp(jd.status, "active")),
+    });
+    expect(activeRows).toHaveLength(1);
+  });
+
+  // AUDIT-017/Phase 31 — a DB-level backstop on top of the transaction: even
+  // a write that bypasses saveJobDescription entirely can't create a second
+  // "active" row for the same Position.
+  it("the database itself refuses a second active row for the same Position", async () => {
+    const position = await createTestPosition();
+    await db.insert(jobDescriptions).values({ positionId: position.id, rawText: "First.", status: "active" });
+
+    await expect(
+      db.insert(jobDescriptions).values({ positionId: position.id, rawText: "Second.", status: "active" })
+    ).rejects.toThrow();
+  });
 });

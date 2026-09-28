@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { QuestionScore, ScoreValue } from "@/domain/scoring/types";
 import { RUBRIC_LABELS, type InterviewStage } from "@/domain/interviews/stage-config";
+import { t, type Locale } from "@/lib/i18n";
 import { rateQuestionAction } from "./actions";
 
 const SCORES: ScoreValue[] = [0, 1, 2, 3, 4, 5];
@@ -22,11 +23,13 @@ export function RateBar({
   questionId,
   currentValue,
   stage = "technical",
+  locale = "en",
 }: {
   sessionId: string;
   questionId: string;
   currentValue: QuestionScore;
   stage?: InterviewStage;
+  locale?: Locale;
 }) {
   const labels = RUBRIC_LABELS[stage];
   return (
@@ -37,7 +40,7 @@ export function RateBar({
             type="submit"
             size="icon-sm"
             variant={currentValue === score ? "default" : "outline"}
-            aria-label={`Rate ${score} — ${labels[score]}`}
+            aria-label={`${t(locale, "interview.rateAriaLabelPrefix")}${score} — ${labels[score]}`}
             title={labels[score]}
           >
             {score}
@@ -54,8 +57,8 @@ export function RateBar({
           type="submit"
           size="icon-sm"
           variant="ghost"
-          aria-label="Clear rating"
-          title="Clear rating"
+          aria-label={t(locale, "interview.clearRatingLabel")}
+          title={t(locale, "interview.clearRatingLabel")}
         >
           <X />
         </Button>

@@ -1,0 +1,48 @@
+{
+  "name.required": "El nombre es obligatorio",
+  "title.required": "El título es obligatorio",
+  "label.required": "La etiqueta es obligatoria",
+  "questionText.required": "El texto de la pregunta es obligatorio",
+  "email.invalid": "Ingresa un correo electrónico válido.",
+  "template.selectPublished": "Selecciona una plantilla publicada.",
+  "position.select": "Selecciona una Posición.",
+  "stage.invalid": "Selecciona una etapa de entrevista válida.",
+  "interviewLanguage.invalid": "Selecciona un idioma de entrevista.",
+  "competency.select": "Selecciona una competencia.",
+  "jobDescription.tooShort": "Pega el texto completo de la Descripción del Puesto (al menos 20 caracteres).",
+  "jobDescription.tooLong": "El texto de la Descripción del Puesto debe tener 20,000 caracteres o menos.",
+  "scoringConfig.borderlineExceedsPass": "El mínimo límite no debe superar el umbral de aprobación.",
+
+  "lines.maxLineLength": "Cada línea debe tener 500 caracteres o menos.",
+  "lines.maxLines": "Máximo 30 líneas.",
+
+  "level.enterANumber": "Ingresa un nivel del 1 al 5.",
+  "level.notWhole": "Ingresa un número entero del 1 al 5.",
+  "level.min1": "El nivel debe ser al menos 1.",
+  "level.max5": "El nivel debe ser como máximo 5.",
+
+  "percent.passThreshold.notANumber": "El umbral de aprobación debe ser un número.",
+  "percent.passThreshold.notWhole": "El umbral de aprobación debe ser un número entero.",
+  "percent.passThreshold.min0": "El umbral de aprobación debe ser al menos 0.",
+  "percent.passThreshold.max100": "El umbral de aprobación debe ser como máximo 100.",
+
+  "percent.borderlineMin.notANumber": "El mínimo límite debe ser un número.",
+  "percent.borderlineMin.notWhole": "El mínimo límite debe ser un número entero.",
+  "percent.borderlineMin.min0": "El mínimo límite debe ser al menos 0.",
+  "percent.borderlineMin.max100": "El mínimo límite debe ser como máximo 100.",
+
+  "percent.criticalMin.notANumber": "El mínimo crítico debe ser un número.",
+  "percent.criticalMin.notWhole": "El mínimo crítico debe ser un número entero.",
+  "percent.criticalMin.min0": "El mínimo crítico debe ser al menos 0.",
+  "percent.criticalMin.max100": "El mínimo crítico debe ser como máximo 100.",
+
+  "percent.minCompletion.notANumber": "La finalización mínima debe ser un número.",
+  "percent.minCompletion.notWhole": "La finalización mínima debe ser un número entero.",
+  "percent.minCompletion.min0": "La finalización mínima debe ser al menos 0.",
+  "percent.minCompletion.max100": "La finalización mínima debe ser como máximo 100.",
+
+  "percent.weight.notANumber": "El peso debe ser un número.",
+  "percent.weight.notWhole": "El peso debe ser un número entero.",
+  "percent.weight.min0": "El peso debe ser al menos 0.",
+  "percent.weight.max100": "El peso debe ser como máximo 100."
+}

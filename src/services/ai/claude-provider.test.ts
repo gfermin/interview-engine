@@ -42,6 +42,40 @@ describe("ClaudeProvider model fallback", () => {
   });
 });
 
+// AUDIT-015/Phase 30 — a transient failure must recover automatically; an
+// auth/validation failure must fail fast, not waste retries on something
+// retrying can't fix.
+describe("ClaudeProvider retry behavior", () => {
+  it("recovers from a single transient network error", async () => {
+    createMock
+      .mockRejectedValueOnce(Object.assign(new Error("network blip"), { status: undefined }))
+      .mockResolvedValueOnce(
+        toolUseResponse({
+          detectedRoleFamily: "Software Engineering",
+          detectedSeniority: "Mid-Level",
+          mandatoryRequirements: [],
+          preferredRequirements: [],
+          optionalRequirements: [],
+          notes: "",
+        })
+      );
+
+    const provider = new ClaudeProvider({ apiKey: "test-key" });
+    const result = await provider.analyzeJobDescription(baseInput);
+
+    expect(result.detectedSeniority).toBe("Mid-Level");
+    expect(createMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a 401 — fails immediately", async () => {
+    createMock.mockRejectedValueOnce(Object.assign(new Error("Unauthorized"), { status: 401 }));
+
+    const provider = new ClaudeProvider({ apiKey: "test-key" });
+    await expect(provider.analyzeJobDescription(baseInput)).rejects.toThrow(/Unauthorized/);
+    expect(createMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("ClaudeProvider.analyzeJobDescription", () => {
   it("parses and returns a valid tool_use response", async () => {
     createMock.mockResolvedValueOnce(

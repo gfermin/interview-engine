@@ -88,7 +88,7 @@ export interface RecentSessionRow {
  * canonical calculated score/status the live-rating and Summary screens
  * show — not a separate, cheaper approximation. */
 export async function getRecentSessions(limit = 8): Promise<RecentSessionRow[]> {
-  const rows = await listSessions().limit(limit);
+  const rows = await listSessions({ limit });
   return Promise.all(
     rows.map(async (row) => {
       const result = await computeFullScoringResult(row.id, row.templateId);
@@ -115,6 +115,13 @@ export interface AttentionItem {
   href: string;
 }
 
+/** Caps the "Awaiting Decision" attention list (plan Phase 31/AUDIT-009) —
+ * this widget is a short "what needs my attention" nudge, not a full
+ * listing, so an unbounded count of completed-but-undecided sessions would
+ * both be a poor fit for the UI and (before this cap) drive an unbounded
+ * number of scoring computations on every Dashboard load. */
+const MAX_AWAITING_DECISION_ITEMS = 30;
+
 /** Everything in "what needs my attention" (plan Phase 15/§41 Task 15.3):
  * sessions finished rating but not yet decided (annotated with the
  * calculated status so a BORDERLINE one reads as more urgent), sessions
@@ -124,25 +131,32 @@ export async function getAttentionItems(): Promise<AttentionItem[]> {
   const staleCutoff = new Date(Date.now() - STALE_IN_PROGRESS_HOURS * 60 * 60 * 1000);
 
   const [awaitingDecisionSessions, inProgressSessions, draftTemplates] = await Promise.all([
-    listSessions({ status: "completed" }),
+    listSessions({ status: "completed", limit: MAX_AWAITING_DECISION_ITEMS }),
     listSessions({ status: "in_progress" }),
     listDraftTemplates(),
   ]);
 
   const items: AttentionItem[] = [];
 
-  for (const session of awaitingDecisionSessions) {
-    const result = await computeFullScoringResult(session.id, session.templateId);
-    items.push({
-      kind: "awaiting_decision",
-      label: `${session.candidateName} — ${session.positionTitle}`,
-      detail:
-        result.status === "BORDERLINE"
-          ? "Borderline — needs a forced Pass/Fail call"
-          : `Calculated ${result.status}, no decision recorded yet`,
-      href: `/interviews/${session.id}/summary`,
-    });
-  }
+  // Plan Phase 31/AUDIT-009 — these were previously awaited one at a time
+  // in a sequential loop (unbounded, N+1-shaped latency); each session's
+  // score is independent of every other's, so there's no reason not to
+  // compute them concurrently.
+  const awaitingDecisionItems = await Promise.all(
+    awaitingDecisionSessions.map(async (session) => {
+      const result = await computeFullScoringResult(session.id, session.templateId);
+      return {
+        kind: "awaiting_decision" as const,
+        label: `${session.candidateName} — ${session.positionTitle}`,
+        detail:
+          result.status === "BORDERLINE"
+            ? "Borderline — needs a forced Pass/Fail call"
+            : `Calculated ${result.status}, no decision recorded yet`,
+        href: `/interviews/${session.id}/summary`,
+      };
+    })
+  );
+  items.push(...awaitingDecisionItems);
 
   for (const session of inProgressSessions) {
     if (session.createdAt >= staleCutoff) continue;

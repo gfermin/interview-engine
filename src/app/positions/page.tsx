@@ -36,6 +36,7 @@ export default async function PositionsPage({
   const archived = (archivedParam as PositionListFilters["archived"]) ?? "active";
 
   const positions = await listPositions({ archived });
+  const hasFilters = archived !== "active";
 
   return (
     <>
@@ -76,13 +77,22 @@ export default async function PositionsPage({
         <Card>
           <CardContent className="p-0">
             {positions.length === 0 ? (
-              <p className="p-6 text-sm text-muted-foreground">
-                {t(locale, "positions.emptyPrefix")}
-                <Link href="/positions/new" className="underline">
-                  {t(locale, "positions.emptyLinkText")}
-                </Link>
-                {t(locale, "positions.emptySuffix")}
-              </p>
+              hasFilters ? (
+                <div className="flex flex-col gap-3 p-6">
+                  <p className="text-sm text-muted-foreground">{t(locale, "positions.emptyFilteredMessage")}</p>
+                  <ButtonLink size="sm" variant="outline" href="/positions" className="self-start">
+                    {t(locale, "positions.clearFilterButton")}
+                  </ButtonLink>
+                </div>
+              ) : (
+                <p className="p-6 text-sm text-muted-foreground">
+                  {t(locale, "positions.emptyPrefix")}
+                  <Link href="/positions/new" className="underline">
+                    {t(locale, "positions.emptyLinkText")}
+                  </Link>
+                  {t(locale, "positions.emptySuffix")}
+                </p>
+              )
             ) : (
               <Table>
                 <TableHeader>

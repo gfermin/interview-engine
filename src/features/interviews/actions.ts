@@ -2,7 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { type FormActionState, parseFormOrError } from "@/lib/form-action-state";
+import { t } from "@/lib/i18n";
 import type { MandatoryRequirementStatus, QuestionScore } from "@/domain/scoring/types";
+import { getRequestLocale } from "@/features/settings/locale";
 import {
   archiveSession,
   deleteSession,
@@ -17,10 +20,7 @@ import {
 } from "./mutations";
 import { decisionFormSchema } from "./schemas";
 
-export interface FormActionState {
-  error?: string;
-  fieldErrors?: Record<string, string[] | undefined>;
-}
+export type { FormActionState };
 
 /** Bound with `.rateQuestionAction.bind(null, sessionId, questionId, value)`
  * per rate-bar button (plan §28's "autosave on every change") — a discrete
@@ -85,18 +85,14 @@ export async function recordDecisionAction(
   _prevState: FormActionState | undefined,
   formData: FormData
 ): Promise<FormActionState | undefined> {
-  const parsed = decisionFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    return {
-      error: "Please fix the errors below.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
+  const locale = await getRequestLocale();
+  const parsed = parseFormOrError(decisionFormSchema, formData, locale);
+  if (parsed.error) return parsed.error;
 
   try {
     await recordDecision(sessionId, parsed.data);
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Could not record the decision." };
+    return { error: error instanceof Error ? error.message : t(locale, "common.couldNotRecordDecision") };
   }
   revalidatePath(`/interviews/${sessionId}/summary`);
   revalidatePath(`/candidates`);

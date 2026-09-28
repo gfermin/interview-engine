@@ -14,21 +14,24 @@ const checkbox = z.preprocess((v) => v === "on" || v === true, z.boolean());
 
 const level1to5 = () =>
   z.coerce
-    .number({ error: "Enter a level from 1 to 5." })
-    .int("Enter a whole number from 1 to 5.")
-    .min(1, "Level must be at least 1.")
-    .max(5, "Level must be at most 5.");
+    .number({ error: "validation.level.enterANumber" })
+    .int("validation.level.notWhole")
+    .min(1, "validation.level.min1")
+    .max(5, "validation.level.max5");
 
 /** A 0-100 whole-number field (weights, thresholds) — §40.2: these
  * previously fell through to Zod's default wording ("Invalid option:
  * expected one of ...", "expected number, received NaN") on a blank/invalid
- * submission. */
-const percent0to100 = (label: string) =>
+ * submission. `fieldKey` names the specific field in the `validation`
+ * locale namespace (plan Phase 28/AUDIT-013) — the message is a
+ * translation KEY, not literal text; `parseFormOrError` resolves it through
+ * `t()` at read time, once the request's locale is known. */
+const percent0to100 = (fieldKey: "passThreshold" | "borderlineMin" | "criticalMin" | "minCompletion" | "weight") =>
   z.coerce
-    .number({ error: `${label} must be a number.` })
-    .int(`${label} must be a whole number.`)
-    .min(0, `${label} must be at least 0.`)
-    .max(100, `${label} must be at most 100.`);
+    .number({ error: `validation.percent.${fieldKey}.notANumber` })
+    .int(`validation.percent.${fieldKey}.notWhole`)
+    .min(0, `validation.percent.${fieldKey}.min0`)
+    .max(100, `validation.percent.${fieldKey}.max100`);
 
 /** The artifact's multi-line "one item per line" text-area pattern for
  * concepts/redFlags/followUps/rubric (plan §2.3/§19), parsed into an array.
@@ -49,32 +52,32 @@ const lines = z
   )
   .pipe(
     z
-      .array(z.string().max(500, "Each line must be 500 characters or fewer."))
-      .max(30, "30 lines maximum.")
+      .array(z.string().max(500, "validation.lines.maxLineLength"))
+      .max(30, "validation.lines.maxLines")
   );
 
 export const templateFormSchema = z.object({
-  positionId: z.string().min(1, "Select a Position."),
+  positionId: z.string().min(1, "validation.position.select"),
   // Kept as a literal tuple (not derived from stage-config's array type) so
   // Zod's inference stays a clean union — the two lists are asserted equal
   // by src/features/templates/schemas.test.ts.
-  stage: z.enum(["technical", "screening"], { error: "Select a valid interview stage." }),
-  name: z.string().trim().min(1, "Name is required").max(200),
+  stage: z.enum(["technical", "screening"], { error: "validation.stage.invalid" }),
+  name: z.string().trim().min(1, "validation.name.required").max(200),
   // The interview's content language (plan Phase 21/§42) — required, not
   // defaulted, so template creation never silently picks a language for the
   // reviewer; matches INTERVIEW_LANGUAGES, asserted equal in schemas.test.ts
   // for the same reason as `stage` above.
-  interviewLanguage: z.enum(["en", "es"], { error: "Select an interview language." }),
+  interviewLanguage: z.enum(["en", "es"], { error: "validation.interviewLanguage.invalid" }),
 });
 
 export type TemplateFormValues = z.infer<typeof templateFormSchema>;
 
 export const scoringConfigFormSchema = z
   .object({
-    passThreshold: percent0to100("Pass threshold"),
-    borderlineMin: percent0to100("Borderline minimum"),
-    criticalMin: percent0to100("Critical minimum"),
-    minCompletion: percent0to100("Minimum completion"),
+    passThreshold: percent0to100("passThreshold"),
+    borderlineMin: percent0to100("borderlineMin"),
+    criticalMin: percent0to100("criticalMin"),
+    minCompletion: percent0to100("minCompletion"),
     // Gate config for the "English" SupplementaryAssessment (plan §9/§17) —
     // whether it's required for a PASS, and what level clears the bar.
     englishRequired: checkbox,
@@ -91,15 +94,15 @@ export const scoringConfigFormSchema = z
     includeCodeExercises: checkbox,
   })
   .refine((v) => v.borderlineMin <= v.passThreshold, {
-    message: "Borderline minimum must not exceed the pass threshold.",
+    message: "validation.scoringConfig.borderlineExceedsPass",
     path: ["borderlineMin"],
   });
 
 export type ScoringConfigFormValues = z.infer<typeof scoringConfigFormSchema>;
 
 export const competencyFormSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(200),
-  weight: percent0to100("Weight"),
+  name: z.string().trim().min(1, "validation.name.required").max(200),
+  weight: percent0to100("weight"),
   critical: checkbox,
   // Seniority-relative rubric anchor (plan §39.4) — what "3, Meets Expected
   // Level" looks like for this competency at this template's seniority.
@@ -109,7 +112,7 @@ export const competencyFormSchema = z.object({
 export type CompetencyFormValues = z.infer<typeof competencyFormSchema>;
 
 export const mandatoryRequirementFormSchema = z.object({
-  label: z.string().trim().min(1, "Label is required").max(200),
+  label: z.string().trim().min(1, "validation.label.required").max(200),
   description: optionalText(1000),
 });
 
@@ -118,8 +121,8 @@ export type MandatoryRequirementFormValues = z.infer<
 >;
 
 export const questionFormSchema = z.object({
-  competencyId: z.string().min(1, "Select a competency."),
-  text: z.string().trim().min(1, "Question text is required").max(2000),
+  competencyId: z.string().min(1, "validation.competency.select"),
+  text: z.string().trim().min(1, "validation.questionText.required").max(2000),
   difficulty: z.enum(["easy", "medium", "hard"]),
   importance: z.enum(["core", "secondary", "optional"]),
   expected: optionalText(2000),

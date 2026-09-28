@@ -3,5 +3,11 @@
   "appTagline": "Motor de Evaluación Universal",
   "pocBadge": "POC",
   "languageEnglish": "English",
-  "languageSpanish": "Español"
+  "languageSpanish": "Español",
+  "pleaseFixErrors": "Corrige los errores a continuación.",
+  "couldNotSave": "No se pudo guardar.",
+  "couldNotPublish": "No se pudo publicar.",
+  "couldNotStartSession": "No se pudo iniciar la sesión.",
+  "couldNotRecordDecision": "No se pudo registrar la decisión.",
+  "couldNotGenerateReport": "No se pudo generar el reporte."
 }

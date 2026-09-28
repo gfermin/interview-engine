@@ -11,7 +11,6 @@ import {
 import { buildInterviewReportDisplayName } from "@/domain/reports/naming";
 import { getStageConfig, type InterviewStage } from "@/domain/interviews/stage-config";
 import type { InterviewStatus } from "@/domain/scoring/types";
-import { computeFullScoringResult } from "@/features/interviews/scoring";
 
 export function listReportsForSession(sessionId: string) {
   return db.query.interviewReports.findMany({
@@ -27,6 +26,10 @@ export function getReport(id: string) {
 export interface ReportListFilters {
   search?: string;
   stage?: InterviewStage;
+  /** Plan Phase 31/AUDIT-018 — see the identical note in
+   * interviews/queries.ts's listSessions. */
+  limit?: number;
+  offset?: number;
 }
 
 export interface ReportListEntry {
@@ -83,6 +86,7 @@ export async function listAllReports(filters: ReportListFilters = {}): Promise<R
       templateVersion: interviewTemplates.version,
       calculatedStatus: interviewDecisions.calculatedStatus,
       finalDecision: interviewDecisions.finalDecision,
+      overall: interviewDecisions.overall,
     })
     .from(interviewReports)
     .innerJoin(interviewSessions, eq(interviewReports.sessionId, interviewSessions.id))
@@ -91,41 +95,40 @@ export async function listAllReports(filters: ReportListFilters = {}): Promise<R
     .innerJoin(positions, eq(interviewTemplates.positionId, positions.id))
     .leftJoin(interviewDecisions, eq(interviewDecisions.sessionId, interviewSessions.id))
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(interviewReports.createdAt));
+    .orderBy(desc(interviewReports.createdAt))
+    .limit(filters.limit ?? -1)
+    .offset(filters.offset ?? 0);
 
-  // The overall percentage isn't persisted on `InterviewDecision` (only the
-  // calculated status/reason are) — a `decided` session's evaluations are
-  // frozen (plan §16), so re-running the exact same `computeFullScoringResult`
-  // Results/Decision already use is deterministic, not a second source of
-  // truth, and avoids adding a denormalized score column that could drift
-  // from the engine's own logic.
-  return Promise.all(
-    rows.map(async (row) => {
-      const stage = row.stage as InterviewStage;
-      const stageConfig = getStageConfig(stage);
-      const calculatedStatus = row.calculatedStatus as InterviewStatus | null;
-      const result = await computeFullScoringResult(row.sessionId, row.templateId);
-      return {
-        ...row,
-        stage,
-        stageLabel: stageConfig.label,
-        // Reports generated before the naming columns existed (plan §42
-        // migration note) have no stored `displayName` — computed live from
-        // this same joined row rather than requiring a backfill.
-        displayName:
-          row.displayName ??
-          buildInterviewReportDisplayName({
-            candidateName: row.candidateName,
-            positionTitle: row.positionTitle,
-            stageLabel: stageConfig.label,
-            generatedAt: row.createdAt,
-            reportId: row.id,
-          }),
-        overall: result.overall,
-        calculatedStatus,
-        statusLabel: calculatedStatus ? stageConfig.statusLabels[calculatedStatus] : null,
-        finalDecisionLabel: row.finalDecision ? stageConfig.statusLabels[row.finalDecision] : null,
-      };
-    })
-  );
+  // Plan Phase 29/AUDIT-005/AUDIT-006 — `overall` is read from the decision
+  // row itself (the immutable decision-time snapshot `recordDecision`
+  // persists), not recomputed live. Recomputing risked the Reports Hub
+  // showing a percentage that visually contradicts the decision badge on
+  // the same row if a Reopen ever changed a rating without a corresponding
+  // re-decide — safe only because several separately-tested guards happened
+  // to hold together, not because of a direct invariant.
+  return rows.map((row) => {
+    const stage = row.stage as InterviewStage;
+    const stageConfig = getStageConfig(stage);
+    const calculatedStatus = row.calculatedStatus as InterviewStatus | null;
+    return {
+      ...row,
+      stage,
+      stageLabel: stageConfig.label,
+      // Reports generated before the naming columns existed (plan §42
+      // migration note) have no stored `displayName` — computed live from
+      // this same joined row rather than requiring a backfill.
+      displayName:
+        row.displayName ??
+        buildInterviewReportDisplayName({
+          candidateName: row.candidateName,
+          positionTitle: row.positionTitle,
+          stageLabel: stageConfig.label,
+          generatedAt: row.createdAt,
+          reportId: row.id,
+        }),
+      calculatedStatus,
+      statusLabel: calculatedStatus ? stageConfig.statusLabels[calculatedStatus] : null,
+      finalDecisionLabel: row.finalDecision ? stageConfig.statusLabels[row.finalDecision] : null,
+    };
+  });
 }

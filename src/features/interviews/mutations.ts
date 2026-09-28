@@ -240,34 +240,48 @@ export async function recordDecision(sessionId: string, input: RecordDecisionInp
 
   const finalDecision = resolveFinalDecision(result.status, input.mode, input.forcedChoice);
 
-  await db
-    .insert(interviewDecisions)
-    .values({
-      sessionId,
-      calculatedStatus: result.status,
-      calculatedReason: result.reason,
-      calculatedRecommendation: result.recommendation,
-      mode: input.mode,
-      finalDecision,
-      reason: input.reason?.trim() || null,
-    })
-    .onConflictDoUpdate({
-      target: interviewDecisions.sessionId,
-      set: {
+  // Plan Phase 29/AUDIT-005/AUDIT-006/L-17 — both writes belong to the same
+  // "record this decision" operation, so they're wrapped in one transaction
+  // (better-sqlite3 transactions must be synchronous, hence `.run()` rather
+  // than `await`, matching templates/mutations.ts's existing convention).
+  // `overall`/`completion` are persisted here as the immutable decision-time
+  // snapshot Reports Hub/PDF generation read from, instead of recomputing
+  // live and risking a future regression silently diverging from the
+  // decision actually recorded.
+  db.transaction((tx) => {
+    tx.insert(interviewDecisions)
+      .values({
+        sessionId,
         calculatedStatus: result.status,
         calculatedReason: result.reason,
         calculatedRecommendation: result.recommendation,
+        overall: result.overall,
+        completion: result.completion,
         mode: input.mode,
         finalDecision,
         reason: input.reason?.trim() || null,
-        updatedAt: new Date(),
-      },
-    });
+      })
+      .onConflictDoUpdate({
+        target: interviewDecisions.sessionId,
+        set: {
+          calculatedStatus: result.status,
+          calculatedReason: result.reason,
+          calculatedRecommendation: result.recommendation,
+          overall: result.overall,
+          completion: result.completion,
+          mode: input.mode,
+          finalDecision,
+          reason: input.reason?.trim() || null,
+          updatedAt: new Date(),
+        },
+      })
+      .run();
 
-  await db
-    .update(interviewSessions)
-    .set({ status: "decided", updatedAt: new Date() })
-    .where(eq(interviewSessions.id, sessionId));
+    tx.update(interviewSessions)
+      .set({ status: "decided", updatedAt: new Date() })
+      .where(eq(interviewSessions.id, sessionId))
+      .run();
+  });
 
   return { result, finalDecision };
 }

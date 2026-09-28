@@ -577,7 +577,7 @@ describe("createNewTemplateVersion", () => {
       englishMinLevel: 4,
       includeCompensationQuestion: false,
       includeWorkAuthorizationCheck: false,
-      includeCodeExercises: false,
+      includeCodeExercises: true,
     });
     await publishTemplate(template.id);
 
@@ -587,6 +587,9 @@ describe("createNewTemplateVersion", () => {
     expect(newVersion.borderlineMin).toBe(60);
     expect(newVersion.englishRequired).toBe(true);
     expect(newVersion.englishMinLevel).toBe(4);
+    // AUDIT-001/Phase 26 — includeCodeExercises must fork like its two
+    // sibling toggles instead of silently resetting to the schema default.
+    expect(newVersion.includeCodeExercises).toBe(true);
   });
 
   it("refuses when the template is still a draft", async () => {
